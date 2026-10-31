@@ -86,11 +86,7 @@ interface AdminPortalProps {
 }
 
 const PRESET_ACCOUNTS = [
-  { identifier: 'TGL-OWN01', email: 'owner@theglossylooks.com', mobile: '9848012345', password: 'admin123', role: 'owner', name: 'Priya Sharma' },
-  { identifier: 'TGL-MGR01', email: 'manager@theglossylooks.com', mobile: '9848012345', password: 'admin123', role: 'manager', name: 'Ananya Rao' },
-  { identifier: 'TGL-REC01', email: 'cashier@theglossylooks.com', mobile: '9700112233', password: 'admin123', role: 'receptionist', name: 'Kavitha Reddy' },
-  { identifier: 'TGL-STY01', email: 'fatima@theglossylooks.com', mobile: '9912345678', password: 'admin123', role: 'stylist', name: 'Fatima Khan' },
-  { identifier: 'TGL-INV01', email: 'inventory@theglossylooks.com', mobile: '9876543210', password: 'admin123', role: 'inventory_staff', name: 'Suresh Verma' }
+  { identifier: 'TGL-OWN01', email: 'owner@theglossylooks.com', mobile: '8985799459', password: 'admin123', role: 'owner', name: 'Madu Mounika' }
 ];
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onViewReceipt }) => {
@@ -100,7 +96,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       const saved = sessionStorage.getItem('the_glossy_looks_admin_session') || localStorage.getItem('the_glossy_looks_admin_session');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.user) return parsed.user;
+        if (parsed.user) {
+          // If cached user has old sample name "Priya Sharma" or matches owner ID, sanitize to real owner "Madu Mounika"
+          if (parsed.user.name === 'Priya Sharma' || parsed.user.user_id === 'TGL-OWN01' || parsed.user.email === 'owner@theglossylooks.com') {
+            parsed.user.name = 'Madu Mounika';
+            parsed.user.user_id = 'TGL-OWN01';
+            parsed.user.email = 'owner@theglossylooks.com';
+            parsed.user.phone = '8985799459';
+            try {
+              sessionStorage.setItem('the_glossy_looks_admin_session', JSON.stringify(parsed));
+              localStorage.setItem('the_glossy_looks_admin_session', JSON.stringify(parsed));
+            } catch {}
+          }
+          return parsed.user;
+        }
       }
     } catch {
       // Ignore
@@ -313,6 +322,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         } catch (e) {
           console.warn('Could not load reports or feedback:', e);
         }
+      }
+
+      // Refresh current user identity from master server single source of truth
+      try {
+        const me = await api.getAdminMe();
+        if (me && me.name && (me.name !== currentUser?.name || me.user_id !== currentUser?.user_id || me.role !== currentUser?.role)) {
+          setCurrentUser(me);
+          const saved = sessionStorage.getItem('the_glossy_looks_admin_session') || localStorage.getItem('the_glossy_looks_admin_session');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            parsed.user = me;
+            sessionStorage.setItem('the_glossy_looks_admin_session', JSON.stringify(parsed));
+            localStorage.setItem('the_glossy_looks_admin_session', JSON.stringify(parsed));
+          }
+        }
+      } catch {
+        // Not authenticated or session expired
       }
     } catch (err) {
       console.error('Error loading admin records:', err);
@@ -3305,7 +3331,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                 name="name"
                 required
                 defaultValue={staffModal.data?.name || ''}
-                placeholder="e.g. Fatima Khan"
+                placeholder="e.g. Madu Mounika"
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white outline-none focus:border-[#5B132B]"
               />
             </div>

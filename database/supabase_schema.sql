@@ -9,33 +9,38 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. App Users (Admin & Staff Accounts)
 CREATE TABLE IF NOT EXISTS public.users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL CHECK (role IN ('owner', 'manager', 'receptionist', 'stylist', 'inventory_staff')),
     name VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL,
+    branch_id VARCHAR(100),
     is_active BOOLEAN DEFAULT TRUE,
     last_login_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Staff Profiles & Availability
+-- 2. Staff Profiles & Availability (1:1 Bidirectionally Linked to Admin Users)
 CREATE TABLE IF NOT EXISTS public.staff (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    user_id UUID UNIQUE REFERENCES public.users(id) ON DELETE CASCADE,
+    admin_user_id VARCHAR(50) REFERENCES public.users(user_id) ON DELETE CASCADE ON UPDATE CASCADE,
     name VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(255),
     role VARCHAR(100) NOT NULL,
-    joining_date DATE NOT NULL,
+    branch_id VARCHAR(100),
+    joining_date DATE NOT NULL DEFAULT CURRENT_DATE,
     salary_type VARCHAR(20) DEFAULT 'monthly' CHECK (salary_type IN ('monthly', 'commission', 'hybrid')),
     base_salary DECIMAL(10, 2) DEFAULT 0.00,
     commission_rate DECIMAL(5, 2) DEFAULT 10.00,
     skills TEXT[] DEFAULT '{}',
     working_hours VARCHAR(100) DEFAULT '10:00 AM - 08:00 PM',
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_staff_user_id UNIQUE (user_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.staff_availability (
@@ -519,3 +524,84 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('service-images', 'servic
 
 CREATE POLICY "Public Access Gallery Media" ON storage.objects FOR SELECT USING (bucket_id = 'gallery-media');
 CREATE POLICY "Public Access Service Images" ON storage.objects FOR SELECT USING (bucket_id = 'service-images');
+
+-- =====================================================================
+-- INITIAL PRODUCTION SEED: OWNER MADU MOUNIKA & GACHIBOWLI MAIN BRANCH
+-- =====================================================================
+INSERT INTO public.salon_branches (id, name, code, address, city, phone, whatsapp_number, is_active)
+VALUES (
+    'tgl-gachibowli-main',
+    'Gachibowli Main Flagship',
+    'GCB-01',
+    '31, Vinayak Nagar, Gachibowli',
+    'Hyderabad, Telangana - 500032',
+    '8985799459',
+    '8985799459',
+    true
+) ON CONFLICT (id) DO UPDATE SET
+    phone = '8985799459',
+    whatsapp_number = '8985799459';
+
+INSERT INTO public.users (id, user_id, email, password_hash, role, name, phone, branch_id, is_active)
+VALUES (
+    '00000000-0000-0000-0000-000000000001',
+    'TGL-OWN01',
+    'owner@theglossylooks.com',
+    'admin123',
+    'owner',
+    'Madu Mounika',
+    '8985799459',
+    'tgl-gachibowli-main',
+    true
+) ON CONFLICT (email) DO UPDATE SET
+    name = 'Madu Mounika',
+    user_id = 'TGL-OWN01',
+    phone = '8985799459',
+    branch_id = 'tgl-gachibowli-main';
+
+INSERT INTO public.staff (id, user_id, admin_user_id, name, phone, email, role, branch_id, joining_date, salary_type, base_salary, commission_rate, skills, working_hours, is_active)
+VALUES (
+    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000001',
+    'TGL-OWN01',
+    'Madu Mounika',
+    '8985799459',
+    'owner@theglossylooks.com',
+    'Salon Director & Master Stylist',
+    'tgl-gachibowli-main',
+    '2024-01-01',
+    'monthly',
+    85000.00,
+    15.00,
+    ARRAY['Bridal Makeup', 'Airbrush Art', 'Hair Couture', 'Aesthetics', 'Salon Management'],
+    '10:00 AM - 08:00 PM',
+    true
+) ON CONFLICT (user_id) DO UPDATE SET
+    name = 'Madu Mounika',
+    phone = '8985799459',
+    email = 'owner@theglossylooks.com',
+    admin_user_id = 'TGL-OWN01';
+
+INSERT INTO public.branch_whatsapp_integrations (
+    id, branch_id, configured_business_number, waba_id, phone_number_id,
+    display_name, display_phone_number, masked_phone_number, status,
+    connected_at, last_verified_at, diagnostics
+) VALUES (
+    'bwa-gcb-01',
+    'tgl-gachibowli-main',
+    '8985799459',
+    '1608729824244675',
+    '1379025201957313',
+    'THE GLOSSY LOOKS',
+    '+91 89857 99459',
+    '+91 ******9459',
+    'connected',
+    '2026-10-30T07:45:00.000Z',
+    '2026-10-30T07:45:00.000Z',
+    'FINISH event received / WABA ID received / Phone Number ID received / Graph verification passed.'
+) ON CONFLICT (id) DO UPDATE SET
+    waba_id = '1608729824244675',
+    phone_number_id = '1379025201957313',
+    configured_business_number = '8985799459',
+    status = 'connected';
+

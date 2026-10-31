@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /portal
+Disallow: /api/
+
+Sitemap: https://theglossylooks.com/sitemap.xml

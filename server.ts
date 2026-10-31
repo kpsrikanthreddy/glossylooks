@@ -287,6 +287,24 @@ app.post('/api/auth/admin/login', async (req, res) => {
   }
 });
 
+// Current Authenticated Admin User Profile (Single Source of Truth)
+app.get(['/api/auth/admin/me', '/api/admin/me'], async (req, res) => {
+  const admin = await getAuthAdmin(req);
+  if (!admin) {
+    return res.status(401).json({ error: 'Unauthorized or session expired.' });
+  }
+  res.json({
+    id: admin.id,
+    user_id: admin.user_id,
+    name: admin.name,
+    email: admin.email,
+    role: admin.role,
+    phone: admin.phone,
+    is_active: admin.is_active,
+    last_login_at: admin.last_login_at
+  });
+});
+
 // User Management - RESTRICTED TO OWNER ONLY
 app.get('/api/admin/users', async (req, res) => {
   const admin = await getAuthAdmin(req);

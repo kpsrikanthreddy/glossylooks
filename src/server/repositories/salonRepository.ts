@@ -69,8 +69,10 @@ export interface ISalonRepository {
   // Users & Staff
   getUsers(): Promise<User[]>;
   getUserByEmail(email: string): Promise<User | null>;
+  getUserByIdentifier(identifier: string): Promise<User | null>;
   createUser(user: Omit<User, 'id' | 'created_at' | 'updated_at'>, performedBy: string): Promise<User>;
   updateUser(id: string, data: Partial<User>, performedBy: string): Promise<User | null>;
+  resetUserPassword(id: string, newPassword: string, performedBy: string): Promise<boolean>;
   deleteUser(id: string, performedBy: string): Promise<boolean>;
 
   getStaff(): Promise<Staff[]>;

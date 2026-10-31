@@ -134,7 +134,8 @@ export interface OTPSession {
 
 export interface Staff {
   id: string;
-  user_id?: string;
+  user_id?: string; // Links to User.id (UUID or internal ID)
+  admin_user_id?: string; // Stable internal alphanumeric ID (e.g. TGL-OWN01)
   name: string;
   phone: string;
   email?: string;

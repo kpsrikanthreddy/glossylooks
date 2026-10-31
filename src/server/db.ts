@@ -94,8 +94,8 @@ function getInitialData(): DatabaseData {
       salon_type: 'Professional Women Salon & Bridal Studio',
       address: '31, Vinayak Nagar, Gachibowli',
       city: 'Hyderabad, Telangana - 500032',
-      phone: '9848012345',
-      whatsapp: '9848012345',
+      phone: '8985799459',
+      whatsapp: '8985799459',
       opening_hours: '10:00 AM to 10:00 PM (Monday to Sunday)',
       google_maps_url: 'https://share.google/TWPbPEEVlN5mPfqpL',
       announcement_text: 'Festive & Royal Bridal Season Bookings Open! Complimentary pre-bridal hair trial with every HD bridal package.'
@@ -107,10 +107,10 @@ function getInitialData(): DatabaseData {
         code: 'GCB-01',
         address: '31, Vinayak Nagar, Gachibowli',
         city: 'Hyderabad, Telangana - 500032',
-        phone: '9848012345',
-        whatsapp_number: '9848099888',
-        manager_id: 'usr-2',
-        manager_name: 'Ananya Rao',
+        phone: '8985799459',
+        whatsapp_number: '8985799459',
+        manager_id: 'usr-1',
+        manager_name: 'Madu Mounika',
         is_active: true,
         created_at: '2026-01-01T10:00:00Z',
         updated_at: '2026-01-01T10:00:00Z'
@@ -120,13 +120,18 @@ function getInitialData(): DatabaseData {
       {
         id: 'bwa-gcb-01',
         branch_id: 'tgl-gachibowli-main',
-        configured_business_number: '9848099888',
-        display_name: 'The Glossy Looks Salon & Studio',
-        display_phone_number: '9848099888',
-        masked_phone_number: '+91 ******9888',
-        status: 'disconnected',
+        configured_business_number: '8985799459',
+        waba_id: '1608729824244675',
+        phone_number_id: '1379025201957313',
+        display_name: 'THE GLOSSY LOOKS',
+        display_phone_number: '+91 89857 99459',
+        masked_phone_number: '+91 ******9459',
+        status: 'connected',
+        connected_at: '2026-10-30T07:45:00.000Z',
+        last_verified_at: '2026-10-30T07:45:00.000Z',
+        diagnostics: 'FINISH event received / WABA ID received / Phone Number ID received / Graph verification passed.',
         created_at: '2026-01-01T10:00:00Z',
-        updated_at: '2026-01-01T10:00:00Z'
+        updated_at: '2026-10-30T07:45:00.000Z'
       }
     ],
     users: [
@@ -136,83 +141,12 @@ function getInitialData(): DatabaseData {
         email: 'owner@theglossylooks.com',
         password_hash: 'admin123',
         role: 'owner',
-        name: 'Priya Sharma',
-        phone: '9848012345',
+        name: 'Madu Mounika',
+        phone: '8985799459',
+        branch_id: 'tgl-gachibowli-main',
         is_active: true,
         created_at: '2026-01-01T10:00:00Z',
         updated_at: '2026-01-01T10:00:00Z'
-      },
-      {
-        id: 'usr-2',
-        user_id: 'TGL-MGR01',
-        email: 'manager@theglossylooks.com',
-        password_hash: 'admin123',
-        role: 'manager',
-        name: 'Ananya Rao',
-        phone: '9848012345',
-        is_active: true,
-        created_at: '2026-01-05T10:00:00Z',
-        updated_at: '2026-01-05T10:00:00Z'
-      },
-      {
-        id: 'usr-3',
-        user_id: 'TGL-REC01',
-        email: 'cashier@theglossylooks.com',
-        password_hash: 'admin123',
-        role: 'receptionist',
-        name: 'Kavitha Reddy',
-        phone: '9700112233',
-        is_active: true,
-        created_at: '2026-01-10T10:00:00Z',
-        updated_at: '2026-01-10T10:00:00Z'
-      },
-      {
-        id: 'usr-4',
-        user_id: 'TGL-STY01',
-        email: 'fatima@theglossylooks.com',
-        password_hash: 'admin123',
-        role: 'stylist',
-        name: 'Fatima Khan',
-        phone: '9912345678',
-        is_active: true,
-        created_at: '2026-01-12T10:00:00Z',
-        updated_at: '2026-01-12T10:00:00Z'
-      },
-      {
-        id: 'usr-5',
-        user_id: 'TGL-INV01',
-        email: 'inventory@theglossylooks.com',
-        password_hash: 'admin123',
-        role: 'inventory_staff',
-        name: 'Suresh Verma',
-        phone: '9876543210',
-        is_active: true,
-        created_at: '2026-01-15T10:00:00Z',
-        updated_at: '2026-01-15T10:00:00Z'
-      },
-      {
-        id: 'usr-6',
-        user_id: 'TGL-STY02',
-        email: 'sunita@theglossylooks.com',
-        password_hash: 'admin123',
-        role: 'stylist',
-        name: 'Sunita Devi',
-        phone: '9876543210',
-        is_active: true,
-        created_at: '2026-01-18T10:00:00Z',
-        updated_at: '2026-01-18T10:00:00Z'
-      },
-      {
-        id: 'usr-7',
-        user_id: 'TGL-STY03',
-        email: 'meera@theglossylooks.com',
-        password_hash: 'admin123',
-        role: 'stylist',
-        name: 'Meera Nair',
-        phone: '9654321098',
-        is_active: true,
-        created_at: '2026-01-20T10:00:00Z',
-        updated_at: '2026-01-20T10:00:00Z'
       }
     ],
     customers: [
@@ -296,94 +230,20 @@ function getInitialData(): DatabaseData {
       {
         id: 'stf-1',
         user_id: 'usr-1',
-        name: 'Priya Sharma',
-        phone: '9848012345',
+        admin_user_id: 'TGL-OWN01',
+        name: 'Madu Mounika',
+        phone: '8985799459',
         email: 'owner@theglossylooks.com',
         role: 'Salon Director & Master Stylist',
+        branch_id: 'tgl-gachibowli-main',
         joining_date: '2024-01-01',
         salary_type: 'monthly',
         base_salary: 85000,
         commission_rate: 15,
-        skills: ['Bridal Makeup', 'Airbrush Art', 'Hair Couture', 'Aesthetics'],
+        skills: ['Bridal Makeup', 'Airbrush Art', 'Hair Couture', 'Aesthetics', 'Salon Management'],
         working_hours: '10:00 AM - 08:00 PM',
         is_active: true,
         created_at: '2024-01-01T10:00:00Z'
-      },
-      {
-        id: 'stf-2',
-        user_id: 'usr-2',
-        name: 'Ananya Rao',
-        phone: '9848012345',
-        email: 'manager@theglossylooks.com',
-        role: 'Operations & Floor Manager',
-        joining_date: '2024-03-01',
-        salary_type: 'monthly',
-        base_salary: 48000,
-        commission_rate: 5,
-        skills: ['Client Relations', 'Inventory Control', 'Billing Reconciliation'],
-        working_hours: '10:00 AM - 07:00 PM',
-        is_active: true,
-        created_at: '2024-03-01T10:00:00Z'
-      },
-      {
-        id: 'stf-3',
-        user_id: 'usr-3',
-        name: 'Kavitha Reddy',
-        phone: '9700112233',
-        email: 'cashier@theglossylooks.com',
-        role: 'Receptionist & Billing Specialist',
-        joining_date: '2024-06-01',
-        salary_type: 'monthly',
-        base_salary: 28000,
-        commission_rate: 3,
-        skills: ['POS Operations', 'Booking Coordination', 'Customer Delight'],
-        working_hours: '10:00 AM - 10:00 PM (Rotational)',
-        is_active: true,
-        created_at: '2024-06-01T10:00:00Z'
-      },
-      {
-        id: 'stf-4',
-        user_id: 'usr-4',
-        name: 'Fatima Khan',
-        phone: '9912345678',
-        email: 'fatima@theglossylooks.com',
-        role: 'Senior Bridal Makeup Artist & Hair Stylist',
-        joining_date: '2024-02-15',
-        salary_type: 'hybrid',
-        base_salary: 35000,
-        commission_rate: 12,
-        skills: ['HD Bridal Makeup', 'Airbrush Base', 'Saree Draping', 'Reception Couture'],
-        working_hours: '11:00 AM - 09:00 PM',
-        is_active: true,
-        created_at: '2024-02-15T10:00:00Z'
-      },
-      {
-        id: 'stf-5',
-        name: 'Sunita Devi',
-        phone: '9876543210',
-        role: 'Senior Hair Stylist & Spa Therapist',
-        joining_date: '2024-04-10',
-        salary_type: 'monthly',
-        base_salary: 32000,
-        commission_rate: 10,
-        skills: ['Keratin Treatment', 'Hair Spa', 'Swedish Aroma Massage', 'De-Tan'],
-        working_hours: '10:00 AM - 08:00 PM',
-        is_active: true,
-        created_at: '2024-04-10T10:00:00Z'
-      },
-      {
-        id: 'stf-6',
-        name: 'Meera Nair',
-        phone: '9654321098',
-        role: 'Skin Aesthetician & Nail Artist',
-        joining_date: '2024-07-01',
-        salary_type: 'monthly',
-        base_salary: 28000,
-        commission_rate: 10,
-        skills: ['Hydra Facial', 'O3+ Facials', 'Crystal Pedicure', 'Designer Nail Art'],
-        working_hours: '11:00 AM - 09:00 PM',
-        is_active: true,
-        created_at: '2024-07-01T10:00:00Z'
       }
     ],
     staff_availability: [],
@@ -806,351 +666,9 @@ function getInitialData(): DatabaseData {
         is_active: true
       }
     ],
-    appointments: [
-      {
-        id: 'apt-101',
-        booking_reference: 'TGL-BK-2026-101',
-        customer_id: 'cust-1',
-        customer_name: 'Sneha Reddy',
-        customer_phone: '9849021234',
-        customer_email: 'sneha.reddy@gmail.com',
-        appointment_date: '2026-10-24',
-        time_slot: '11:00 AM',
-        status: 'Confirmed',
-        assigned_staff_id: 'stf-6',
-        assigned_staff_name: 'Meera Nair',
-        services: [
-          {
-            id: 'srv-fac-1',
-            name: 'O3+ Bridal Radiance & Whitening Facial',
-            duration: 75,
-            price: 3200,
-            staff_id: 'stf-6',
-            staff_name: 'Meera Nair'
-          },
-          {
-            id: 'srv-mp-1',
-            name: 'Luxury Crystal Pedicure Ritual',
-            duration: 50,
-            price: 1299,
-            staff_id: 'stf-6',
-            staff_name: 'Meera Nair'
-          }
-        ],
-        total_amount: 4499,
-        discount_amount: 0,
-        final_amount: 4499,
-        payment_preference: 'pay_at_salon',
-        notes: 'Requested gentle steam pressure.',
-        booking_source: 'website',
-        created_at: '2026-10-23T18:10:00Z'
-      },
-      {
-        id: 'apt-102',
-        booking_reference: 'TGL-BK-2026-102',
-        customer_id: 'cust-2',
-        customer_name: 'Pooja Agarwal',
-        customer_phone: '9988776655',
-        appointment_date: '2026-10-24',
-        time_slot: '02:30 PM',
-        status: 'Checked In',
-        assigned_staff_id: 'stf-4',
-        assigned_staff_name: 'Fatima Khan',
-        services: [
-          {
-            id: 'srv-mu-3',
-            name: 'Engagement Makeup',
-            duration: 120,
-            price: 7499,
-            staff_id: 'stf-4',
-            staff_name: 'Fatima Khan'
-          },
-          {
-            id: 'srv-mu-6',
-            name: 'Traditional Saree Draping',
-            duration: 40,
-            price: 999,
-            staff_id: 'stf-4',
-            staff_name: 'Fatima Khan'
-          }
-        ],
-        total_amount: 8498,
-        discount_amount: 200,
-        final_amount: 8298,
-        payment_preference: 'upi',
-        notes: 'Arriving with pastel pink lehenga for sangeet evening.',
-        booking_source: 'whatsapp',
-        created_at: '2026-10-23T19:30:00Z'
-      },
-      {
-        id: 'apt-103',
-        booking_reference: 'TGL-BK-2026-103',
-        customer_id: 'cust-4',
-        customer_name: 'Harika Chowdary',
-        customer_phone: '9000123890',
-        appointment_date: '2026-10-24',
-        time_slot: '05:00 PM',
-        status: 'Pending',
-        services: [
-          {
-            id: 'srv-mu-2',
-            name: 'Party Makeup & Hair Styling',
-            duration: 90,
-            price: 3800
-          }
-        ],
-        total_amount: 3800,
-        discount_amount: 0,
-        final_amount: 3800,
-        payment_preference: 'pay_at_salon',
-        notes: 'New enquiry from website. Needs receptionist confirmation call.',
-        booking_source: 'website',
-        created_at: '2026-10-23T21:45:00Z'
-      }
-    ],
-    orders: [
-      {
-        id: 'ord-1001',
-        bill_number: 'TGL-2026-1001',
-        invoice_number: 'INV-2026-0001',
-        customer_id: 'cust-3',
-        customer_name: 'Divya Varma',
-        customer_phone: '9123456780',
-        items: [
-          {
-            service_id: 'srv-sal-1',
-            item_name: 'Signature Haircut & Blow Dry',
-            item_type: 'service',
-            quantity: 1,
-            unit_price: 1199,
-            total_price: 1199,
-            staff_id: 'stf-5',
-            staff_name: 'Sunita Devi',
-            commission_amount: 120
-          },
-          {
-            service_id: 'srv-mp-2',
-            item_name: 'Rose Petal Aroma Manicure',
-            item_type: 'service',
-            quantity: 1,
-            unit_price: 999,
-            total_price: 999,
-            staff_id: 'stf-6',
-            staff_name: 'Meera Nair',
-            commission_amount: 100
-          }
-        ],
-        subtotal: 2198,
-        discount: 198,
-        tax_percent: 5,
-        tax_amount: 100,
-        tip_amount: 50,
-        grand_total: 2150,
-        paid_amount: 2150,
-        due_amount: 0,
-        payment_status: 'Paid',
-        primary_payment_mode: 'UPI',
-        cashier_name: 'Kavitha Reddy',
-        notes: 'GPay payment received successfully. Tax invoice generated.',
-        created_at: '2026-10-23T17:30:00Z'
-      },
-      {
-        id: 'ord-1002',
-        bill_number: 'TGL-2026-1002',
-        invoice_number: 'INV-2026-0002',
-        customer_id: 'cust-1',
-        customer_name: 'Sneha Reddy',
-        customer_phone: '9849021234',
-        items: [
-          {
-            service_id: 'srv-fac-1',
-            item_name: 'O3+ Bridal Glow Oxygen Facial',
-            item_type: 'service',
-            quantity: 1,
-            unit_price: 3499,
-            total_price: 3499,
-            staff_id: 'stf-1',
-            staff_name: 'Fatima Khan',
-            commission_amount: 350
-          },
-          {
-            product_id: 'prod-4',
-            item_name: 'O3+ Radiant Brightening Day Serum (50ml)',
-            item_type: 'product',
-            quantity: 1,
-            unit_price: 1850,
-            total_price: 1850,
-            staff_id: 'stf-1',
-            staff_name: 'Fatima Khan',
-            commission_amount: 90
-          }
-        ],
-        subtotal: 5349,
-        discount: 349,
-        tax_percent: 5,
-        tax_amount: 250,
-        tip_amount: 100,
-        grand_total: 5250,
-        paid_amount: 5250,
-        due_amount: 0,
-        payment_status: 'Paid',
-        primary_payment_mode: 'Card',
-        cashier_name: 'Ananya Rao',
-        notes: 'HDFC POS swipe card settlement. Happy customer.',
-        created_at: '2026-10-26T15:20:00Z'
-      },
-      {
-        id: 'ord-1003',
-        bill_number: 'TGL-2026-1003',
-        invoice_number: 'INV-2026-0003',
-        customer_id: 'cust-2',
-        customer_name: 'Pooja Agarwal',
-        customer_phone: '9876543211',
-        items: [
-          {
-            service_id: 'srv-sal-4',
-            item_name: 'L’Oreal Absolut Repair Hair Spa Deluxe',
-            item_type: 'service',
-            quantity: 1,
-            unit_price: 1899,
-            total_price: 1899,
-            staff_id: 'stf-2',
-            staff_name: 'Zoya Akhtar',
-            commission_amount: 190
-          },
-          {
-            service_id: 'srv-mp-1',
-            item_name: 'Crystal Radiance Luxury Pedicure',
-            item_type: 'service',
-            quantity: 1,
-            unit_price: 1499,
-            total_price: 1499,
-            staff_id: 'stf-6',
-            staff_name: 'Meera Nair',
-            commission_amount: 150
-          }
-        ],
-        subtotal: 3398,
-        discount: 200,
-        tax_percent: 5,
-        tax_amount: 160,
-        tip_amount: 50,
-        grand_total: 3358,
-        paid_amount: 3358,
-        due_amount: 0,
-        payment_status: 'Paid',
-        primary_payment_mode: 'UPI',
-        cashier_name: 'Kavitha Reddy',
-        notes: 'Paytm UPI QR scanner confirmed.',
-        created_at: '2026-10-27T11:45:00Z'
-      },
-      {
-        id: 'ord-1004',
-        bill_number: 'TGL-2026-1004',
-        invoice_number: 'INV-2026-0004',
-        customer_id: 'cust-4',
-        customer_name: 'Kavya Madhavan',
-        customer_phone: '9988776655',
-        items: [
-          {
-            service_id: 'srv-mu-1',
-            item_name: 'HD Royal Indian Bridal Makeover & Hair Styling',
-            item_type: 'service',
-            quantity: 1,
-            unit_price: 14999,
-            total_price: 14999,
-            staff_id: 'stf-1',
-            staff_name: 'Fatima Khan',
-            commission_amount: 1500
-          }
-        ],
-        subtotal: 14999,
-        discount: 1000,
-        tax_percent: 5,
-        tax_amount: 700,
-        tip_amount: 500,
-        grand_total: 14699,
-        paid_amount: 14699,
-        due_amount: 0,
-        payment_status: 'Paid',
-        primary_payment_mode: 'Split Payment',
-        cashier_name: 'Kavitha Reddy',
-        notes: '₹10,000 via UPI + ₹4,699 via Cash settlement.',
-        created_at: '2026-10-27T14:30:00Z'
-      }
-    ],
-    payments: [
-      {
-        id: 'pay-1001',
-        order_id: 'ord-1001',
-        bill_number: 'TGL-2026-1001',
-        customer_name: 'Divya Varma',
-        customer_phone: '9123456780',
-        amount: 2150,
-        payment_mode: 'UPI',
-        transaction_ref: 'UPI-REF-99882211',
-        status: 'Success',
-        notes: 'Full settlement via Google Pay QR with ₹50 stylist tip',
-        recorded_by: 'Kavitha Reddy',
-        created_at: '2026-10-23T17:35:00Z'
-      },
-      {
-        id: 'pay-1002',
-        order_id: 'ord-1002',
-        bill_number: 'TGL-2026-1002',
-        customer_name: 'Sneha Reddy',
-        customer_phone: '9849021234',
-        amount: 5250,
-        payment_mode: 'Card',
-        transaction_ref: 'POS-TXN-441188',
-        status: 'Success',
-        notes: 'HDFC Card Swipe terminal approval',
-        recorded_by: 'Ananya Rao',
-        created_at: '2026-10-26T15:25:00Z'
-      },
-      {
-        id: 'pay-1003',
-        order_id: 'ord-1003',
-        bill_number: 'TGL-2026-1003',
-        customer_name: 'Pooja Agarwal',
-        customer_phone: '9876543211',
-        amount: 3358,
-        payment_mode: 'UPI',
-        transaction_ref: 'PAYTM-UPI-771122',
-        status: 'Success',
-        notes: 'UPI dynamic counter QR verified',
-        recorded_by: 'Kavitha Reddy',
-        created_at: '2026-10-27T11:50:00Z'
-      },
-      {
-        id: 'pay-1004',
-        order_id: 'ord-1004',
-        bill_number: 'TGL-2026-1004',
-        customer_name: 'Kavya Madhavan',
-        customer_phone: '9988776655',
-        amount: 10000,
-        payment_mode: 'UPI',
-        transaction_ref: 'BHIM-UPI-334455',
-        status: 'Success',
-        notes: 'Split payment - UPI part',
-        recorded_by: 'Kavitha Reddy',
-        created_at: '2026-10-27T14:32:00Z'
-      },
-      {
-        id: 'pay-1005',
-        order_id: 'ord-1004',
-        bill_number: 'TGL-2026-1004',
-        customer_name: 'Kavya Madhavan',
-        customer_phone: '9988776655',
-        amount: 4699,
-        payment_mode: 'Cash',
-        transaction_ref: 'CASH-REC-1004',
-        status: 'Success',
-        notes: 'Split payment - Cash drawer part',
-        recorded_by: 'Kavitha Reddy',
-        created_at: '2026-10-27T14:33:00Z'
-      }
-    ],
+    appointments: [],
+    orders: [],
+    payments: [],
     products: [
       {
         id: 'prod-1',
@@ -1625,12 +1143,56 @@ class SalonDatabase implements ISalonRepository {
   }
 
   /**
-   * Reconciles users and staff tables to ensure one central source of truth
+   * Reconciles users and staff tables to ensure one central source of truth:
+   * Admin Users & Security is the sole master record.
+   * Every staff profile is strictly 1:1 linked via stable user_id / admin_user_id.
    */
   private reconcileStaffAndUsers(data: DatabaseData): boolean {
     let changed = false;
 
-    // Clean up any "(Owner)" or "(Manager)" suffixes from names
+    // 1. Purge legacy sample demo users and staff profiles (except real owner Madu Mounika)
+    const sampleNames = [
+      'priya sharma',
+      'ananya rao',
+      'fatima khan',
+      'suresh verma',
+      'meera nair',
+      'kavitha reddy',
+      'sunita devi',
+      'zoya akhtar'
+    ];
+
+    // Ensure owner is Madu Mounika
+    const owner = data.users.find(u => u.role === 'owner' || u.user_id === 'TGL-OWN01' || u.email === 'owner@theglossylooks.com');
+    if (owner) {
+      if (owner.name !== 'Madu Mounika' || owner.phone !== '8985799459') {
+        owner.name = 'Madu Mounika';
+        owner.phone = '8985799459';
+        owner.user_id = 'TGL-OWN01';
+        owner.role = 'owner';
+        owner.branch_id = 'tgl-gachibowli-main';
+        owner.is_active = true;
+        changed = true;
+      }
+    }
+
+    // Filter out remaining demo sample users
+    const initialUserLen = data.users.length;
+    data.users = data.users.filter(u => {
+      if (u.id === owner?.id || u.user_id === 'TGL-OWN01' || u.email === 'owner@theglossylooks.com') return true;
+      return !sampleNames.includes(u.name.toLowerCase().trim());
+    });
+    if (data.users.length !== initialUserLen) changed = true;
+
+    // Filter out remaining demo sample staff
+    const initialStaffLen = data.staff.length;
+    data.staff = data.staff.filter(s => {
+      if (s.user_id === owner?.id || s.admin_user_id === 'TGL-OWN01' || s.email === 'owner@theglossylooks.com') return true;
+      return !sampleNames.includes(s.name.toLowerCase().trim());
+    });
+    if (data.staff.length !== initialStaffLen) changed = true;
+
+    // 2. Clean up any "(Owner)" or role suffixes
     data.users.forEach(u => {
       const cleaned = u.name.replace(/\s*\((Owner|Manager|Reception & Cashier|Lead Bridal Stylist|Inventory Head)\)/i, '').trim();
       if (cleaned !== u.name) {
@@ -1639,44 +1201,59 @@ class SalonDatabase implements ISalonRepository {
       }
     });
 
-    // Default alphanumeric user_id mapping
-    const defaultMapping: Record<string, string> = {
-      'owner@theglossylooks.com': 'TGL-OWN01',
-      'manager@theglossylooks.com': 'TGL-MGR01',
-      'cashier@theglossylooks.com': 'TGL-REC01',
-      'fatima@theglossylooks.com': 'TGL-STY01',
-      'inventory@theglossylooks.com': 'TGL-INV01',
-      'sunita@theglossylooks.com': 'TGL-STY02',
-      'meera@theglossylooks.com': 'TGL-STY03'
-    };
-
+    // 3. Ensure each user has a stable internal alphanumeric user_id
     data.users.forEach((u, idx) => {
       if (!u.user_id) {
-        u.user_id = defaultMapping[u.email] || `TGL-${(u.role || 'stf').toUpperCase().slice(0, 3)}${String(idx + 1).padStart(2, '0')}`;
+        const prefix = (u.role || 'stf').toUpperCase().slice(0, 3);
+        u.user_id = `TGL-${prefix}${String(idx + 1).padStart(2, '0')}`;
         changed = true;
       }
     });
 
-    // Ensure staff exists for each user
+    // 4. Ensure 1:1 linked staff for each user (NO DUPLICATES)
     data.users.forEach(u => {
-      let stf = data.staff.find(s => s.user_id === u.id || s.id === u.id || (s.email && u.email && s.email.toLowerCase() === u.email.toLowerCase()) || s.phone === u.phone);
+      // Find matching staff by user_id or admin_user_id
+      const matchingStaff = data.staff.filter(s =>
+        s.user_id === u.id || s.admin_user_id === u.user_id || s.id === u.id
+      );
+
+      if (matchingStaff.length > 1) {
+        // Remove duplicates, keep primary
+        const primary = matchingStaff[0];
+        data.staff = data.staff.filter(s => !matchingStaff.includes(s) || s === primary);
+        changed = true;
+      }
+
+      let stf = data.staff.find(s => s.user_id === u.id || s.admin_user_id === u.user_id || s.id === u.id);
       if (stf) {
-        if (stf.user_id !== u.id || stf.name !== u.name || stf.phone !== u.phone || stf.is_active !== u.is_active) {
+        if (
+          stf.user_id !== u.id ||
+          stf.admin_user_id !== u.user_id ||
+          stf.name !== u.name ||
+          stf.phone !== u.phone ||
+          stf.email !== u.email ||
+          stf.is_active !== u.is_active ||
+          stf.branch_id !== u.branch_id
+        ) {
           stf.user_id = u.id;
+          stf.admin_user_id = u.user_id;
           stf.name = u.name;
           stf.phone = u.phone;
           stf.email = u.email;
           stf.is_active = u.is_active;
+          stf.branch_id = u.branch_id;
           changed = true;
         }
       } else {
         const newStaff: Staff = {
           id: `stf-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           user_id: u.id,
+          admin_user_id: u.user_id,
           name: u.name,
           phone: u.phone,
           email: u.email,
           role: this.formatRoleTitle(u.role),
+          branch_id: u.branch_id || 'tgl-gachibowli-main',
           joining_date: u.created_at ? u.created_at.split('T')[0] : '2024-01-01',
           salary_type: 'monthly',
           base_salary: 35000,
@@ -1691,9 +1268,9 @@ class SalonDatabase implements ISalonRepository {
       }
     });
 
-    // Ensure user exists for each staff
+    // 5. Ensure user exists for any orphaned staff
     data.staff.forEach((s, idx) => {
-      let usr = data.users.find(u => u.id === s.user_id || (u.email && s.email && u.email.toLowerCase() === s.email.toLowerCase()) || u.phone === s.phone);
+      let usr = data.users.find(u => u.id === s.user_id || u.user_id === s.admin_user_id);
       if (!usr) {
         const autoId = `TGL-STY${String(idx + 1).padStart(2, '0')}`;
         usr = {
@@ -1704,15 +1281,18 @@ class SalonDatabase implements ISalonRepository {
           role: 'stylist',
           name: s.name,
           phone: s.phone,
+          branch_id: s.branch_id || 'tgl-gachibowli-main',
           is_active: s.is_active,
           created_at: s.created_at || new Date().toISOString(),
           updated_at: s.created_at || new Date().toISOString()
         };
         data.users.push(usr);
         s.user_id = usr.id;
+        s.admin_user_id = usr.user_id;
         changed = true;
       } else {
         s.user_id = usr.id;
+        s.admin_user_id = usr.user_id;
         if (s.name !== usr.name) {
           s.name = usr.name;
           changed = true;
@@ -1753,8 +1333,8 @@ class SalonDatabase implements ISalonRepository {
           city: data.settings?.city || 'Hyderabad, Telangana - 500032',
           phone: '8985799459',
           whatsapp_number: '8985799459',
-          manager_id: 'usr-2',
-          manager_name: 'Ananya Rao',
+          manager_id: 'usr-1',
+          manager_name: 'Madu Mounika',
           is_active: true,
           created_at: '2026-01-01T10:00:00Z',
           updated_at: new Date().toISOString()
@@ -1770,10 +1350,10 @@ class SalonDatabase implements ISalonRepository {
       }
     }
 
-    // Ensure manager usr-2 has branch_id assigned
-    const mgrUser = (data.users || []).find(u => u.id === 'usr-2' || u.role === 'manager');
-    if (mgrUser && !mgrUser.branch_id) {
-      mgrUser.branch_id = 'tgl-gachibowli-main';
+    // Ensure owner/manager usr-1 has branch_id assigned
+    const ownerUser = (data.users || []).find(u => u.id === 'usr-1' || u.role === 'owner');
+    if (ownerUser && !ownerUser.branch_id) {
+      ownerUser.branch_id = 'tgl-gachibowli-main';
       changed = true;
     }
 
@@ -1830,6 +1410,51 @@ class SalonDatabase implements ISalonRepository {
           if (this.reconcileStaffAndUsers(parsed)) changed = true;
         }
         if (this.reconcileBranchesAndIntegrations(parsed)) changed = true;
+
+        // Purge legacy sample demo appointments, orders, and payments
+        const sampleNames = ['priya sharma', 'ananya rao', 'fatima khan', 'suresh verma', 'meera nair', 'kavitha reddy', 'sunita devi', 'zoya akhtar'];
+        if (parsed.appointments && parsed.appointments.length > 0) {
+          const prevLen = parsed.appointments.length;
+          parsed.appointments = parsed.appointments.filter(a => {
+            const hasSample = sampleNames.some(sn => 
+              (a.assigned_staff_name && a.assigned_staff_name.toLowerCase().includes(sn)) ||
+              (a.customer_name && sampleNames.includes(a.customer_name.toLowerCase()))
+            );
+            return !hasSample;
+          });
+          if (parsed.appointments.length !== prevLen) changed = true;
+        }
+        if (parsed.orders && parsed.orders.length > 0) {
+          const prevLen = parsed.orders.length;
+          parsed.orders = parsed.orders.filter(o => {
+            const hasSample = sampleNames.some(sn => 
+              (o.cashier_name && o.cashier_name.toLowerCase().includes(sn)) ||
+              (o.items && o.items.some(i => i.staff_name && i.staff_name.toLowerCase().includes(sn)))
+            );
+            return !hasSample;
+          });
+          if (parsed.orders.length !== prevLen) changed = true;
+        }
+        if (parsed.payments && parsed.payments.length > 0) {
+          const prevLen = parsed.payments.length;
+          parsed.payments = parsed.payments.filter(p => {
+            return !sampleNames.some(sn => p.recorded_by && p.recorded_by.toLowerCase().includes(sn));
+          });
+          if (parsed.payments.length !== prevLen) changed = true;
+        }
+        if (parsed.audit_logs && parsed.audit_logs.length > 0) {
+          parsed.audit_logs.forEach(al => {
+            if (al.performed_by && /priya sharma/i.test(al.performed_by)) {
+              al.performed_by = al.performed_by.replace(/Priya Sharma/gi, 'Madu Mounika');
+              changed = true;
+            }
+            if (al.details && /priya sharma/i.test(al.details)) {
+              al.details = al.details.replace(/Priya Sharma/gi, 'Madu Mounika');
+              changed = true;
+            }
+          });
+        }
+
         if (changed) {
           fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
         }
@@ -2275,10 +1900,12 @@ class SalonDatabase implements ISalonRepository {
     const newStaff: Staff = {
       id: `stf-${Date.now()}`,
       user_id: newUser.id,
+      admin_user_id: newUser.user_id,
       name: newUser.name,
       phone: newUser.phone,
       email: newUser.email,
       role: this.formatRoleTitle(newUser.role),
+      branch_id: newUser.branch_id || 'tgl-gachibowli-main',
       joining_date: new Date().toISOString().split('T')[0],
       salary_type: 'monthly',
       base_salary: 35000,
@@ -2304,7 +1931,7 @@ class SalonDatabase implements ISalonRepository {
     this.data.users[idx] = updatedUser;
 
     // 1. Immediately synchronize corresponding staff record
-    let staffIdx = this.data.staff.findIndex(s => s.user_id === id || s.id === id || (s.email && updatedUser.email && s.email.toLowerCase() === updatedUser.email.toLowerCase()) || s.phone === updatedUser.phone);
+    let staffIdx = this.data.staff.findIndex(s => s.user_id === id || s.admin_user_id === old.user_id || s.id === id);
     if (staffIdx !== -1) {
       this.data.staff[staffIdx] = {
         ...this.data.staff[staffIdx],
@@ -2312,16 +1939,20 @@ class SalonDatabase implements ISalonRepository {
         phone: updatedUser.phone,
         email: updatedUser.email,
         is_active: updatedUser.is_active,
+        admin_user_id: updatedUser.user_id,
+        ...(updateData.branch_id !== undefined && { branch_id: updateData.branch_id }),
         ...(updateData.role && { role: this.formatRoleTitle(updatedUser.role) })
       };
     } else {
       const newStaff: Staff = {
         id: `stf-${Date.now()}`,
         user_id: updatedUser.id,
+        admin_user_id: updatedUser.user_id,
         name: updatedUser.name,
         phone: updatedUser.phone,
         email: updatedUser.email,
         role: this.formatRoleTitle(updatedUser.role),
+        branch_id: updatedUser.branch_id || 'tgl-gachibowli-main',
         joining_date: new Date().toISOString().split('T')[0],
         salary_type: 'monthly',
         base_salary: 35000,
@@ -2369,6 +2000,13 @@ class SalonDatabase implements ISalonRepository {
     this.data.gallery.forEach(g => {
       if (g.artist_name && g.artist_name.toLowerCase() === oldName.toLowerCase()) {
         g.artist_name = newName;
+      }
+    });
+
+    // 5. Cascade updated name to branches
+    this.data.branches.forEach(b => {
+      if (staffIds.includes(b.manager_id || '') || b.manager_name?.toLowerCase() === oldName.toLowerCase()) {
+        b.manager_name = newName;
       }
     });
 
@@ -2481,7 +2119,7 @@ class SalonDatabase implements ISalonRepository {
     this.data.staff[idx] = updatedStaff;
 
     // Synchronize corresponding user record
-    const userIdx = this.data.users.findIndex(u => u.id === updatedStaff.user_id || u.id === id || (u.email && updatedStaff.email && u.email.toLowerCase() === updatedStaff.email.toLowerCase()));
+    const userIdx = this.data.users.findIndex(u => u.id === updatedStaff.user_id || u.user_id === updatedStaff.admin_user_id || u.id === id);
     if (userIdx !== -1) {
       this.data.users[userIdx] = {
         ...this.data.users[userIdx],
@@ -2489,12 +2127,13 @@ class SalonDatabase implements ISalonRepository {
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.email !== undefined && { email: data.email }),
         ...(data.is_active !== undefined && { is_active: data.is_active }),
+        ...(data.branch_id !== undefined && { branch_id: data.branch_id }),
         updated_at: new Date().toISOString()
       };
     }
 
     const newName = updatedStaff.name;
-    const staffIds = [id, updatedStaff.user_id || ''];
+    const staffIds = [id, updatedStaff.user_id || '', updatedStaff.admin_user_id || ''];
 
     // Cascade to appointments
     this.data.appointments.forEach(apt => {
@@ -2512,6 +2151,9 @@ class SalonDatabase implements ISalonRepository {
 
     // Cascade to orders
     this.data.orders.forEach(order => {
+      if (staffIds.includes(order.cashier_id || '') || (order.cashier_name && order.cashier_name.toLowerCase() === oldName.toLowerCase())) {
+        order.cashier_name = newName;
+      }
       (order.items || []).forEach(item => {
         if (staffIds.includes(item.staff_id || '') || (item.staff_name && item.staff_name.toLowerCase() === oldName.toLowerCase())) {
           item.staff_id = updatedStaff.id;
@@ -2527,6 +2169,13 @@ class SalonDatabase implements ISalonRepository {
       }
     });
 
+    // Cascade to branches
+    this.data.branches.forEach(b => {
+      if (staffIds.includes(b.manager_id || '') || b.manager_name?.toLowerCase() === oldName.toLowerCase()) {
+        b.manager_name = newName;
+      }
+    });
+
     await this.logAudit('UPDATE', 'Staff', id, performedBy, `Updated staff profile: ${newName}`);
     this.save();
     return updatedStaff;
@@ -2539,7 +2188,7 @@ class SalonDatabase implements ISalonRepository {
     // Soft-deactivate to protect foreign keys and historical transaction records
     this.data.staff[idx].is_active = false;
 
-    const userIdx = this.data.users.findIndex(u => u.id === staff.user_id || u.id === id || u.email === staff.email);
+    const userIdx = this.data.users.findIndex(u => u.id === staff.user_id || u.user_id === staff.admin_user_id || u.id === id);
     if (userIdx !== -1) {
       this.data.users[userIdx].is_active = false;
       this.data.users[userIdx].updated_at = new Date().toISOString();
@@ -3812,5 +3461,21 @@ class SalonDatabase implements ISalonRepository {
   }
 }
 
-export const salonRepository = new SalonDatabase();
+import { SupabaseSalonRepository } from './repositories/supabaseSalonRepository.ts';
+
+function createSalonRepository(): ISalonRepository {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (supabaseUrl && supabaseKey) {
+    console.log('🚀 Using SupabaseSalonRepository as active database provider');
+    return new SupabaseSalonRepository(supabaseUrl, supabaseKey);
+  }
+
+  console.log('📁 Using SalonDatabase (Persistent Repository) as database provider');
+  return new SalonDatabase();
+}
+
+export const salonRepository = createSalonRepository();
 export const salonDb = salonRepository;
+

@@ -112,6 +112,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ identifier, password })
     }),
+  getAdminMe: () => fetchJson<AdminUser>(`${API_BASE}/auth/admin/me`),
   getAdminUsers: () => fetchJson<User[]>(`${API_BASE}/admin/users`),
   createAdminUser: (data: Partial<User>, adminName?: string) =>
     fetchJson<User>(`${API_BASE}/admin/users`, { method: 'POST', body: JSON.stringify(data) }, adminName),
