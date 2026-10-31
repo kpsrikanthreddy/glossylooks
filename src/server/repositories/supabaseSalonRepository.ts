@@ -676,9 +676,84 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async createStaff(staffData: Omit<Staff, 'id' | 'created_at'>, performedBy: string): Promise<Staff> {
+    // A staff profile must always be linked to an app user.  The previous
+    // Supabase implementation inserted only into `staff`, which left the
+    // profile out of sync with Admin Users and can fail on installations where
+    // user_id is mandatory.
+    const email = (staffData.email || `${staffData.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@theglossylooks.com`).trim().toLowerCase();
+    const phone = (staffData.phone || '').trim();
+
+    let linkedUser: User | null = null;
+
+    const { data: userByEmail, error: userByEmailError } = await this.client
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+    if (userByEmailError) throw userByEmailError;
+    linkedUser = (userByEmail || null) as User | null;
+
+    if (!linkedUser && phone) {
+      const { data: userByPhone, error: userByPhoneError } = await this.client
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle();
+      if (userByPhoneError) throw userByPhoneError;
+      linkedUser = (userByPhone || null) as User | null;
+    }
+
+    if (!linkedUser) {
+      const generatedUserId = `TGL-STY${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+      const { data: createdUser, error: createUserError } = await this.client
+        .from('users')
+        .insert({
+          user_id: generatedUserId,
+          name: staffData.name.trim(),
+          email,
+          phone,
+          // The profile form creates a stylist account. Owners can reset its
+          // temporary password from Admin Users before giving staff access.
+          password_hash: 'admin123',
+          role: 'stylist',
+          branch_id: staffData.branch_id || 'tgl-gachibowli-main',
+          is_active: staffData.is_active !== false
+        })
+        .select()
+        .single();
+      if (createUserError) throw createUserError;
+      linkedUser = createdUser as User;
+    }
+
+    const { data: existingProfile, error: existingProfileError } = await this.client
+      .from('staff')
+      .select('id')
+      .eq('user_id', linkedUser.id)
+      .maybeSingle();
+    if (existingProfileError) throw existingProfileError;
+    if (existingProfile) {
+      throw new Error('A staff profile already exists for this email or mobile number. Edit the existing profile instead.');
+    }
+
+    const staffPayload = {
+      ...staffData,
+      user_id: linkedUser.id,
+      admin_user_id: linkedUser.user_id,
+      name: staffData.name.trim(),
+      phone,
+      email,
+      branch_id: staffData.branch_id || linkedUser.branch_id || 'tgl-gachibowli-main',
+      joining_date: staffData.joining_date || new Date().toISOString().split('T')[0],
+      salary_type: staffData.salary_type || 'commission',
+      base_salary: staffData.base_salary ?? 0,
+      commission_rate: staffData.commission_rate ?? 10,
+      skills: staffData.skills || [],
+      is_active: staffData.is_active !== false
+    };
+
     const { data: newStaff, error } = await this.client
       .from('staff')
-      .insert(staffData)
+      .insert(staffPayload)
       .select()
       .single();
     if (error) throw error;
