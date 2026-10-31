@@ -75,6 +75,45 @@ app.use(express.json({
   }
 }));
 
+// CORS and preflight OPTIONS handling
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-name, x-admin-role, x-admin-user-id, x-admin-token');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Normalize URLs for Vercel Serverless Function rewrites & proxy environments
+app.use((req, _res, next) => {
+  if (req.url) {
+    if (req.url.startsWith('/api/api/')) {
+      req.url = req.url.replace('/api/api/', '/api/');
+    } else if (
+      !req.url.startsWith('/api') &&
+      !req.url.startsWith('/health') &&
+      !req.url.startsWith('/robots.txt') &&
+      !req.url.startsWith('/sitemap.xml') &&
+      !req.url.startsWith('/assets') &&
+      !req.url.startsWith('/@') &&
+      !req.url.startsWith('/src') &&
+      !req.url.startsWith('/node_modules') &&
+      !req.url.endsWith('.html') &&
+      !req.url.endsWith('.js') &&
+      !req.url.endsWith('.css') &&
+      !req.url.endsWith('.png') &&
+      !req.url.endsWith('.jpg') &&
+      !req.url.endsWith('.svg') &&
+      !req.url.endsWith('.ico')
+    ) {
+      req.url = `/api${req.url.startsWith('/') ? '' : '/'}${req.url}`;
+    }
+  }
+  next();
+});
+
 // ============================================================================
 // SEO: SITEMAP & ROBOTS.TXT
 // ============================================================================
@@ -245,7 +284,7 @@ const getAuthAdmin = async (req: express.Request) => {
 // ----------------------------------------------------------------------------
 // Admin Authentication & Users Management
 // ----------------------------------------------------------------------------
-app.post('/api/auth/admin/login', async (req, res) => {
+app.post(['/api/auth/admin/login', '/auth/admin/login'], async (req, res) => {
   try {
     const { identifier, email, password } = req.body;
     const loginTarget = identifier || email;
@@ -288,7 +327,7 @@ app.post('/api/auth/admin/login', async (req, res) => {
 });
 
 // Current Authenticated Admin User Profile (Single Source of Truth)
-app.get(['/api/auth/admin/me', '/api/admin/me'], async (req, res) => {
+app.get(['/api/auth/admin/me', '/auth/admin/me', '/api/admin/me', '/admin/me'], async (req, res) => {
   const admin = await getAuthAdmin(req);
   if (!admin) {
     return res.status(401).json({ error: 'Unauthorized or session expired.' });
