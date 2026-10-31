@@ -606,3 +606,14 @@ INSERT INTO public.branch_whatsapp_integrations (
     configured_business_number = '8985799459',
     status = 'connected';
 
+-- Initial Service Categories Seed
+INSERT INTO public.service_categories (name, slug, description, image_url, display_order, is_active)
+VALUES
+    ('Salon', 'salon', 'Hair care, styling & treatments', '/services/salon.jpg', 1, true),
+    ('Makeup', 'makeup', 'Bridal & festive makeup', '/services/makeup.jpg', 2, true),
+    ('Nails Art', 'mani-pedi', 'Nail couture & mani-pedi', '/services/nails.jpg', 3, true),
+    ('Spa', 'spa', 'Relaxing therapy & spa', '/services/spa.jpg', 4, true),
+    ('Body Polishing', 'body-polishing', 'Luxury body scrubs & polishing', '/services/body.jpg', 5, true)
+ON CONFLICT (slug) DO NOTHING;
+
+

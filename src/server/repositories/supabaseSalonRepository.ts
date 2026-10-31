@@ -887,12 +887,17 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
   // --- Categories & Services & Packages ---
   public async getCategories(): Promise<ServiceCategory[]> {
-    try {
-      const { data } = await this.client.from('service_categories').select('*').order('display_order', { ascending: true });
-      if (data && data.length > 0) return data as ServiceCategory[];
-    } catch {}
-    const defaultData = getFallbackStore();
-    return defaultData.categories || [];
+    const { data, error } = await this.client
+      .from('service_categories')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('❌ Supabase getCategories error:', error.message, error.details || '', error.hint || '');
+      throw new Error(`Supabase getCategories failed: ${error.message}`);
+    }
+
+    return (data || []) as ServiceCategory[];
   }
 
   public async createCategory(cat: Omit<ServiceCategory, 'id'>, performedBy: string): Promise<ServiceCategory> {
@@ -917,18 +922,22 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async getServices(categoryId?: string, search?: string): Promise<ServiceItem[]> {
-    try {
-      let query = this.client.from('services').select('*').order('created_at', { ascending: true });
-      if (categoryId) query = query.eq('category_id', categoryId);
-      if (search) query = query.ilike('name', `%${search}%`);
-      const { data } = await query;
-      if (data && data.length > 0) return data as ServiceItem[];
-    } catch {}
-    const defaultData = getFallbackStore();
-    let res: ServiceItem[] = defaultData.services || [];
-    if (categoryId) res = res.filter(s => s.category_id === categoryId);
-    if (search) res = res.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
-    return res;
+    let query = this.client
+      .from('services')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (categoryId) query = query.eq('category_id', categoryId);
+    if (search) query = query.ilike('name', `%${search}%`);
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('❌ Supabase getServices error:', error.message, error.details || '', error.hint || '');
+      throw new Error(`Supabase getServices failed: ${error.message}`);
+    }
+
+    return (data || []) as ServiceItem[];
   }
 
   public async getServiceById(id: string): Promise<ServiceItem | null> {
@@ -958,12 +967,12 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async getPackages(): Promise<PackageCombo[]> {
-    try {
-      const { data } = await this.client.from('packages').select('*');
-      if (data && data.length > 0) return data as PackageCombo[];
-    } catch {}
-    const defaultData = getFallbackStore();
-    return defaultData.packages || [];
+    const { data, error } = await this.client.from('packages').select('*');
+    if (error) {
+      console.error('❌ Supabase getPackages error:', error.message, error.details || '');
+      throw new Error(`Supabase getPackages failed: ${error.message}`);
+    }
+    return (data || []) as PackageCombo[];
   }
 
   public async createPackage(pkg: Omit<PackageCombo, 'id'>, performedBy: string): Promise<PackageCombo> {

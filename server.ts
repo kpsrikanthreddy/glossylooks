@@ -21,10 +21,10 @@ const PORT = Number(process.env.PORT || 3000);
 const isProd = process.env.NODE_ENV === 'production';
 
 // Safe environment logging (validate optional variables without crashing)
-if (process.env.SUPABASE_URL) {
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.log('ℹ️ Supabase integration enabled with URL:', process.env.SUPABASE_URL);
 } else {
-  console.log('ℹ️ Supabase not configured: Running with persistent local database repository');
+  console.error('❌ Supabase is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.');
 }
 
 if (process.env.PRINT_AGENT_SECRET) {

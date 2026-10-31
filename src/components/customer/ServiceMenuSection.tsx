@@ -54,16 +54,69 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
 
   const salonCategory = categories.find(c => c.slug === 'salon' || c.id === 'cat-salon');
   const bodyPolishingCategory = categories.find(c => c.slug === 'body-polishing' || c.id === 'cat-body');
-  const salonServices = services.filter(s => s.category_id === (salonCategory?.id || 'cat-salon'));
-  const salonSubcategories = Array.from(new Set(salonServices.map(s => s.salon_subcategory || 'salon-services')));
+  const salonServices = services.filter(s =>
+    (salonCategory && s.category_id === salonCategory.id) ||
+    s.category_id === 'cat-salon' ||
+    s.category_id === 'salon'
+  );
+
+  const salonSubcategoryOrder = [
+    'threading',
+    'face-wax',
+    'normal-wax',
+    'rica-wax',
+    'roll-on-wax',
+    'peel-off-wax',
+    'd-tan-clean-up',
+    'facial-treatments',
+    'top-up-masks',
+    'body-care',
+    'pedicure-manicure',
+    'hair-wash-massage',
+    'hair-cuts',
+    'hair-colour',
+    'blow-dry-styling',
+    'hair-spa',
+    'hair-makeover'
+  ];
+
   const salonSubcategoryLabels: Record<string, string> = {
-    threading: 'Threading', 'face-wax': 'Face Wax', 'normal-wax': 'Normal Wax', 'rica-wax': 'Rica Wax',
-    'roll-on-wax': 'Roll On Wax', 'peel-off-wax': 'Peel Off Wax', 'd-tan-clean-up': 'D-Tan & Clean Up',
-    'facial-treatments': 'Facial Treatments', 'top-up-masks': 'Top Up Masks', 'body-care': 'Body Care',
-    'pedicure-manicure': 'Pedi & Mani', 'hair-wash-massage': 'Hair Wash & Massage', 'hair-cuts': 'Hair Cuts',
-    'hair-colour': 'Hair Colour', 'blow-dry-styling': 'Blow Dry & Styling', 'hair-spa': 'Hair Spa',
-    'hair-makeover': 'Hair Makeover', 'salon-services': 'Salon Services'
+    threading: 'Threading',
+    'face-wax': 'Face Wax',
+    'normal-wax': 'Normal Wax',
+    'rica-wax': 'Rica Wax',
+    'roll-on-wax': 'Roll On Wax',
+    'peel-off-wax': 'Peel Off Wax',
+    'd-tan-clean-up': 'D-Tan & Clean Up',
+    'facial-treatments': 'Facial Treatments',
+    'top-up-masks': 'Top Up Masks',
+    'body-care': 'Body Care',
+    'pedicure-manicure': 'Pedi & Mani',
+    'hair-wash-massage': 'Hair Wash & Massage',
+    'hair-cuts': 'Hair Cuts',
+    'hair-colour': 'Hair Colour',
+    'blow-dry-styling': 'Blow Dry & Styling',
+    'hair-spa': 'Hair Spa',
+    'hair-makeover': 'Hair Makeover',
+    'salon-services': 'Salon Services'
   };
+
+  // Derive subcategory buttons from the actual services present in the database
+  const presentSubcategories = Array.from(
+    new Set(
+      salonServices
+        .map(s => s.salon_subcategory)
+        .filter((sub): sub is string => Boolean(sub && sub !== 'salon-services'))
+    )
+  );
+
+  const salonSubcategories = presentSubcategories.length > 0
+    ? presentSubcategories.sort((a, b) => {
+        const aIndex = salonSubcategoryOrder.indexOf(a);
+        const bIndex = salonSubcategoryOrder.indexOf(b);
+        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+      })
+    : salonSubcategoryOrder;
 
   // Curated pre-bridal packages shown when a customer selects Body Polishing.
   // The original supplied menu artwork is intentionally retained for each card.
@@ -109,12 +162,18 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
     }
   ] : [];
 
-  const isSalonActive = activeCategoryId === salonCategory?.id || activeCategoryId === 'cat-salon';
+  const isSalonActive = Boolean(
+    (salonCategory && activeCategoryId === salonCategory.id) ||
+    activeCategoryId === 'cat-salon' ||
+    activeCategoryId === 'salon'
+  );
 
   // Reset to the first available Salon subcategory when Salon is opened.
   useEffect(() => {
     if (isSalonActive) {
-      setSalonSubcategory(salonSubcategories[0] || 'threading');
+      if (!salonSubcategories.includes(salonSubcategory)) {
+        setSalonSubcategory(salonSubcategories[0] || 'threading');
+      }
     }
   }, [activeCategoryId, isSalonActive, salonSubcategories.join('|')]);
 

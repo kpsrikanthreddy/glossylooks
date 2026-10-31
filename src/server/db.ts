@@ -3464,13 +3464,15 @@ class SalonDatabase implements ISalonRepository {
 import { SupabaseSalonRepository } from './repositories/supabaseSalonRepository.ts';
 
 function createSalonRepository(): ISalonRepository {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL?.trim();
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
-  if (supabaseUrl && supabaseKey) {
+  if (supabaseUrl && supabaseServiceRoleKey) {
     console.log('🚀 Using SupabaseSalonRepository as active database provider');
-    return new SupabaseSalonRepository(supabaseUrl, supabaseKey);
+    return new SupabaseSalonRepository(supabaseUrl, supabaseServiceRoleKey);
   }
+
+  console.error('❌ Supabase is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.');
 
   console.log('📁 Using SalonDatabase (Persistent Repository) as database provider');
   return new SalonDatabase();
