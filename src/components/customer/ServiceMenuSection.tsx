@@ -57,9 +57,9 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
   const salonServices = services.filter(s => s.category_id === (salonCategory?.id || 'cat-salon'));
   const salonSubcategories = Array.from(new Set(salonServices.map(s => s.salon_subcategory || 'salon-services')));
   const salonSubcategoryLabels: Record<string, string> = {
-    threading: 'Threading', 'face-wax': 'Face Wax', 'normal-wax': 'Normal Wax', rica-wax: 'Rica Wax',
+    threading: 'Threading', 'face-wax': 'Face Wax', 'normal-wax': 'Normal Wax', 'rica-wax': 'Rica Wax',
     'roll-on-wax': 'Roll On Wax', 'peel-off-wax': 'Peel Off Wax', 'd-tan-clean-up': 'D-Tan & Clean Up',
-    'facial-treatments': 'Facial Treatments', 'top-up-masks': 'Top Up Masks', body-care: 'Body Care',
+    'facial-treatments': 'Facial Treatments', 'top-up-masks': 'Top Up Masks', 'body-care': 'Body Care',
     'pedicure-manicure': 'Pedi & Mani', 'hair-wash-massage': 'Hair Wash & Massage', 'hair-cuts': 'Hair Cuts',
     'hair-colour': 'Hair Colour', 'blow-dry-styling': 'Blow Dry & Styling', 'hair-spa': 'Hair Spa',
     'hair-makeover': 'Hair Makeover', 'salon-services': 'Salon Services'
