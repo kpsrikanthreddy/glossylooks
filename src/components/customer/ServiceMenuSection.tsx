@@ -35,11 +35,18 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
   const [salonSubcategory, setSalonSubcategory] = useState<'salon' | 'facials'>('salon');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const categoryPriority = ['makeup', 'mani-pedi', 'salon', 'spa', 'body-polishing'];
+  const displayCategoryName = (category: ServiceCategory) =>
+    category.slug === 'mani-pedi' ? 'Nails Art' : category.name;
 
   // Filter out Facials from top-level category chips (Facials is now a subcategory inside Salon)
-  const visibleCategories = categories.filter(
-    cat => cat.slug !== 'facials' && cat.name.toLowerCase() !== 'facials' && cat.id !== 'cat-facials'
-  );
+  const visibleCategories = categories
+    .filter(cat => cat.slug !== 'facials' && cat.name.toLowerCase() !== 'facials' && cat.id !== 'cat-facials')
+    .sort((a, b) => {
+      const aIndex = categoryPriority.indexOf(a.slug);
+      const bIndex = categoryPriority.indexOf(b.slug);
+      return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) - (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+    });
 
   const salonCategory = categories.find(c => c.slug === 'salon' || c.id === 'cat-salon');
   const facialsCategory = categories.find(c => c.slug === 'facials' || c.id === 'cat-facials');
@@ -182,7 +189,7 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
                     : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
                 }`}
               >
-                <span>{cat.name}</span>
+                <span>{displayCategoryName(cat)}</span>
                 {cat.slug === 'makeup' && (
                   <Sparkles className="w-3 h-3 text-[#D4AF37]" />
                 )}

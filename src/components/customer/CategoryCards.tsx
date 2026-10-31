@@ -21,10 +21,18 @@ export const CategoryCards: React.FC<CategoryCardsProps> = ({
   onSelectCategory,
   onOpenMakeupModal
 }) => {
+  const categoryPriority = ['makeup', 'mani-pedi', 'salon', 'spa', 'body-polishing'];
+  const displayName = (category: ServiceCategory) =>
+    category.slug === 'mani-pedi' ? 'Nails Art' : category.name;
+
   // Facials is now a subcategory inside Salon, not a separate home-page category card
-  const displayCategories = categories.filter(
-    cat => cat.slug !== 'facials' && cat.name.toLowerCase() !== 'facials' && cat.id !== 'cat-facials'
-  );
+  const displayCategories = categories
+    .filter(cat => cat.slug !== 'facials' && cat.name.toLowerCase() !== 'facials' && cat.id !== 'cat-facials')
+    .sort((a, b) => {
+      const aIndex = categoryPriority.indexOf(a.slug);
+      const bIndex = categoryPriority.indexOf(b.slug);
+      return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) - (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+    });
 
   return (
     <section className="py-6 sm:py-10">
@@ -75,12 +83,12 @@ export const CategoryCards: React.FC<CategoryCardsProps> = ({
 
               {/* Artwork Box */}
               <div className="w-full h-24 sm:h-28 rounded-xl overflow-hidden mb-2.5 bg-[#FAF7F5] group-hover:scale-[1.02] transition-transform">
-                <SalonArtwork type={cat.slug} title={cat.name} className="w-full h-full object-cover" />
+                <SalonArtwork type={cat.slug} title={displayName(cat)} className="w-full h-full object-cover" />
               </div>
 
               <div className="flex items-center justify-between">
                 <h3 className="font-serif font-bold text-sm text-slate-900 group-hover:text-[#5B132B] transition-colors truncate">
-                  {cat.name}
+                  {displayName(cat)}
                 </h3>
                 {isMakeup && (
                   <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
