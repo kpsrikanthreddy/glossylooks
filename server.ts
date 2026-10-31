@@ -2824,9 +2824,14 @@ app.get('/api/staff', async (req, res) => {
 });
 
 app.post('/api/staff', async (req, res) => {
-  const actor = (req.headers['x-admin-name'] as string) || 'Manager';
-  const staff = await salonRepository.createStaff(req.body, actor);
-  res.status(201).json(staff);
+  try {
+    const actor = (req.headers['x-admin-name'] as string) || 'Manager';
+    const staff = await salonRepository.createStaff(req.body, actor);
+    res.status(201).json(staff);
+  } catch (err: any) {
+    console.error('Unable to create staff profile:', err);
+    res.status(400).json({ error: err?.message || 'Unable to create staff profile.' });
+  }
 });
 
 app.patch('/api/staff/:id', async (req, res) => {
