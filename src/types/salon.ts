@@ -182,6 +182,8 @@ export interface ServiceAddOn {
 export interface ServiceItem {
   id: string;
   category_id: string;
+  /** Group used for the Salon subcategory menu. */
+  salon_subcategory?: string;
   name: string;
   slug: string;
   description: string;

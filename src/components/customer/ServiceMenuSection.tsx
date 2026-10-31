@@ -32,7 +32,7 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
   onOpenMakeupModal,
   whatsappNumber
 }) => {
-  const [salonSubcategory, setSalonSubcategory] = useState<'salon' | 'facials'>('salon');
+  const [salonSubcategory, setSalonSubcategory] = useState('threading');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   // Older records may reference an image that has not been uploaded to the
@@ -53,8 +53,17 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
     });
 
   const salonCategory = categories.find(c => c.slug === 'salon' || c.id === 'cat-salon');
-  const facialsCategory = categories.find(c => c.slug === 'facials' || c.id === 'cat-facials');
   const bodyPolishingCategory = categories.find(c => c.slug === 'body-polishing' || c.id === 'cat-body');
+  const salonServices = services.filter(s => s.category_id === (salonCategory?.id || 'cat-salon'));
+  const salonSubcategories = Array.from(new Set(salonServices.map(s => s.salon_subcategory || 'salon-services')));
+  const salonSubcategoryLabels: Record<string, string> = {
+    threading: 'Threading', 'face-wax': 'Face Wax', 'normal-wax': 'Normal Wax', rica-wax: 'Rica Wax',
+    'roll-on-wax': 'Roll On Wax', 'peel-off-wax': 'Peel Off Wax', 'd-tan-clean-up': 'D-Tan & Clean Up',
+    'facial-treatments': 'Facial Treatments', 'top-up-masks': 'Top Up Masks', body-care: 'Body Care',
+    'pedicure-manicure': 'Pedi & Mani', 'hair-wash-massage': 'Hair Wash & Massage', 'hair-cuts': 'Hair Cuts',
+    'hair-colour': 'Hair Colour', 'blow-dry-styling': 'Blow Dry & Styling', 'hair-spa': 'Hair Spa',
+    'hair-makeover': 'Hair Makeover', 'salon-services': 'Salon Services'
+  };
 
   // Curated pre-bridal packages shown when a customer selects Body Polishing.
   // The original supplied menu artwork is intentionally retained for each card.
@@ -102,22 +111,18 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
 
   const isSalonActive = activeCategoryId === salonCategory?.id || activeCategoryId === 'cat-salon';
 
-  // Reset to default salon subcategory whenever navigating to/from salon
+  // Reset to the first available Salon subcategory when Salon is opened.
   useEffect(() => {
     if (isSalonActive) {
-      setSalonSubcategory('salon');
+      setSalonSubcategory(salonSubcategories[0] || 'threading');
     }
-  }, [activeCategoryId, isSalonActive]);
+  }, [activeCategoryId, isSalonActive, salonSubcategories.join('|')]);
 
   let filteredServices: ServiceItem[] = [];
   if (activeCategoryId === 'all') {
     filteredServices = services;
   } else if (isSalonActive) {
-    if (salonSubcategory === 'facials' && facialsCategory) {
-      filteredServices = services.filter(s => s.category_id === facialsCategory.id);
-    } else {
-      filteredServices = services.filter(s => s.category_id === (salonCategory?.id || 'cat-salon'));
-    }
+    filteredServices = salonServices.filter(s => (s.salon_subcategory || 'salon-services') === salonSubcategory);
   } else {
     filteredServices = services.filter(s => s.category_id === activeCategoryId);
   }
@@ -252,79 +257,31 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
         </div>
       </div>
 
-      {/* Visible Subcategory Navigation inside Salon */}
+      {/* Salon menu grouping from the approved Salon & Spa menu. */}
       {isSalonActive && (
-        <div className="mb-6 p-3 sm:p-4 bg-gradient-to-r from-[#FAF4F0] via-white to-[#FAF4F0] rounded-2xl border border-[#EBD9D0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#5B132B] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">
-              ✦
-            </div>
+        <div className="mb-6 p-3 sm:p-4 bg-gradient-to-r from-[#FAF4F0] via-white to-[#FAF4F0] rounded-2xl border border-[#EBD9D0] shadow-xs">
+          <div className="flex items-start gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-[#5B132B] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">✦</div>
             <div>
               <div className="flex items-center gap-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#8C235A]">
-                  Salon Subcategories
-                </h4>
-                <span className="text-[10px] bg-[#5B132B]/10 text-[#5B132B] font-semibold px-2 py-0.5 rounded-full">
-                  {salonSubcategory === 'facials' ? 'Viewing Facials' : 'Viewing Salon Services'}
-                </span>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#8C235A]">Salon Subcategories</h4>
+                <span className="text-[10px] bg-[#5B132B]/10 text-[#5B132B] font-semibold px-2 py-0.5 rounded-full">Viewing {salonSubcategoryLabels[salonSubcategory] || 'Salon Services'}</span>
               </div>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Explore haircuts, styling & hair spa or select our signature Facials subcategory.
-              </p>
+              <p className="text-xs text-slate-600 mt-0.5">Choose a service group to view the full Salon menu and pricing.</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setSalonSubcategory('salon')}
-              className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                salonSubcategory === 'salon'
-                  ? 'bg-[#5B132B] text-white shadow-sm'
-                  : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
-              }`}
-            >
-              <span>Salon Services</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${salonSubcategory === 'salon' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                {services.filter(s => s.category_id === (salonCategory?.id || 'cat-salon')).length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setSalonSubcategory('facials')}
-              className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${
-                salonSubcategory === 'facials'
-                  ? 'bg-[#5B132B] text-white shadow-sm'
-                  : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>Facials</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${salonSubcategory === 'facials' ? 'bg-white/20 text-white' : 'bg-[#FAF4F0] text-[#8C235A] font-bold'}`}>
-                {services.filter(s => s.category_id === (facialsCategory?.id || 'cat-facials')).length}
-              </span>
-            </button>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {salonSubcategories.map((subcategory) => {
+              const isActive = salonSubcategory === subcategory;
+              const count = salonServices.filter(s => (s.salon_subcategory || 'salon-services') === subcategory).length;
+              return (
+                <button key={subcategory} onClick={() => setSalonSubcategory(subcategory)} className={`whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${isActive ? 'bg-[#5B132B] text-white shadow-sm' : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'}`}>
+                  <span>{salonSubcategoryLabels[subcategory] || subcategory}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>{count}</span>
+                </button>
+              );
+            })}
           </div>
-        </div>
-      )}
-
-      {/* Subcategory Breadcrumb / Switcher note when in Facials */}
-      {isSalonActive && salonSubcategory === 'facials' && (
-        <div className="mb-4 flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-[#EBD9D0]">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-            <span className="text-xs font-bold text-slate-900">
-              Facials & Skin Rejuvenation Menu
-            </span>
-            <span className="text-[11px] text-slate-500 hidden sm:inline">
-              · Subcategory of Salon
-            </span>
-          </div>
-          <button
-            onClick={() => setSalonSubcategory('salon')}
-            className="text-xs font-semibold text-[#5B132B] hover:text-[#8C235A] flex items-center gap-1 transition-colors"
-          >
-            <span>← Back to Salon Services</span>
-          </button>
         </div>
       )}
 
