@@ -35,6 +35,10 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
   const [salonSubcategory, setSalonSubcategory] = useState<'salon' | 'facials'>('salon');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
+  // Older records may reference an image that has not been uploaded to the
+  // public site yet. Keep a per-card record of failures so a broken-image icon
+  // is never shown; the branded category artwork is used instead.
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(() => new Set());
   const categoryPriority = ['makeup', 'mani-pedi', 'salon', 'spa', 'body-polishing'];
   const displayCategoryName = (category: ServiceCategory) =>
     category.slug === 'mani-pedi' ? 'Nails Art' : category.name;
@@ -343,11 +347,19 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
                 <div>
                   {/* Image Slot at Top */}
                   <div className="w-full h-44 relative bg-[#FAF7F5] overflow-hidden">
-                    {srv.image_url ? (
+                    {srv.image_url && !failedImageIds.has(srv.id) ? (
                       <img
                         src={srv.image_url}
                         alt={`${srv.name} menu`}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={() => {
+                          setFailedImageIds((previous) => {
+                            if (previous.has(srv.id)) return previous;
+                            const next = new Set(previous);
+                            next.add(srv.id);
+                            return next;
+                          });
+                        }}
                       />
                     ) : (
                       <SalonArtwork 
