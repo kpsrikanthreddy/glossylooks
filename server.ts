@@ -2984,4 +2984,10 @@ async function startServer() {
   });
 }
 
-startServer();
+// A local/AI Studio process needs an HTTP listener. On Vercel the exported
+// Express application is invoked by the Vercel Function runtime instead.
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
