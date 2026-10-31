@@ -1,0 +1,15 @@
+{
+  "name": "the-glossy-looks-print-agent",
+  "version": "1.0.0",
+  "description": "Desktop Thermal & A4 Print Agent for The Glossy Looks Salon POS",
+  "main": "agent.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsx agent.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5.0.0"
+  }
+}

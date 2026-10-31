@@ -1,0 +1,2595 @@
+{
+  "settings": {
+    "brand_name": "The Glossy Looks",
+    "salon_type": "Professional Women Salon & Bridal Studio",
+    "address": "31, Vinayak Nagar, Gachibowli",
+    "city": "Hyderabad, Telangana - 500032",
+    "phone": "9848099888",
+    "whatsapp": "9848099888",
+    "opening_hours": "10:00 AM to 10:00 PM (Monday to Sunday)",
+    "google_maps_url": "https://share.google/TWPbPEEVlN5mPfqpL",
+    "announcement_text": "Festive & Royal Bridal Season Bookings Open! Complimentary pre-bridal hair trial with every HD bridal package."
+  },
+  "users": [
+    {
+      "id": "usr-1",
+      "email": "owner@theglossylooks.com",
+      "password_hash": "admin123",
+      "role": "owner",
+      "name": "Priya Sharma",
+      "phone": "9848012345",
+      "is_active": true,
+      "created_at": "2026-01-01T10:00:00Z",
+      "updated_at": "2026-10-30T18:32:22.171Z",
+      "user_id": "TGL-OWN01",
+      "last_login_at": "2026-10-30T18:32:22.171Z"
+    },
+    {
+      "id": "usr-2",
+      "email": "manager@theglossylooks.com",
+      "password_hash": "admin123",
+      "role": "manager",
+      "name": "Ananya Rao",
+      "phone": "9848012345",
+      "is_active": true,
+      "created_at": "2026-01-05T10:00:00Z",
+      "updated_at": "2026-10-30T07:40:46.934Z",
+      "user_id": "TGL-MGR01",
+      "branch_id": "tgl-gachibowli-main",
+      "last_login_at": "2026-10-30T07:40:46.934Z"
+    },
+    {
+      "id": "usr-3",
+      "email": "cashier@theglossylooks.com",
+      "password_hash": "admin123",
+      "role": "receptionist",
+      "name": "Kavitha Reddy",
+      "phone": "9700112233",
+      "is_active": true,
+      "created_at": "2026-01-10T10:00:00Z",
+      "updated_at": "2026-10-30T07:41:20.196Z",
+      "user_id": "TGL-REC01",
+      "last_login_at": "2026-10-30T07:41:20.196Z"
+    },
+    {
+      "id": "usr-4",
+      "email": "fatima@theglossylooks.com",
+      "password_hash": "admin123",
+      "role": "stylist",
+      "name": "Fatima Khan",
+      "phone": "9912345678",
+      "is_active": true,
+      "created_at": "2026-01-12T10:00:00Z",
+      "updated_at": "2026-10-27T19:40:50.797Z",
+      "user_id": "TGL-STY01"
+    },
+    {
+      "id": "usr-5",
+      "email": "inventory@theglossylooks.com",
+      "password_hash": "admin123",
+      "role": "inventory_staff",
+      "name": "Suresh Verma",
+      "phone": "9876543210",
+      "is_active": true,
+      "created_at": "2026-01-15T10:00:00Z",
+      "updated_at": "2026-10-27T19:40:50.810Z",
+      "user_id": "TGL-INV01"
+    },
+    {
+      "id": "usr-1793129856220-691",
+      "user_id": "TGL-STY06",
+      "email": "meeranair@theglossylooks.com",
+      "password_hash": "admin123",
+      "role": "stylist",
+      "name": "Meera Nair",
+      "phone": "9654321098",
+      "is_active": true,
+      "created_at": "2024-07-01T10:00:00Z",
+      "updated_at": "2024-07-01T10:00:00Z"
+    }
+  ],
+  "customers": [
+    {
+      "id": "cust-1",
+      "name": "Sneha Reddy",
+      "mobile": "9849021234",
+      "email": "sneha.reddy@gmail.com",
+      "birthday": "1995-11-14",
+      "address": "Flat 402, Jayabheri Silicon County, Hitec City, Hyderabad",
+      "saved_addresses": [
+        {
+          "label": "Home",
+          "address_line": "Flat 402, Jayabheri Silicon County",
+          "area": "Hitec City",
+          "city": "Hyderabad"
+        }
+      ],
+      "preferences": "Prefers mild herbal fragrance. Organic skin creams.",
+      "allergies": "Sensitive to harsh artificial bleach and strong sulfates.",
+      "notes": "Regular customer for O3+ facial and crystal pedicure.",
+      "loyalty_points": 340,
+      "total_spend": 18500,
+      "visit_count": 5,
+      "last_visit_at": "2026-10-18T14:30:00Z",
+      "tags": [
+        "VIP Client",
+        "Bridal Reference",
+        "Regular"
+      ],
+      "created_at": "2025-11-10T11:00:00Z",
+      "updated_at": "2026-10-18T14:30:00Z"
+    },
+    {
+      "id": "cust-2",
+      "name": "Pooja Agarwal",
+      "mobile": "9988776655",
+      "email": "pooja.a@outlook.com",
+      "birthday": "1998-04-20",
+      "address": "Tower 3, My Home Bhooja, Gachibowli, Hyderabad",
+      "saved_addresses": [
+        {
+          "label": "Residence",
+          "address_line": "Tower 3, Apt 1804, My Home Bhooja",
+          "area": "Gachibowli",
+          "city": "Hyderabad"
+        }
+      ],
+      "preferences": "Dewy glass-skin finish for bridal makeup. Natural flutter lashes.",
+      "allergies": "None reported.",
+      "notes": "Booked Royal Bridal Glow & Makeup package for wedding on Dec 15th.",
+      "loyalty_points": 620,
+      "total_spend": 32000,
+      "visit_count": 7,
+      "last_visit_at": "2026-10-30",
+      "tags": [
+        "Bride-to-Be",
+        "High Value"
+      ],
+      "created_at": "2026-02-14T09:30:00Z",
+      "updated_at": "2026-10-21T11:00:00Z"
+    },
+    {
+      "id": "cust-3",
+      "name": "Divya Varma",
+      "mobile": "9123456780",
+      "email": "divya.varma@yahoo.com",
+      "birthday": "1993-08-09",
+      "address": "Villa 18, Aparna Sarovar Grande, Nallagandla, Hyderabad",
+      "preferences": "Prefers ammonia-free hair glosses and Rose aroma pedicure.",
+      "loyalty_points": 180,
+      "total_spend": 9400,
+      "visit_count": 4,
+      "last_visit_at": "2026-10-15T16:00:00Z",
+      "tags": [
+        "Hair Spa Regular"
+      ],
+      "created_at": "2026-03-01T15:20:00Z",
+      "updated_at": "2026-10-15T16:00:00Z"
+    },
+    {
+      "id": "cust-4",
+      "name": "Harika Chowdary",
+      "mobile": "9000123890",
+      "email": "harika.c@gmail.com",
+      "birthday": "2001-02-28",
+      "address": "Botanical Garden Road, Kondapur, Hyderabad",
+      "preferences": "Enquired about Party Makeup and Saree Draping for family sangeet.",
+      "loyalty_points": 80,
+      "total_spend": 4200,
+      "visit_count": 2,
+      "last_visit_at": "2026-10-22T17:15:00Z",
+      "tags": [
+        "Festive Glam"
+      ],
+      "created_at": "2026-05-18T10:00:00Z",
+      "updated_at": "2026-10-22T17:15:00Z"
+    },
+    {
+      "id": "cust-1793385079058",
+      "name": "Ananya Varma",
+      "mobile": "9848099887",
+      "loyalty_points": 20,
+      "total_spend": 0,
+      "visit_count": 4,
+      "saved_addresses": [],
+      "last_visit_at": "2026-10-30",
+      "created_at": "2026-10-30T18:31:19.058Z",
+      "updated_at": "2026-10-30T18:31:19.058Z"
+    }
+  ],
+  "otp_sessions": [],
+  "staff": [
+    {
+      "id": "stf-1",
+      "user_id": "usr-1",
+      "name": "Priya Sharma",
+      "phone": "9848012345",
+      "email": "owner@theglossylooks.com",
+      "role": "Salon Director & Master Stylist",
+      "joining_date": "2024-01-01",
+      "salary_type": "monthly",
+      "base_salary": 85000,
+      "commission_rate": 15,
+      "skills": [
+        "Bridal Makeup",
+        "Airbrush Art",
+        "Hair Couture",
+        "Aesthetics"
+      ],
+      "working_hours": "10:00 AM - 08:00 PM",
+      "is_active": true,
+      "created_at": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": "stf-2",
+      "user_id": "usr-1",
+      "name": "Priya Sharma",
+      "phone": "9848012345",
+      "email": "manager@theglossylooks.com",
+      "role": "Operations & Floor Manager",
+      "joining_date": "2024-03-01",
+      "salary_type": "monthly",
+      "base_salary": 48000,
+      "commission_rate": 5,
+      "skills": [
+        "Client Relations",
+        "Inventory Control",
+        "Billing Reconciliation"
+      ],
+      "working_hours": "10:00 AM - 07:00 PM",
+      "is_active": true,
+      "created_at": "2024-03-01T10:00:00Z"
+    },
+    {
+      "id": "stf-3",
+      "user_id": "usr-3",
+      "name": "Kavitha Reddy",
+      "phone": "9700112233",
+      "email": "cashier@theglossylooks.com",
+      "role": "Receptionist & Billing Specialist",
+      "joining_date": "2024-06-01",
+      "salary_type": "monthly",
+      "base_salary": 28000,
+      "commission_rate": 3,
+      "skills": [
+        "POS Operations",
+        "Booking Coordination",
+        "Customer Delight"
+      ],
+      "working_hours": "10:00 AM - 10:00 PM (Rotational)",
+      "is_active": true,
+      "created_at": "2024-06-01T10:00:00Z"
+    },
+    {
+      "id": "stf-4",
+      "user_id": "usr-4",
+      "name": "Fatima Khan",
+      "phone": "9912345678",
+      "email": "fatima@theglossylooks.com",
+      "role": "Senior Bridal Makeup Artist & Hair Stylist",
+      "joining_date": "2024-02-15",
+      "salary_type": "hybrid",
+      "base_salary": 35000,
+      "commission_rate": 12,
+      "skills": [
+        "HD Bridal Makeup",
+        "Airbrush Base",
+        "Saree Draping",
+        "Reception Couture"
+      ],
+      "working_hours": "11:00 AM - 09:00 PM",
+      "is_active": true,
+      "created_at": "2024-02-15T10:00:00Z"
+    },
+    {
+      "id": "stf-5",
+      "name": "Suresh Verma",
+      "phone": "9876543210",
+      "role": "Senior Hair Stylist & Spa Therapist",
+      "joining_date": "2024-04-10",
+      "salary_type": "monthly",
+      "base_salary": 32000,
+      "commission_rate": 10,
+      "skills": [
+        "Keratin Treatment",
+        "Hair Spa",
+        "Swedish Aroma Massage",
+        "De-Tan"
+      ],
+      "working_hours": "10:00 AM - 08:00 PM",
+      "is_active": true,
+      "created_at": "2024-04-10T10:00:00Z",
+      "user_id": "usr-5",
+      "email": "inventory@theglossylooks.com"
+    },
+    {
+      "id": "stf-6",
+      "name": "Meera Nair",
+      "phone": "9654321098",
+      "role": "Skin Aesthetician & Nail Artist",
+      "joining_date": "2024-07-01",
+      "salary_type": "monthly",
+      "base_salary": 28000,
+      "commission_rate": 10,
+      "skills": [
+        "Hydra Facial",
+        "O3+ Facials",
+        "Crystal Pedicure",
+        "Designer Nail Art"
+      ],
+      "working_hours": "11:00 AM - 09:00 PM",
+      "is_active": true,
+      "created_at": "2024-07-01T10:00:00Z",
+      "user_id": "usr-1793129856220-691"
+    }
+  ],
+  "staff_availability": [],
+  "categories": [
+    {
+      "id": "cat-salon",
+      "name": "Salon",
+      "slug": "salon",
+      "description": "Bespoke hair cuts, styling, botox, organic hair spa, and revitalizing treatments.",
+      "image_url": "/categories/salon.jpg",
+      "display_order": 1,
+      "is_active": true
+    },
+    {
+      "id": "cat-spa",
+      "name": "Spa",
+      "slug": "spa",
+      "description": "Serene body relaxation therapies, herbal warm towel rituals, and deep tissue stress relief.",
+      "image_url": "/categories/spa.jpg",
+      "display_order": 2,
+      "is_active": true
+    },
+    {
+      "id": "cat-facials",
+      "name": "Facials",
+      "slug": "facials",
+      "description": "Advanced clinical & herbal skin rejuvenations, Hydra glow, O3+ radiance, and de-tan therapies.",
+      "image_url": "/categories/facials.jpg",
+      "display_order": 3,
+      "is_active": true
+    },
+    {
+      "id": "cat-makeup",
+      "name": "Makeup",
+      "slug": "makeup",
+      "description": "High-definition bridal makeup, festive glam, engagement looks, hair design, and saree draping.",
+      "image_url": "/categories/makeup.jpg",
+      "display_order": 4,
+      "is_active": true
+    },
+    {
+      "id": "cat-body",
+      "name": "Body Polishing",
+      "slug": "body-polishing",
+      "description": "Full body botanical exfoliating scrubs, organic polish, tan removal, and skin softening glows.",
+      "image_url": "/categories/body.jpg",
+      "display_order": 5,
+      "is_active": true
+    },
+    {
+      "id": "cat-mani-pedi",
+      "name": "Mani & Pedi",
+      "slug": "mani-pedi",
+      "description": "Luxury crystal pedicure, rose aroma manicure, nail strengthening, and contemporary nail art.",
+      "image_url": "/categories/mani-pedi.jpg",
+      "display_order": 6,
+      "is_active": true
+    }
+  ],
+  "services": [
+    {
+      "id": "srv-mu-1",
+      "category_id": "cat-makeup",
+      "name": "Bridal Makeup (HD / Airbrush)",
+      "slug": "bridal-makeup",
+      "description": "Complete royal bridal transformation with waterproof HD/Airbrush base, bespoke contouring, lashes, premium eye artistry, hair styling, and jewelry setting.",
+      "benefits": "16-hour sweat-proof stay, camera-ready luminosity, includes luxury skin prep",
+      "duration_minutes": 180,
+      "price": 18500,
+      "discount_price": 15999,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/bridal-makeup.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mu-2",
+      "category_id": "cat-makeup",
+      "name": "Party Makeup & Hair Styling",
+      "slug": "party-makeup",
+      "description": "Glamorous evening and festive party makeup designed to complement your designer outfit with modern glowing finish and complementary hair do.",
+      "benefits": "Long-lasting dewy or matte finish, sculpted cheekbones, winged or smokey eye artistry",
+      "duration_minutes": 90,
+      "price": 4500,
+      "discount_price": 3800,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/party-makeup.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mu-3",
+      "category_id": "cat-makeup",
+      "name": "Engagement Makeup",
+      "slug": "engagement-makeup",
+      "description": "Elegant romantic makeup look curated specifically for ring ceremonies and intimate sangeet gatherings.",
+      "benefits": "Pastel and shimmer palettes tailored to your pastel lehenga or gown",
+      "duration_minutes": 120,
+      "price": 8500,
+      "discount_price": 7499,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/engagement-makeup.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mu-4",
+      "category_id": "cat-makeup",
+      "name": "Reception Makeup",
+      "slug": "reception-makeup",
+      "description": "High-impact couture glam with sculpted definition, bold lips or dramatic eyes suited for grand wedding reception stages.",
+      "benefits": "Stage-lighting tested, high pigment definition, includes hair accessory placement",
+      "duration_minutes": 120,
+      "price": 9500,
+      "discount_price": 8499,
+      "is_popular": false,
+      "is_bridal_festive": true,
+      "image_url": "/services/reception-makeup.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mu-5",
+      "category_id": "cat-makeup",
+      "name": "Hair Styling & Updos",
+      "slug": "hair-styling",
+      "description": "Designer bridal buns, textured messy braids, Hollywood waves, floral poola jada setting, and heat-protective styling.",
+      "benefits": "Firm hold that endures dancing and humidity, real flower anchoring",
+      "duration_minutes": 60,
+      "price": 2200,
+      "discount_price": 1800,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/hair-styling.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mu-6",
+      "category_id": "cat-makeup",
+      "name": "Traditional Saree Draping",
+      "slug": "saree-draping",
+      "description": "Flawless crisp pleating and styling in South Indian bridal, Kanjeevaram, Gujarati, Bengali, or Modern Mermaid draping.",
+      "benefits": "Pre-pleating option, ironed pin placement, zero discomfort or slippage",
+      "duration_minutes": 40,
+      "price": 1200,
+      "discount_price": 999,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/saree-draping.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mu-7",
+      "category_id": "cat-makeup",
+      "name": "Makeup Trial Consultation",
+      "slug": "makeup-trial",
+      "description": "Half-face makeup trial and personal skin tone match, bridal look consultation, and product patch test prior to your big day.",
+      "benefits": "Deducted from final bridal booking if finalized, personalized beauty checklist",
+      "duration_minutes": 75,
+      "price": 2500,
+      "discount_price": 1999,
+      "is_popular": false,
+      "is_bridal_festive": true,
+      "image_url": "/services/makeup-trial.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-sal-1",
+      "category_id": "cat-salon",
+      "name": "Signature Haircut & Blow Dry",
+      "slug": "signature-haircut",
+      "description": "Custom layered hair design and face-framing cuts by our senior stylists, followed by Moroccan oil blow dry.",
+      "benefits": "Adds bounce, removes split ends, includes revitalizing wash",
+      "duration_minutes": 50,
+      "price": 1400,
+      "discount_price": 1199,
+      "is_popular": true,
+      "is_bridal_festive": false,
+      "image_url": "/services/haircut.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-sal-2",
+      "category_id": "cat-salon",
+      "name": "L’Oréal Majirel Global Hair Colour",
+      "slug": "global-hair-colour",
+      "description": "Rich vibrant color transformation or 100% grey coverage with nourishing ionène G and incell formula.",
+      "benefits": "Deep conditioning gloss, high multidimensional shine, long-lasting hue",
+      "duration_minutes": 90,
+      "price": 4200,
+      "discount_price": 3600,
+      "is_popular": false,
+      "is_bridal_festive": false,
+      "image_url": "/services/hair-colour.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-sal-3",
+      "category_id": "cat-salon",
+      "name": "Keratin Smoothing & Protein Therapy",
+      "slug": "keratin-treatment",
+      "description": "Intense anti-frizz formaldeyhde-free smoothing system that transforms unruly waves into silky, manageable tresses.",
+      "benefits": "Up to 4 months of frizz-free humidity resistance, cuts styling time in half",
+      "duration_minutes": 150,
+      "price": 6500,
+      "discount_price": 5499,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/keratin.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-sal-4",
+      "category_id": "cat-salon",
+      "name": "Biolage Moroccan Oil Deep Hair Spa",
+      "slug": "hair-spa",
+      "description": "Therapeutic scalp massage with botanical hair mask, micro-mist hydration steam, and serum lock-in.",
+      "benefits": "Relieves stress, nourishes dry flaky scalp, strengthens hair follicles",
+      "duration_minutes": 60,
+      "price": 1800,
+      "discount_price": 1499,
+      "is_popular": true,
+      "is_bridal_festive": false,
+      "image_url": "/services/hair-spa.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-fac-1",
+      "category_id": "cat-facials",
+      "name": "O3+ Bridal Radiance & Whitening Facial",
+      "slug": "o3-bridal-facial",
+      "description": "Award-winning European formulation facial with oxygenating peel, micro-circulation ampoule, and 24k gold rubber mask.",
+      "benefits": "Instantly banishes dullness, lightens pigmentation, leaves unmatched glass-skin glow",
+      "duration_minutes": 75,
+      "price": 3800,
+      "discount_price": 3200,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/o3-facial.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-fac-2",
+      "category_id": "cat-facials",
+      "name": "Hydra Deep Pore Infusion Facial",
+      "slug": "hydra-glow-facial",
+      "description": "Multi-step skin resurfacing treatment combining vortex vacuum suction extraction, hyaluronic acid infusion, and LED phototherapy.",
+      "benefits": "Clears blackheads, deeply plumps fine lines, ultra-hydrating without downtime",
+      "duration_minutes": 80,
+      "price": 4500,
+      "discount_price": 3999,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/hydra-facial.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-fac-3",
+      "category_id": "cat-facials",
+      "name": "Lotus Organic Phyto-Rx Skin Glow",
+      "slug": "lotus-phyto-facial",
+      "description": "Pure plant botanical treatment enriched with bilberry, grape fruit extracts, and pure vitamin C.",
+      "benefits": "Gentle on sensitive skin, fights environmental pollution damage",
+      "duration_minutes": 60,
+      "price": 2400,
+      "discount_price": 1999,
+      "is_popular": false,
+      "is_bridal_festive": false,
+      "image_url": "/services/lotus-facial.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-spa-1",
+      "category_id": "cat-spa",
+      "name": "Aroma Relaxation Full Body Therapy",
+      "slug": "aroma-full-body-spa",
+      "description": "Swedish effleurage massage with warm lavender and ylang-ylang essential oils, followed by calming herbal steam.",
+      "benefits": "Relieves muscle stiffness, enhances lymphatic drainage, promotes deep restorative sleep",
+      "duration_minutes": 60,
+      "price": 3200,
+      "discount_price": 2699,
+      "is_popular": true,
+      "is_bridal_festive": false,
+      "image_url": "/services/aroma-spa.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-spa-2",
+      "category_id": "cat-spa",
+      "name": "Deep Tissue & Hot Stone Stress Relief",
+      "slug": "deep-tissue-stone-spa",
+      "description": "Targeted firm pressure massage using smooth heated basalt volcanic stones to melt chronic neck and back tension.",
+      "benefits": "Improves blood circulation, releases muscle knots from desk fatigue",
+      "duration_minutes": 75,
+      "price": 3900,
+      "discount_price": 3300,
+      "is_popular": false,
+      "is_bridal_festive": false,
+      "image_url": "/services/hot-stone.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-bp-1",
+      "category_id": "cat-body-polishing",
+      "name": "Full Body Botanical Scrub & Polish",
+      "slug": "full-body-polishing",
+      "description": "Luxurious full-body exfoliation with dead sea minerals, walnut micro-granules, and moisturizing shea butter mask.",
+      "benefits": "Buffs away dead cells, softens elbows & knees, leaves velvety silk touch",
+      "duration_minutes": 75,
+      "price": 3600,
+      "discount_price": 2999,
+      "is_popular": true,
+      "is_bridal_festive": true,
+      "image_url": "/services/body-polish.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-bp-2",
+      "category_id": "cat-body-polishing",
+      "name": "Full Body Herbal De-Tan Brightening",
+      "slug": "full-body-de-tan",
+      "description": "Kojic acid and eucalyptus herbal pack applied across full arms, legs, and back to reverse sun damage and uneven pigmentation.",
+      "benefits": "Visible tan removal in single session, cooling and soothing after outdoor exposure",
+      "duration_minutes": 60,
+      "price": 2800,
+      "discount_price": 2399,
+      "is_popular": false,
+      "is_bridal_festive": true,
+      "image_url": "/services/body-detan.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mp-1",
+      "category_id": "cat-mani-pedi",
+      "name": "Luxury Crystal Pedicure Ritual",
+      "slug": "crystal-pedicure",
+      "description": "Effervescent crystal salt soak, callus smoothing, foot exfoliation scrub, cooling mint clay mask, and reflexology massage.",
+      "benefits": "Relieves tired feet, heals cracked heels, includes clean cuticle detailing and shine buff",
+      "duration_minutes": 50,
+      "price": 1500,
+      "discount_price": 1299,
+      "is_popular": true,
+      "is_bridal_festive": false,
+      "image_url": "/services/pedicure.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mp-2",
+      "category_id": "cat-mani-pedi",
+      "name": "Rose Petal Aroma Manicure",
+      "slug": "rose-aroma-manicure",
+      "description": "Fresh rose petal infused warm soak, almond scrub, cuticle conditioning, hand massage, and long-lasting gel polish application.",
+      "benefits": "Hydrates dry cuticles, prevents brittle nails, flawless chip-resistant finish",
+      "duration_minutes": 45,
+      "price": 1200,
+      "discount_price": 999,
+      "is_popular": true,
+      "is_bridal_festive": false,
+      "image_url": "/services/manicure.jpg",
+      "is_active": true
+    },
+    {
+      "id": "srv-mp-3",
+      "category_id": "cat-mani-pedi",
+      "name": "Designer Nail Art & French Extension Polish",
+      "slug": "designer-nail-art",
+      "description": "Bespoke nail art with chrome powder, gold foil accents, or classic micro-french tips over gel overlay.",
+      "benefits": "Lasts up to 3 weeks without fading or chipping",
+      "duration_minutes": 60,
+      "price": 1800,
+      "discount_price": 1499,
+      "is_popular": false,
+      "is_bridal_festive": true,
+      "image_url": "/services/nail-art.jpg",
+      "is_active": true
+    }
+  ],
+  "packages": [
+    {
+      "id": "pkg-1",
+      "name": "Royal Bridal Glow & Makeup Package",
+      "description": "Comprehensive pre-bridal and wedding day package: O3+ Bridal Radiance Facial, Full Body Botanical Polish, HD Bridal Makeup, Saree Draping, and Hair Styling.",
+      "service_ids": [
+        "srv-mu-1",
+        "srv-fac-1",
+        "srv-bp-1",
+        "srv-mu-6"
+      ],
+      "service_names": [
+        "Bridal Makeup (HD / Airbrush)",
+        "O3+ Bridal Radiance Facial",
+        "Full Body Botanical Scrub & Polish",
+        "Traditional Saree Draping"
+      ],
+      "original_price": 27100,
+      "package_price": 21999,
+      "duration_minutes": 360,
+      "is_active": true
+    },
+    {
+      "id": "pkg-2",
+      "name": "Festive Party Ready Glam Combo",
+      "description": "Party Makeup with Hair Updo, Rose Aroma Manicure, and Quick Glow Facial session for festive celebrations.",
+      "service_ids": [
+        "srv-mu-2",
+        "srv-mp-2",
+        "srv-sal-4"
+      ],
+      "service_names": [
+        "Party Makeup & Hair Styling",
+        "Rose Petal Aroma Manicure",
+        "Biolage Moroccan Oil Deep Hair Spa"
+      ],
+      "original_price": 7500,
+      "package_price": 5899,
+      "duration_minutes": 180,
+      "is_active": true
+    },
+    {
+      "id": "pkg-3",
+      "name": "Weekend Head-to-Toe Pampering",
+      "description": "Biolage Hair Spa, O3+ Radiance Facial, and Luxury Crystal Pedicure with soothing massage.",
+      "service_ids": [
+        "srv-sal-4",
+        "srv-fac-1",
+        "srv-mp-1"
+      ],
+      "service_names": [
+        "Biolage Moroccan Oil Deep Hair Spa",
+        "O3+ Bridal Radiance Facial",
+        "Luxury Crystal Pedicure Ritual"
+      ],
+      "original_price": 7100,
+      "package_price": 5499,
+      "duration_minutes": 170,
+      "is_active": true
+    }
+  ],
+  "appointments": [
+    {
+      "customer_name": "Rohit Reddy",
+      "customer_phone": "9988776655",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "02:00 PM",
+      "status": "Cancelled",
+      "services": [
+        {
+          "id": "srv-02",
+          "name": "Signature Haircut",
+          "price": 1199,
+          "duration": 50
+        }
+      ],
+      "total_amount": 1199,
+      "discount_amount": 0,
+      "final_amount": 1199,
+      "payment_preference": "pay_at_salon",
+      "notes": "Cancelled: Client requested reschedule",
+      "booking_source": "website",
+      "id": "apt-1793385143474",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-111",
+      "created_at": "2026-10-30T18:32:23.474Z",
+      "updated_at": "2026-10-30T18:32:23.958Z",
+      "customer_id": "cust-2",
+      "whatsapp_status": "sent",
+      "last_whatsapp_sent_at": "2026-10-30T18:32:23.948Z",
+      "completed_at": "2026-10-30T18:32:23.953Z"
+    },
+    {
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "11:30 AM",
+      "status": "Completed",
+      "services": [
+        {
+          "id": "srv-01",
+          "name": "Bridal Trial Consultation",
+          "price": 1999,
+          "duration": 75
+        }
+      ],
+      "total_amount": 1999,
+      "discount_amount": 0,
+      "final_amount": 1999,
+      "payment_preference": "pay_at_salon",
+      "notes": "Testing real WhatsApp confirmation template dispatch",
+      "booking_source": "website",
+      "id": "apt-1793385142175",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-110",
+      "created_at": "2026-10-30T18:32:22.175Z",
+      "updated_at": "2026-10-30T18:32:23.467Z",
+      "customer_id": "cust-1793385079058",
+      "whatsapp_status": "sent",
+      "last_whatsapp_sent_at": "2026-10-30T18:32:23.464Z",
+      "completed_at": "2026-10-30T18:32:23.467Z"
+    },
+    {
+      "customer_name": "Rohit Reddy",
+      "customer_phone": "9988776655",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "02:00 PM",
+      "status": "Cancelled",
+      "services": [
+        {
+          "id": "srv-02",
+          "name": "Signature Haircut",
+          "price": 1199,
+          "duration": 50
+        }
+      ],
+      "total_amount": 1199,
+      "discount_amount": 0,
+      "final_amount": 1199,
+      "payment_preference": "pay_at_salon",
+      "notes": "Cancelled: Client requested reschedule",
+      "booking_source": "website",
+      "id": "apt-1793385122536",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-109",
+      "created_at": "2026-10-30T18:32:02.536Z",
+      "updated_at": "2026-10-30T18:32:03.038Z",
+      "customer_id": "cust-2",
+      "whatsapp_status": "sent",
+      "last_whatsapp_sent_at": "2026-10-30T18:32:03.029Z",
+      "completed_at": "2026-10-30T18:32:03.033Z"
+    },
+    {
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "11:30 AM",
+      "status": "Completed",
+      "services": [
+        {
+          "id": "srv-01",
+          "name": "Bridal Trial Consultation",
+          "price": 1999,
+          "duration": 75
+        }
+      ],
+      "total_amount": 1999,
+      "discount_amount": 0,
+      "final_amount": 1999,
+      "payment_preference": "pay_at_salon",
+      "notes": "Testing real WhatsApp confirmation template dispatch",
+      "booking_source": "website",
+      "id": "apt-1793385121065",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-108",
+      "created_at": "2026-10-30T18:32:01.065Z",
+      "updated_at": "2026-10-30T18:32:02.529Z",
+      "customer_id": "cust-1793385079058",
+      "whatsapp_status": "sent",
+      "last_whatsapp_sent_at": "2026-10-30T18:32:02.525Z",
+      "completed_at": "2026-10-30T18:32:02.529Z"
+    },
+    {
+      "customer_name": "Rohit Reddy",
+      "customer_phone": "9988776655",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "02:00 PM",
+      "status": "Cancelled",
+      "services": [
+        {
+          "id": "srv-02",
+          "name": "Signature Haircut",
+          "price": 1199,
+          "duration": 50
+        }
+      ],
+      "total_amount": 1199,
+      "discount_amount": 0,
+      "final_amount": 1199,
+      "payment_preference": "pay_at_salon",
+      "notes": "Cancelled: Client requested reschedule",
+      "booking_source": "website",
+      "id": "apt-1793385088635",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-107",
+      "created_at": "2026-10-30T18:31:28.635Z",
+      "updated_at": "2026-10-30T18:31:29.254Z",
+      "customer_id": "cust-2",
+      "whatsapp_status": "sent",
+      "last_whatsapp_sent_at": "2026-10-30T18:31:29.245Z",
+      "completed_at": "2026-10-30T18:31:29.250Z"
+    },
+    {
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "11:30 AM",
+      "status": "Completed",
+      "services": [
+        {
+          "id": "srv-01",
+          "name": "Bridal Trial Consultation",
+          "price": 1999,
+          "duration": 75
+        }
+      ],
+      "total_amount": 1999,
+      "discount_amount": 0,
+      "final_amount": 1999,
+      "payment_preference": "pay_at_salon",
+      "notes": "Testing real WhatsApp confirmation template dispatch",
+      "booking_source": "website",
+      "id": "apt-1793385086256",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-106",
+      "created_at": "2026-10-30T18:31:26.256Z",
+      "updated_at": "2026-10-30T18:31:28.628Z",
+      "customer_id": "cust-1793385079058",
+      "whatsapp_status": "sent",
+      "last_whatsapp_sent_at": "2026-10-30T18:31:28.624Z",
+      "completed_at": "2026-10-30T18:31:28.628Z"
+    },
+    {
+      "customer_name": "Rohit Reddy",
+      "customer_phone": "9988776655",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "02:00 PM",
+      "status": "Cancelled",
+      "services": [
+        {
+          "id": "srv-02",
+          "name": "Signature Haircut",
+          "price": 1199,
+          "duration": 50
+        }
+      ],
+      "total_amount": 1199,
+      "discount_amount": 0,
+      "final_amount": 1199,
+      "payment_preference": "pay_at_salon",
+      "notes": "Cancelled: Client requested reschedule",
+      "booking_source": "website",
+      "id": "apt-1793385079081",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-105",
+      "created_at": "2026-10-30T18:31:19.081Z",
+      "updated_at": "2026-10-30T18:31:19.087Z",
+      "customer_id": "cust-2"
+    },
+    {
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "branch_id": "tgl-gachibowli-main",
+      "appointment_date": "2026-10-30",
+      "time_slot": "11:30 AM",
+      "status": "Completed",
+      "services": [
+        {
+          "id": "srv-01",
+          "name": "Bridal Trial Consultation",
+          "price": 1999,
+          "duration": 75
+        }
+      ],
+      "total_amount": 1999,
+      "discount_amount": 0,
+      "final_amount": 1999,
+      "payment_preference": "pay_at_salon",
+      "notes": "Testing real WhatsApp confirmation template dispatch",
+      "booking_source": "website",
+      "id": "apt-1793385079058",
+      "assigned_staff_name": "Station Stylist",
+      "booking_reference": "TGL-BK-2026-104",
+      "created_at": "2026-10-30T18:31:19.058Z",
+      "updated_at": "2026-10-30T18:31:19.070Z",
+      "customer_id": "cust-1793385079058"
+    },
+    {
+      "id": "apt-101",
+      "booking_reference": "TGL-BK-2026-101",
+      "customer_id": "cust-1",
+      "customer_name": "Sneha Reddy",
+      "customer_phone": "9849021234",
+      "customer_email": "sneha.reddy@gmail.com",
+      "appointment_date": "2026-10-24",
+      "time_slot": "11:00 AM",
+      "status": "Confirmed",
+      "assigned_staff_id": "stf-6",
+      "assigned_staff_name": "Meera Nair",
+      "services": [
+        {
+          "id": "srv-fac-1",
+          "name": "O3+ Bridal Radiance & Whitening Facial",
+          "duration": 75,
+          "price": 3200,
+          "staff_id": "stf-6",
+          "staff_name": "Meera Nair"
+        },
+        {
+          "id": "srv-mp-1",
+          "name": "Luxury Crystal Pedicure Ritual",
+          "duration": 50,
+          "price": 1299,
+          "staff_id": "stf-6",
+          "staff_name": "Meera Nair"
+        }
+      ],
+      "total_amount": 4499,
+      "discount_amount": 0,
+      "final_amount": 4499,
+      "payment_preference": "pay_at_salon",
+      "notes": "Requested gentle steam pressure.",
+      "booking_source": "website",
+      "created_at": "2026-10-23T18:10:00Z"
+    },
+    {
+      "id": "apt-102",
+      "booking_reference": "TGL-BK-2026-102",
+      "customer_id": "cust-2",
+      "customer_name": "Pooja Agarwal",
+      "customer_phone": "9988776655",
+      "appointment_date": "2026-10-24",
+      "time_slot": "02:30 PM",
+      "status": "Checked In",
+      "assigned_staff_id": "stf-4",
+      "assigned_staff_name": "Fatima Khan",
+      "services": [
+        {
+          "id": "srv-mu-3",
+          "name": "Engagement Makeup",
+          "duration": 120,
+          "price": 7499,
+          "staff_id": "stf-4",
+          "staff_name": "Fatima Khan"
+        },
+        {
+          "id": "srv-mu-6",
+          "name": "Traditional Saree Draping",
+          "duration": 40,
+          "price": 999,
+          "staff_id": "stf-4",
+          "staff_name": "Fatima Khan"
+        }
+      ],
+      "total_amount": 8498,
+      "discount_amount": 200,
+      "final_amount": 8298,
+      "payment_preference": "upi",
+      "notes": "Arriving with pastel pink lehenga for sangeet evening.",
+      "booking_source": "whatsapp",
+      "created_at": "2026-10-23T19:30:00Z"
+    },
+    {
+      "id": "apt-103",
+      "booking_reference": "TGL-BK-2026-103",
+      "customer_id": "cust-4",
+      "customer_name": "Harika Chowdary",
+      "customer_phone": "9000123890",
+      "appointment_date": "2026-10-24",
+      "time_slot": "05:00 PM",
+      "status": "Pending",
+      "services": [
+        {
+          "id": "srv-mu-2",
+          "name": "Party Makeup & Hair Styling",
+          "duration": 90,
+          "price": 3800
+        }
+      ],
+      "total_amount": 3800,
+      "discount_amount": 0,
+      "final_amount": 3800,
+      "payment_preference": "pay_at_salon",
+      "notes": "New enquiry from website. Needs receptionist confirmation call.",
+      "booking_source": "website",
+      "created_at": "2026-10-23T21:45:00Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "ord-1001",
+      "bill_number": "TGL-2026-1001",
+      "invoice_number": "INV-2026-0001",
+      "customer_id": "cust-3",
+      "customer_name": "Divya Varma",
+      "customer_phone": "9123456780",
+      "items": [
+        {
+          "service_id": "srv-sal-1",
+          "item_name": "Signature Haircut & Blow Dry",
+          "item_type": "service",
+          "quantity": 1,
+          "unit_price": 1199,
+          "total_price": 1199,
+          "staff_id": "stf-5",
+          "staff_name": "Suresh Verma",
+          "commission_amount": 120
+        },
+        {
+          "service_id": "srv-mp-2",
+          "item_name": "Rose Petal Aroma Manicure",
+          "item_type": "service",
+          "quantity": 1,
+          "unit_price": 999,
+          "total_price": 999,
+          "staff_id": "stf-6",
+          "staff_name": "Meera Nair",
+          "commission_amount": 100
+        }
+      ],
+      "subtotal": 2198,
+      "discount": 198,
+      "tax_percent": 5,
+      "tax_amount": 100,
+      "tip_amount": 50,
+      "grand_total": 2150,
+      "paid_amount": 2150,
+      "due_amount": 0,
+      "payment_status": "Paid",
+      "primary_payment_mode": "UPI",
+      "cashier_name": "Kavitha Reddy",
+      "notes": "GPay payment received successfully. Tax invoice generated.",
+      "created_at": "2026-10-23T17:30:00Z"
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay-1001",
+      "order_id": "ord-1001",
+      "bill_number": "TGL-2026-1001",
+      "customer_name": "Divya Varma",
+      "customer_phone": "9123456780",
+      "amount": 2150,
+      "payment_mode": "UPI",
+      "transaction_ref": "UPI-REF-99882211",
+      "status": "Success",
+      "notes": "Full settlement via Google Pay QR with ₹50 stylist tip",
+      "recorded_by": "Kavitha Reddy",
+      "created_at": "2026-10-23T17:35:00Z"
+    }
+  ],
+  "products": [
+    {
+      "id": "prod-1",
+      "name": "O3+ Bridal Radiance Professional Facial Kit (10 Treatments)",
+      "sku": "O3P-BR-10",
+      "brand": "O3+ Professional",
+      "category": "Facial Kits",
+      "unit": "kits",
+      "current_stock": 4,
+      "min_stock_alert": 3,
+      "purchase_cost": 4800,
+      "sale_price": 6500,
+      "expiry_date": "2027-12-31",
+      "location": "Aisle A - Facial Cabinet",
+      "supplier_id": "sup-1",
+      "supplier_name": "O3+ India Official Distributor",
+      "is_retail": false,
+      "updated_at": "2026-10-10T12:00:00Z"
+    },
+    {
+      "id": "prod-2",
+      "name": "L’Oréal Professionnel Majirel Hair Colour 6.1 (Ash Blonde)",
+      "sku": "LOR-MAJ-61",
+      "brand": "L’Oréal Professionnel",
+      "category": "Hair Colour",
+      "unit": "tubes",
+      "current_stock": 12,
+      "min_stock_alert": 5,
+      "purchase_cost": 420,
+      "sale_price": 650,
+      "expiry_date": "2028-06-30",
+      "location": "Colour Bar Rack 2",
+      "supplier_id": "sup-2",
+      "supplier_name": "Esskay Beauty Distro",
+      "is_retail": false,
+      "updated_at": "2026-10-12T14:00:00Z"
+    },
+    {
+      "id": "prod-3",
+      "name": "Matrix Biolage Hydrasource Hair Treatment Mask 500ml",
+      "sku": "MAT-BIO-500",
+      "brand": "Matrix Biolage",
+      "category": "Hair Care",
+      "unit": "tubs",
+      "current_stock": 2,
+      "min_stock_alert": 4,
+      "purchase_cost": 950,
+      "sale_price": 1400,
+      "expiry_date": "2027-08-31",
+      "location": "Hair Spa Station Shelf",
+      "supplier_id": "sup-2",
+      "supplier_name": "Esskay Beauty Distro",
+      "is_retail": true,
+      "updated_at": "2026-09-28T10:00:00Z"
+    },
+    {
+      "id": "prod-4",
+      "name": "RICA Brazilian White Chocolate Wax Bead 800g",
+      "sku": "RICA-WAX-800",
+      "brand": "RICA Italy",
+      "category": "Waxing & Depilatory",
+      "unit": "cans",
+      "current_stock": 6,
+      "min_stock_alert": 3,
+      "purchase_cost": 1150,
+      "sale_price": 1650,
+      "expiry_date": "2028-01-31",
+      "location": "Waxing Room 1",
+      "supplier_id": "sup-3",
+      "supplier_name": "Southern Salon Supplies",
+      "is_retail": false,
+      "updated_at": "2026-10-05T11:00:00Z"
+    },
+    {
+      "id": "prod-5",
+      "name": "MAC Studio Fix Fluid Foundation SPF 15 (NC35)",
+      "sku": "MAC-SFF-35",
+      "brand": "MAC Cosmetics",
+      "category": "Makeup Products",
+      "unit": "bottles",
+      "current_stock": 3,
+      "min_stock_alert": 2,
+      "purchase_cost": 3100,
+      "sale_price": 3900,
+      "expiry_date": "2027-10-31",
+      "location": "Bridal Vanity Counter",
+      "supplier_id": "sup-4",
+      "supplier_name": "Nykaa Pro Salon Supply",
+      "is_retail": false,
+      "updated_at": "2026-10-02T16:00:00Z"
+    },
+    {
+      "id": "prod-6",
+      "name": "Nitrile Powder-Free Salon Gloves (Box of 100)",
+      "sku": "GLV-NIT-100",
+      "brand": "MedProtect Pro",
+      "category": "Consumables",
+      "unit": "boxes",
+      "current_stock": 1,
+      "min_stock_alert": 3,
+      "purchase_cost": 350,
+      "sale_price": 500,
+      "location": "Storage Bay 3",
+      "supplier_id": "sup-3",
+      "supplier_name": "Southern Salon Supplies",
+      "is_retail": false,
+      "updated_at": "2026-09-20T09:00:00Z"
+    }
+  ],
+  "suppliers": [
+    {
+      "id": "sup-1",
+      "name": "O3+ India Official Distributor",
+      "contact_person": "Rajesh Sharma",
+      "phone": "9811002233",
+      "email": "sales@o3plusdistro.in",
+      "address": "Banjara Hills, Hyderabad",
+      "gstin": "36AABCU9603R1ZM",
+      "created_at": "2025-01-10T10:00:00Z"
+    },
+    {
+      "id": "sup-2",
+      "name": "Esskay Beauty Distro",
+      "contact_person": "Venkatesh Rao",
+      "phone": "9849556677",
+      "email": "orders@esskayhyderabad.com",
+      "address": "Kukatpally Industrial Estate, Hyderabad",
+      "gstin": "36AAACE1234F1Z8",
+      "created_at": "2025-02-12T10:00:00Z"
+    },
+    {
+      "id": "sup-3",
+      "name": "Southern Salon Supplies",
+      "contact_person": "Karthik N",
+      "phone": "9900114455",
+      "email": "support@southernsalon.in",
+      "address": "Madhapur, Hyderabad",
+      "gstin": "36BBCDE5678G2ZT",
+      "created_at": "2025-03-01T10:00:00Z"
+    },
+    {
+      "id": "sup-4",
+      "name": "Nykaa Pro Salon Supply",
+      "contact_person": "Deepika M",
+      "phone": "9988223344",
+      "email": "pro@nykaa.com",
+      "address": "Mumbai / Hyderabad Hub",
+      "created_at": "2025-04-10T10:00:00Z"
+    }
+  ],
+  "purchase_orders": [
+    {
+      "id": "po-1",
+      "po_number": "PO-2026-001",
+      "supplier_id": "sup-1",
+      "supplier_name": "O3+ India Official Distributor",
+      "items": [
+        {
+          "product_id": "prod-1",
+          "product_name": "O3+ Bridal Radiance Professional Facial Kit",
+          "quantity": 5,
+          "unit_cost": 4800,
+          "total_cost": 24000
+        }
+      ],
+      "total_cost": 24000,
+      "status": "Received",
+      "created_at": "2026-10-10T11:00:00Z"
+    }
+  ],
+  "inventory_movements": [
+    {
+      "id": "im-1",
+      "product_id": "prod-1",
+      "product_name": "O3+ Bridal Radiance Professional Facial Kit",
+      "movement_type": "stock_in",
+      "quantity": 5,
+      "balance_after": 5,
+      "notes": "Monthly bulk stock purchase from O3+ distributor",
+      "performed_by": "Ananya Rao",
+      "created_at": "2026-10-10T12:05:00Z"
+    },
+    {
+      "id": "im-2",
+      "product_id": "prod-1",
+      "product_name": "O3+ Bridal Radiance Professional Facial Kit",
+      "movement_type": "service_usage",
+      "quantity": -1,
+      "balance_after": 4,
+      "notes": "Used for Sneha Reddy appointment",
+      "performed_by": "Meera Nair",
+      "created_at": "2026-10-18T15:30:00Z"
+    }
+  ],
+  "gallery": [
+    {
+      "id": "gal-1",
+      "title": "Bespoke South Indian Bridal Makeup",
+      "category": "Bridal Makeup",
+      "artist_name": "Fatima Khan",
+      "service_type": "HD Airbrush Bridal Glam",
+      "image_url": "/gallery/bridal-1.jpg",
+      "description": "Traditional temple jewelry match with waterproof HD airbrush base and micro-lash extensions.",
+      "tags": [
+        "Bridal",
+        "Airbrush",
+        "Kanjeevaram"
+      ],
+      "is_approved": true,
+      "display_order": 1,
+      "created_at": "2026-10-10T10:00:00Z"
+    },
+    {
+      "id": "gal-2",
+      "title": "Cocktail Evening & Sangeet Glam",
+      "category": "Party Makeup",
+      "artist_name": "Fatima Khan",
+      "service_type": "Festive Smokey Glam",
+      "image_url": "/gallery/party-1.jpg",
+      "description": "Subtle cut-crease eye art with soft rose-gold gloss and Hollywood textured waves.",
+      "tags": [
+        "Cocktail",
+        "Smokey Eyes",
+        "Waves"
+      ],
+      "is_approved": true,
+      "display_order": 2,
+      "created_at": "2026-10-12T14:00:00Z"
+    },
+    {
+      "id": "gal-3",
+      "title": "Kanjeevaram Bridal Saree Draping with Fresh Poola Jada",
+      "category": "Saree & Hair",
+      "artist_name": "Priya Sharma",
+      "service_type": "Traditional Saree Art",
+      "image_url": "/gallery/saree-1.jpg",
+      "description": "Crisp box pleating and traditional jasmine flower braid anchoring.",
+      "tags": [
+        "Saree Draping",
+        "Poola Jada"
+      ],
+      "is_approved": true,
+      "display_order": 3,
+      "created_at": "2026-10-14T11:00:00Z"
+    },
+    {
+      "id": "gal-4",
+      "title": "Hydra Glow & De-Tan Rejuvenation",
+      "category": "Skin Care",
+      "artist_name": "Meera Nair",
+      "service_type": "Hydra Pore Resurfacing",
+      "image_url": "/gallery/skin-1.jpg",
+      "description": "Post-facial radiant complexion with deep cellular hydration and natural glow.",
+      "tags": [
+        "Hydra Facial",
+        "Glass Skin"
+      ],
+      "is_approved": true,
+      "display_order": 4,
+      "created_at": "2026-10-16T16:00:00Z"
+    }
+  ],
+  "enquiries": [
+    {
+      "id": "enq-1",
+      "name": "Swathi Chowdary",
+      "phone": "9849112233",
+      "email": "swathi.c@gmail.com",
+      "service_interest": "Bridal Makeup for 3 Functions",
+      "message": "Looking for bridal packages for December 2026 wedding in Gachibowli.",
+      "status": "Contacted",
+      "created_at": "2026-10-22T10:00:00Z"
+    }
+  ],
+  "offers": [
+    {
+      "id": "off-1",
+      "title": "Festive Season Glam Flat ₹500 Off",
+      "coupon_code": "GLOSSY500",
+      "discount_type": "flat",
+      "discount_value": 500,
+      "min_order_value": 2500,
+      "valid_until": "2026-12-31",
+      "is_active": true
+    },
+    {
+      "id": "off-2",
+      "title": "Bridal Package Pre-Booking 10% Off",
+      "coupon_code": "ROYALBRIDE10",
+      "discount_type": "percentage",
+      "discount_value": 10,
+      "min_order_value": 15000,
+      "valid_until": "2026-12-31",
+      "is_active": true
+    }
+  ],
+  "reviews": [
+    {
+      "id": "rev-1",
+      "customer_name": "Pooja Agarwal",
+      "customer_area": "My Home Bhooja, Gachibowli",
+      "rating": 5,
+      "comment": "Booked my wedding sangeet and reception makeup with Fatima at The Glossy Looks. The waterproof HD finish stayed fresh through 7 hours of dancing and photos. Absolutely flawless!",
+      "service_rendered": "Bridal & Reception Makeup",
+      "is_published": true,
+      "created_at": "2026-10-21T18:00:00Z"
+    },
+    {
+      "id": "rev-2",
+      "customer_name": "Sneha Reddy",
+      "customer_area": "Silicon County, Hitec City",
+      "rating": 5,
+      "comment": "The O3+ Bridal Glow facial and Crystal Pedicure gave my skin instant radiance. Impeccable hygiene and the staff is so gentle and polite. My go-to salon in Gachibowli!",
+      "service_rendered": "O3+ Radiance Facial & Pedicure",
+      "is_published": true,
+      "created_at": "2026-10-18T19:00:00Z"
+    },
+    {
+      "id": "rev-3",
+      "customer_name": "Divya Varma",
+      "customer_area": "Aparna Sarovar, Nallagandla",
+      "rating": 5,
+      "comment": "Got hair botox and rose petal manicure done. The blow dry lasted 3 full days with incredible shine. Their online appointment booking via WhatsApp is so convenient and smooth.",
+      "service_rendered": "Hair Botox & Rose Manicure",
+      "is_published": true,
+      "created_at": "2026-10-16T12:00:00Z"
+    }
+  ],
+  "print_devices": [
+    {
+      "id": "dev-1",
+      "device_name": "Reception Counter Thermal Printer 80mm",
+      "device_id": "POS-COUNTER-01",
+      "branch": "31, Vinayak Nagar, Gachibowli, Hyderabad",
+      "printer_name": "EPSON TM-T82 Receipt Printer",
+      "printer_type": "thermal",
+      "paper_size": "80mm",
+      "is_online": true,
+      "auto_print_bill": true,
+      "auto_print_slip": true,
+      "copies": 1,
+      "last_heartbeat": "2026-10-27T15:43:41.548Z"
+    },
+    {
+      "id": "dev-2",
+      "device_name": "Stylist Station Slip Printer",
+      "device_id": "STATION-SLIP-02",
+      "branch": "31, Vinayak Nagar, Gachibowli, Hyderabad",
+      "printer_name": "TVS RP-3160 Gold Star",
+      "printer_type": "thermal",
+      "paper_size": "58mm",
+      "is_online": true,
+      "auto_print_bill": false,
+      "auto_print_slip": true,
+      "copies": 1,
+      "last_heartbeat": "2026-10-27T15:43:41.548Z"
+    }
+  ],
+  "print_jobs": [
+    {
+      "id": "pj-1793385143474-477",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385143474",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-111",
+        "customer_name": "Rohit Reddy",
+        "customer_phone": "9988776655",
+        "date": "2026-10-30",
+        "time_slot": "02:00 PM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Signature Haircut",
+            "duration": 50,
+            "price": 1199
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:32:23.474Z"
+    },
+    {
+      "id": "pj-1793385142176-253",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385142175",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-110",
+        "customer_name": "Ananya Varma",
+        "customer_phone": "9848099887",
+        "date": "2026-10-30",
+        "time_slot": "11:30 AM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Bridal Trial Consultation",
+            "duration": 75,
+            "price": 1999
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:32:22.176Z"
+    },
+    {
+      "id": "pj-1793385122536-673",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385122536",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-109",
+        "customer_name": "Rohit Reddy",
+        "customer_phone": "9988776655",
+        "date": "2026-10-30",
+        "time_slot": "02:00 PM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Signature Haircut",
+            "duration": 50,
+            "price": 1199
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:32:02.536Z"
+    },
+    {
+      "id": "pj-1793385121065-355",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385121065",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-108",
+        "customer_name": "Ananya Varma",
+        "customer_phone": "9848099887",
+        "date": "2026-10-30",
+        "time_slot": "11:30 AM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Bridal Trial Consultation",
+            "duration": 75,
+            "price": 1999
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:32:01.065Z"
+    },
+    {
+      "id": "pj-1793385088635-6",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385088635",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-107",
+        "customer_name": "Rohit Reddy",
+        "customer_phone": "9988776655",
+        "date": "2026-10-30",
+        "time_slot": "02:00 PM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Signature Haircut",
+            "duration": 50,
+            "price": 1199
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:31:28.635Z"
+    },
+    {
+      "id": "pj-1793385086256-342",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385086256",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-106",
+        "customer_name": "Ananya Varma",
+        "customer_phone": "9848099887",
+        "date": "2026-10-30",
+        "time_slot": "11:30 AM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Bridal Trial Consultation",
+            "duration": 75,
+            "price": 1999
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:31:26.256Z"
+    },
+    {
+      "id": "pj-1793385079081-780",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385079081",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-105",
+        "customer_name": "Rohit Reddy",
+        "customer_phone": "9988776655",
+        "date": "2026-10-30",
+        "time_slot": "02:00 PM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Signature Haircut",
+            "duration": 50,
+            "price": 1199
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:31:19.081Z"
+    },
+    {
+      "id": "pj-1793385079058-356",
+      "device_id": "dev-1",
+      "job_type": "service_ticket",
+      "appointment_id": "apt-1793385079058",
+      "status": "Pending",
+      "payload": {
+        "booking_reference": "TGL-BK-2026-104",
+        "customer_name": "Ananya Varma",
+        "customer_phone": "9848099887",
+        "date": "2026-10-30",
+        "time_slot": "11:30 AM",
+        "assigned_staff": "Station Stylist",
+        "services": [
+          {
+            "name": "Bridal Trial Consultation",
+            "duration": 75,
+            "price": 1999
+          }
+        ]
+      },
+      "retry_count": 0,
+      "created_at": "2026-10-30T18:31:19.058Z"
+    },
+    {
+      "id": "pj-101",
+      "device_id": "dev-1",
+      "job_type": "bill",
+      "order_id": "ord-1001",
+      "status": "Printed",
+      "payload": {
+        "bill_number": "TGL-2026-1001",
+        "customer_name": "Divya Varma",
+        "customer_phone": "9123456780",
+        "items": [
+          {
+            "name": "Signature Haircut & Blow Dry",
+            "quantity": 1,
+            "price": 1199,
+            "staff": "Sunita Devi"
+          },
+          {
+            "name": "Rose Petal Aroma Manicure",
+            "quantity": 1,
+            "price": 999,
+            "staff": "Meera Nair"
+          }
+        ],
+        "subtotal": 2198,
+        "discount": 198,
+        "tax": 100,
+        "total": 2150,
+        "payment_method": "UPI",
+        "payment_status": "Paid",
+        "date": "23/10/2026 5:35 PM"
+      },
+      "retry_count": 0,
+      "printed_at": "2026-10-23T17:35:10Z",
+      "created_at": "2026-10-23T17:35:05Z"
+    }
+  ],
+  "audit_logs": [
+    {
+      "id": "aud-1793385143969-930",
+      "action": "CUSTOMER_FEEDBACK_ALERT",
+      "entity": "AppointmentFeedback",
+      "entity_id": "apt-9185143968",
+      "performed_by": "Simulation",
+      "details": "⚠️ Customer Simulated Customer (9185143968) rated visit as AVERAGE for Ref N/A.",
+      "timestamp": "2026-10-30T18:32:23.969Z"
+    },
+    {
+      "id": "aud-1793385143958-658",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385143474",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Cancelled",
+      "timestamp": "2026-10-30T18:32:23.958Z"
+    },
+    {
+      "id": "aud-1793385143953-467",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385143474",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:32:23.953Z"
+    },
+    {
+      "id": "aud-1793385143948-456",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385143474",
+      "performed_by": "System",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:32:23.948Z"
+    },
+    {
+      "id": "aud-1793385143475-136",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385143474",
+      "performed_by": "Rohit Reddy",
+      "details": "Scheduled booking: TGL-BK-2026-111 for Rohit Reddy",
+      "timestamp": "2026-10-30T18:32:23.475Z"
+    },
+    {
+      "id": "aud-1793385143467-341",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385142175",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:32:23.467Z"
+    },
+    {
+      "id": "aud-1793385143464-336",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385142175",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:32:23.464Z"
+    },
+    {
+      "id": "aud-1793385142933-38",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385142175",
+      "performed_by": "System",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:32:22.933Z"
+    },
+    {
+      "id": "aud-1793385142176-692",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385142175",
+      "performed_by": "Ananya Varma",
+      "details": "Scheduled booking: TGL-BK-2026-110 for Ananya Varma",
+      "timestamp": "2026-10-30T18:32:22.176Z"
+    },
+    {
+      "id": "aud-1793385142171-936",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-1",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Priya Sharma (User ID: TGL-OWN01)",
+      "timestamp": "2026-10-30T18:32:22.171Z"
+    },
+    {
+      "id": "aud-1793385123038-729",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385122536",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Cancelled",
+      "timestamp": "2026-10-30T18:32:03.038Z"
+    },
+    {
+      "id": "aud-1793385123033-502",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385122536",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:32:03.033Z"
+    },
+    {
+      "id": "aud-1793385123029-35",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385122536",
+      "performed_by": "System",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:32:03.029Z"
+    },
+    {
+      "id": "aud-1793385122536-722",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385122536",
+      "performed_by": "Rohit Reddy",
+      "details": "Scheduled booking: TGL-BK-2026-109 for Rohit Reddy",
+      "timestamp": "2026-10-30T18:32:02.536Z"
+    },
+    {
+      "id": "aud-1793385122529-480",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385121065",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:32:02.529Z"
+    },
+    {
+      "id": "aud-1793385122525-717",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385121065",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:32:02.525Z"
+    },
+    {
+      "id": "aud-1793385121952-519",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385121065",
+      "performed_by": "System",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:32:01.952Z"
+    },
+    {
+      "id": "aud-1793385121066-669",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385121065",
+      "performed_by": "Ananya Varma",
+      "details": "Scheduled booking: TGL-BK-2026-108 for Ananya Varma",
+      "timestamp": "2026-10-30T18:32:01.066Z"
+    },
+    {
+      "id": "aud-1793385121058-917",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-1",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Priya Sharma (User ID: TGL-OWN01)",
+      "timestamp": "2026-10-30T18:32:01.058Z"
+    },
+    {
+      "id": "aud-1793385089267-142",
+      "action": "CUSTOMER_FEEDBACK_ALERT",
+      "entity": "AppointmentFeedback",
+      "entity_id": "apt-9154744608",
+      "performed_by": "Simulation",
+      "details": "⚠️ Customer Simulated Customer (9154744608) rated visit as AVERAGE for Ref N/A.",
+      "timestamp": "2026-10-30T18:31:29.267Z"
+    },
+    {
+      "id": "aud-1793385089254-387",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385088635",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Cancelled",
+      "timestamp": "2026-10-30T18:31:29.254Z"
+    },
+    {
+      "id": "aud-1793385089250-134",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385088635",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:31:29.250Z"
+    },
+    {
+      "id": "aud-1793385089245-673",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385088635",
+      "performed_by": "System",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:31:29.245Z"
+    },
+    {
+      "id": "aud-1793385088636-966",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385088635",
+      "performed_by": "Rohit Reddy",
+      "details": "Scheduled booking: TGL-BK-2026-107 for Rohit Reddy",
+      "timestamp": "2026-10-30T18:31:28.636Z"
+    },
+    {
+      "id": "aud-1793385088628-878",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385086256",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:31:28.628Z"
+    },
+    {
+      "id": "aud-1793385088624-742",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385086256",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:31:28.624Z"
+    },
+    {
+      "id": "aud-1793385087506-975",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385086256",
+      "performed_by": "System",
+      "details": "Updated appointment status/details to updated",
+      "timestamp": "2026-10-30T18:31:27.506Z"
+    },
+    {
+      "id": "aud-1793385086257-835",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385086256",
+      "performed_by": "Ananya Varma",
+      "details": "Scheduled booking: TGL-BK-2026-106 for Ananya Varma",
+      "timestamp": "2026-10-30T18:31:26.257Z"
+    },
+    {
+      "id": "aud-1793385086251-821",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-1",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Priya Sharma (User ID: TGL-OWN01)",
+      "timestamp": "2026-10-30T18:31:26.251Z"
+    },
+    {
+      "id": "aud-1793385079087-191",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385079081",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Cancelled",
+      "timestamp": "2026-10-30T18:31:19.087Z"
+    },
+    {
+      "id": "aud-1793385079084-182",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385079081",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:31:19.084Z"
+    },
+    {
+      "id": "aud-1793385079081-560",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385079081",
+      "performed_by": "Rohit Reddy",
+      "details": "Scheduled booking: TGL-BK-2026-105 for Rohit Reddy",
+      "timestamp": "2026-10-30T18:31:19.081Z"
+    },
+    {
+      "id": "aud-1793385079070-382",
+      "action": "UPDATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385079058",
+      "performed_by": "Priya Sharma",
+      "details": "Updated appointment status/details to Completed",
+      "timestamp": "2026-10-30T18:31:19.070Z"
+    },
+    {
+      "id": "aud-1793385079060-428",
+      "action": "CREATE",
+      "entity": "Appointment",
+      "entity_id": "apt-1793385079058",
+      "performed_by": "Ananya Varma",
+      "details": "Scheduled booking: TGL-BK-2026-104 for Ananya Varma",
+      "timestamp": "2026-10-30T18:31:19.060Z"
+    },
+    {
+      "id": "aud-1793385079053-45",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-1",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Priya Sharma (User ID: TGL-OWN01)",
+      "timestamp": "2026-10-30T18:31:19.053Z"
+    },
+    {
+      "id": "aud-1793346080196-818",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-3",
+      "performed_by": "Kavitha Reddy",
+      "details": "Updated staff profile: Kavitha Reddy (User ID: TGL-REC01)",
+      "timestamp": "2026-10-30T07:41:20.196Z"
+    },
+    {
+      "id": "aud-1793346046934-420",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-2",
+      "performed_by": "Ananya Rao",
+      "details": "Updated staff profile: Ananya Rao (User ID: TGL-MGR01)",
+      "timestamp": "2026-10-30T07:40:46.934Z"
+    },
+    {
+      "id": "aud-1793346038689-11",
+      "action": "CREATE",
+      "entity": "SalonBranch",
+      "entity_id": "brn-1793346038689",
+      "performed_by": "Priya Sharma",
+      "details": "Created salon branch: Kondapur Branch (KND-02) with WhatsApp number 9491914422",
+      "timestamp": "2026-10-30T07:40:38.689Z"
+    },
+    {
+      "id": "aud-1793346023670-173",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-1",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Priya Sharma (User ID: TGL-OWN01)",
+      "timestamp": "2026-10-30T07:40:23.670Z"
+    },
+    {
+      "id": "aud-1793289094623-369",
+      "action": "DISCONNECT",
+      "entity": "WhatsAppIntegration",
+      "entity_id": "100000000000001",
+      "performed_by": "Priya Sharma",
+      "details": "Disconnected WhatsApp Business integration for The Glossy Looks Salon & Studio. Message history retained.",
+      "timestamp": "2026-10-29T15:51:34.623Z"
+    },
+    {
+      "id": "aud-1793289085844-350",
+      "action": "CONNECT",
+      "entity": "WhatsAppIntegration",
+      "entity_id": "100000000000001",
+      "performed_by": "Priya Sharma",
+      "details": "Connected WhatsApp Business Coexistence (WABA: 100000000000001, Phone ID: 200000000000001, Number: ******9888)",
+      "timestamp": "2026-10-29T15:51:25.844Z"
+    },
+    {
+      "id": "aud-1793289078549-425",
+      "action": "CONNECT",
+      "entity": "WhatsAppIntegration",
+      "entity_id": "100000000000001",
+      "performed_by": "Priya Sharma",
+      "details": "Connected WhatsApp Business Coexistence (WABA: 100000000000001, Phone ID: 200000000000001, Number: ******9888)",
+      "timestamp": "2026-10-29T15:51:18.549Z"
+    },
+    {
+      "id": "aud-1793281413714-903",
+      "action": "UPDATE",
+      "entity": "WhatsAppBusinessSettings",
+      "entity_id": "wa-set-01",
+      "performed_by": "Priya Sharma",
+      "details": "Updated salon WhatsApp business settings: +91 ******9888 (Status: Enabled)",
+      "timestamp": "2026-10-29T13:43:33.714Z"
+    },
+    {
+      "id": "aud-1793266910083-583",
+      "action": "DISCONNECT",
+      "entity": "WhatsAppIntegration",
+      "entity_id": "1098234857190",
+      "performed_by": "Priya Sharma",
+      "details": "Disconnected WhatsApp Business integration for The Glossy Looks Salon. Message history retained.",
+      "timestamp": "2026-10-29T09:41:50.083Z"
+    },
+    {
+      "id": "aud-1793266910069-228",
+      "action": "CONNECT",
+      "entity": "WhatsAppIntegration",
+      "entity_id": "1098234857190",
+      "performed_by": "Priya Sharma",
+      "details": "Connected WhatsApp Business Coexistence (WABA: 1098234857190, Phone ID: phone_hyd_01, Number: ******2345)",
+      "timestamp": "2026-10-29T09:41:50.069Z"
+    },
+    {
+      "id": "aud-1793130050810-537",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-5",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Suresh Verma (User ID: TGL-INV01)",
+      "timestamp": "2026-10-27T19:40:50.810Z"
+    },
+    {
+      "id": "aud-1793130050797-598",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-4",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Fatima Khan (User ID: TGL-STY01)",
+      "timestamp": "2026-10-27T19:40:50.797Z"
+    },
+    {
+      "id": "aud-1793130014997-724",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-5",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Suresh Verma-Sharma (User ID: TGL-INV01)",
+      "timestamp": "2026-10-27T19:40:14.997Z"
+    },
+    {
+      "id": "aud-1793129960491-431",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-4",
+      "performed_by": "Priya Sharma",
+      "details": "Updated staff profile: Fatima Khan-Patel (User ID: TGL-STY01)",
+      "timestamp": "2026-10-27T19:39:20.491Z"
+    },
+    {
+      "id": "aud-1793123670386-959",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-1",
+      "performed_by": "Priya Sharma (Owner)",
+      "details": "Updated user Priya Sharma (Owner) (User ID: TGL-OWN01)",
+      "timestamp": "2026-10-27T17:54:30.386Z"
+    },
+    {
+      "id": "aud-1793123656964-14",
+      "action": "UPDATE",
+      "entity": "User",
+      "entity_id": "usr-1",
+      "performed_by": "Priya Sharma (Owner)",
+      "details": "Updated user Priya Sharma (Owner) (User ID: TGL-OWN01)",
+      "timestamp": "2026-10-27T17:54:16.964Z"
+    },
+    {
+      "id": "aud-1",
+      "action": "SYSTEM_INIT",
+      "entity": "Database",
+      "entity_id": "root",
+      "performed_by": "System Administrator",
+      "details": "Initial salon database loaded with seed records and security roles",
+      "timestamp": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "whatsapp_integration": {
+    "id": "wa-int-01",
+    "salon_id": "tgl-gachibowli-main",
+    "status": "not_connected",
+    "updated_at": "2026-10-29T10:00:00.000Z"
+  },
+  "whatsapp_settings": {
+    "id": "wa-set-01",
+    "salon_id": "tgl-gachibowli-main",
+    "business_number": "9848099888",
+    "country_code": "+91",
+    "display_name": "The Glossy Looks Salon & Studio",
+    "is_enabled": true,
+    "masked_number": "+91 ******9888",
+    "updated_at": "2026-10-29T13:43:33.714Z",
+    "updated_by": "Priya Sharma"
+  },
+  "branches": [
+    {
+      "id": "tgl-gachibowli-main",
+      "name": "Gachibowli Main Flagship",
+      "code": "GCB-01",
+      "address": "31, Vinayak Nagar, Gachibowli",
+      "city": "Hyderabad, Telangana - 500032",
+      "phone": "8985799459",
+      "whatsapp_number": "8985799459",
+      "manager_id": "usr-2",
+      "manager_name": "Ananya Rao",
+      "is_active": true,
+      "created_at": "2026-01-01T10:00:00Z",
+      "updated_at": "2026-10-30T07:40:19.493Z"
+    },
+    {
+      "name": "Kondapur Branch",
+      "code": "KND-02",
+      "address": "Road No 2, Kondapur",
+      "city": "Hyderabad, Telangana - 500084",
+      "phone": "9491914422",
+      "whatsapp_number": "9491914422",
+      "is_active": true,
+      "id": "brn-1793346038689",
+      "created_at": "2026-10-30T07:40:38.689Z",
+      "updated_at": "2026-10-30T07:40:38.689Z"
+    }
+  ],
+  "branch_whatsapp_integrations": [
+    {
+      "id": "bwa-gcb-01",
+      "branch_id": "tgl-gachibowli-main",
+      "configured_business_number": "8985799459",
+      "display_name": "THE GLOSSY LOOKS",
+      "display_phone_number": "+91 89857 99459",
+      "masked_phone_number": "+91 ******9459",
+      "status": "connected",
+      "created_at": "2026-01-01T10:00:00Z",
+      "updated_at": "2026-10-30T07:40:19.494Z",
+      "waba_id": "1608729824244675",
+      "phone_number_id": "1379025201957313",
+      "connected_at": "2026-10-30T07:45:00.000Z",
+      "last_verified_at": "2026-10-30T18:31:23.892Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph verification passed."
+    },
+    {
+      "id": "bwa-brn-1793346038689",
+      "branch_id": "brn-1793346038689",
+      "configured_business_number": "9491914422",
+      "display_name": "Kondapur Branch",
+      "display_phone_number": "9491914422",
+      "masked_phone_number": "+91 ******4422",
+      "status": "disconnected",
+      "created_at": "2026-10-30T07:40:38.689Z",
+      "updated_at": "2026-10-30T07:40:38.689Z"
+    }
+  ],
+  "whatsapp_message_logs": [
+    {
+      "appointment_id": "apt-1793385086256",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919848099887",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSRDk0MzIyMDkzMjREMkVDQTJGAA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:31:27.505Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSRDk0MzIyMDkzMjREMkVDQTJGAA==)",
+      "id": "wml-1793385087505-213",
+      "created_at": "2026-10-30T18:31:27.505Z",
+      "updated_at": "2026-10-30T18:31:27.505Z"
+    },
+    {
+      "appointment_id": "apt-1793385086256",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919848099887",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSM0VCNTk3MUE2RUJCMDlBRkE5AA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:31:28.623Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSM0VCNTk3MUE2RUJCMDlBRkE5AA==)",
+      "id": "wml-1793385088623-473",
+      "created_at": "2026-10-30T18:31:28.623Z",
+      "updated_at": "2026-10-30T18:31:28.623Z"
+    },
+    {
+      "appointment_id": "apt-1793385088635",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919988776655",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5OTg4Nzc2NjU1FQIAERgSRDY1OEE5NTM4NjY1MTFEOUI0AA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:31:29.244Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5OTg4Nzc2NjU1FQIAERgSRDY1OEE5NTM4NjY1MTFEOUI0AA==)",
+      "id": "wml-1793385089244-249",
+      "created_at": "2026-10-30T18:31:29.244Z",
+      "updated_at": "2026-10-30T18:31:29.244Z"
+    },
+    {
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "918985799459",
+      "sender_phone_number_id": "1379025201957313",
+      "status": "pending_approval",
+      "error_message": "Pending Meta approval: Live sending is currently restricted by Meta while App Review is in progress. Real messages can only be delivered to verified test/admin phone numbers in Meta App Settings.",
+      "diagnostics": "Meta Graph API error (Code 100): (#100) Invalid parameter",
+      "id": "wml-1793385089651-321",
+      "created_at": "2026-10-30T18:31:29.651Z",
+      "updated_at": "2026-10-30T18:31:29.651Z"
+    },
+    {
+      "appointment_id": "apt-1793385121065",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919848099887",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSOTcxMDJBMkVDODE2RDA4OEI2AA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:32:01.950Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSOTcxMDJBMkVDODE2RDA4OEI2AA==)",
+      "id": "wml-1793385121950-788",
+      "created_at": "2026-10-30T18:32:01.950Z",
+      "updated_at": "2026-10-30T18:32:01.950Z"
+    },
+    {
+      "appointment_id": "apt-1793385121065",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919848099887",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSQjE5QkYxQjFFQ0VCMTlEN0REAA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:32:02.524Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSQjE5QkYxQjFFQ0VCMTlEN0REAA==)",
+      "id": "wml-1793385122524-683",
+      "created_at": "2026-10-30T18:32:02.524Z",
+      "updated_at": "2026-10-30T18:32:02.524Z"
+    },
+    {
+      "appointment_id": "apt-1793385122536",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919988776655",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5OTg4Nzc2NjU1FQIAERgSNTM0NDdFNDdEQUUxRkI3OTk0AA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:32:03.028Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5OTg4Nzc2NjU1FQIAERgSNTM0NDdFNDdEQUUxRkI3OTk0AA==)",
+      "id": "wml-1793385123028-935",
+      "created_at": "2026-10-30T18:32:03.028Z",
+      "updated_at": "2026-10-30T18:32:03.028Z"
+    },
+    {
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "918985799459",
+      "sender_phone_number_id": "1379025201957313",
+      "status": "pending_approval",
+      "error_message": "Pending Meta approval: Live sending is currently restricted by Meta while App Review is in progress. Real messages can only be delivered to verified test/admin phone numbers in Meta App Settings.",
+      "diagnostics": "Meta Graph API error (Code 100): (#100) Invalid parameter",
+      "id": "wml-1793385123396-653",
+      "created_at": "2026-10-30T18:32:03.396Z",
+      "updated_at": "2026-10-30T18:32:03.396Z"
+    },
+    {
+      "appointment_id": "apt-1793385142175",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919848099887",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSRUFCNkVDODA3MDcxNkNDNzkxAA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:32:22.932Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSRUFCNkVDODA3MDcxNkNDNzkxAA==)",
+      "id": "wml-1793385142932-660",
+      "created_at": "2026-10-30T18:32:22.932Z",
+      "updated_at": "2026-10-30T18:32:22.932Z"
+    },
+    {
+      "appointment_id": "apt-1793385142175",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919848099887",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSRTU1NzlFRDUwQjg2ODMzQTE0AA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:32:23.463Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5ODQ4MDk5ODg3FQIAERgSRTU1NzlFRDUwQjg2ODMzQTE0AA==)",
+      "id": "wml-1793385143463-54",
+      "created_at": "2026-10-30T18:32:23.463Z",
+      "updated_at": "2026-10-30T18:32:23.463Z"
+    },
+    {
+      "appointment_id": "apt-1793385143474",
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "919988776655",
+      "sender_phone_number_id": "1379025201957313",
+      "meta_message_id": "wamid.HBgMOTE5OTg4Nzc2NjU1FQIAERgSMDU3QTJFNTA0NzI2REU5MjU3AA==",
+      "status": "sent",
+      "sent_at": "2026-10-30T18:32:23.947Z",
+      "diagnostics": "FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: wamid.HBgMOTE5OTg4Nzc2NjU1FQIAERgSMDU3QTJFNTA0NzI2REU5MjU3AA==)",
+      "id": "wml-1793385143947-432",
+      "created_at": "2026-10-30T18:32:23.947Z",
+      "updated_at": "2026-10-30T18:32:23.947Z"
+    },
+    {
+      "branch_id": "tgl-gachibowli-main",
+      "template_name": "gl_appointment_confirmation",
+      "recipient_number": "918985799459",
+      "sender_phone_number_id": "1379025201957313",
+      "status": "pending_approval",
+      "error_message": "Pending Meta approval: Live sending is currently restricted by Meta while App Review is in progress. Real messages can only be delivered to verified test/admin phone numbers in Meta App Settings.",
+      "diagnostics": "Meta Graph API error (Code 100): (#100) Invalid parameter",
+      "id": "wml-1793385144319-676",
+      "created_at": "2026-10-30T18:32:24.319Z",
+      "updated_at": "2026-10-30T18:32:24.319Z"
+    }
+  ],
+  "appointment_feedback": [
+    {
+      "appointment_id": "apt-1793385142175",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "rating": "good",
+      "reply_text": "Haircut and makeup were fantastic! 5 stars.",
+      "is_read": false,
+      "id": "fbk-1793385143965-998",
+      "received_at": "2026-10-30T18:32:23.965Z",
+      "notification_read": false
+    },
+    {
+      "appointment_id": "apt-1793385121065",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "rating": "good",
+      "reply_text": "Haircut and makeup were fantastic! 5 stars.",
+      "is_read": false,
+      "id": "fbk-1793385123045-135",
+      "received_at": "2026-10-30T18:32:03.045Z",
+      "notification_read": false
+    },
+    {
+      "appointment_id": "apt-9154744608",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Simulated Customer",
+      "customer_phone": "9154744608",
+      "rating": "average",
+      "reply_text": "Wait time was a bit longer than expected.",
+      "is_read": false,
+      "id": "fbk-1793385089266-381",
+      "received_at": "2026-10-30T18:31:29.266Z",
+      "notification_read": false
+    },
+    {
+      "appointment_id": "apt-1793385086256",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "rating": "good",
+      "reply_text": "Haircut and makeup were fantastic! 5 stars.",
+      "is_read": false,
+      "id": "fbk-1793385089262-979",
+      "received_at": "2026-10-30T18:31:29.262Z",
+      "notification_read": false
+    },
+    {
+      "appointment_id": "apt-9185143968",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Simulated Customer",
+      "customer_phone": "9185143968",
+      "rating": "average",
+      "reply_text": "Wait time was a bit longer than expected.",
+      "is_read": false,
+      "id": "fbk-1793385143968-905",
+      "received_at": "2026-10-30T18:32:23.968Z",
+      "notification_read": false
+    }
+  ],
+  "scheduled_feedback_jobs": [
+    {
+      "appointment_id": "apt-1793385086256",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "scheduled_at": "2026-10-30T19:31:28.630Z",
+      "status": "pending",
+      "id": "sfj-1793385088630-77",
+      "created_at": "2026-10-30T18:31:28.630Z",
+      "updated_at": "2026-10-30T18:31:28.630Z"
+    },
+    {
+      "appointment_id": "apt-1793385088635",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Rohit Reddy",
+      "customer_phone": "9988776655",
+      "scheduled_at": "2026-10-30T19:31:29.251Z",
+      "status": "cancelled",
+      "id": "sfj-1793385089251-468",
+      "created_at": "2026-10-30T18:31:29.251Z",
+      "updated_at": "2026-10-30T18:31:29.256Z"
+    },
+    {
+      "appointment_id": "apt-1793385121065",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "scheduled_at": "2026-10-30T19:32:02.531Z",
+      "status": "pending",
+      "id": "sfj-1793385122531-122",
+      "created_at": "2026-10-30T18:32:02.531Z",
+      "updated_at": "2026-10-30T18:32:02.531Z"
+    },
+    {
+      "appointment_id": "apt-1793385122536",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Rohit Reddy",
+      "customer_phone": "9988776655",
+      "scheduled_at": "2026-10-30T19:32:03.035Z",
+      "status": "cancelled",
+      "id": "sfj-1793385123035-697",
+      "created_at": "2026-10-30T18:32:03.035Z",
+      "updated_at": "2026-10-30T18:32:03.039Z"
+    },
+    {
+      "appointment_id": "apt-1793385142175",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Ananya Varma",
+      "customer_phone": "9848099887",
+      "scheduled_at": "2026-10-30T19:32:23.470Z",
+      "status": "pending",
+      "id": "sfj-1793385143470-535",
+      "created_at": "2026-10-30T18:32:23.470Z",
+      "updated_at": "2026-10-30T18:32:23.470Z"
+    },
+    {
+      "appointment_id": "apt-1793385143474",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Rohit Reddy",
+      "customer_phone": "9988776655",
+      "scheduled_at": "2026-10-30T19:32:23.955Z",
+      "status": "cancelled",
+      "id": "sfj-1793385143955-639",
+      "created_at": "2026-10-30T18:32:23.955Z",
+      "updated_at": "2026-10-30T18:32:23.960Z"
+    }
+  ],
+  "processed_webhook_events": []
+}

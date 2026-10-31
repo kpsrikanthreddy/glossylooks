@@ -1,0 +1,8 @@
+{
+  "name": "The Glossy Looks - Salon & Management System",
+  "description": "Luxury women's beauty salon in Gachibowli, Hyderabad. Online service booking, bridal makeup studio, and complete salon operations management with POS billing and auto-printing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

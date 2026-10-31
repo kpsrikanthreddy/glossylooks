@@ -1,0 +1,617 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Complete Data Models and Types for The Glossy Looks Salon Platform
+ * Matches PostgreSQL / Supabase Relational Schema
+ */
+
+export type AdminRole = 'owner' | 'manager' | 'receptionist' | 'stylist' | 'inventory_staff';
+
+export interface User {
+  id: string;
+  user_id: string; // Alphanumeric staff ID e.g. TGL-OWN01, TGL-MGR01
+  email: string;
+  password_hash: string;
+  role: AdminRole;
+  name: string;
+  phone: string;
+  branch_id?: string; // Assigned salon branch (e.g. 'tgl-gachibowli-main')
+  is_active: boolean;
+  last_login_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  role: AdminRole;
+  phone: string;
+  branch_id?: string;
+  last_login_at?: string;
+}
+
+export interface SalesReportFilter {
+  period?: 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom';
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface DayWiseSalesRecord {
+  date: string;
+  formatted_date: string;
+  orders_count: number;
+  service_sales: number;
+  product_sales: number;
+  discount_amount: number;
+  tax_amount: number;
+  total_sales: number;
+  paid_amount: number;
+  due_amount: number;
+  cash_amount: number;
+  upi_amount: number;
+  card_amount: number;
+  split_amount: number;
+}
+
+export interface StaffSalesRecord {
+  staff_name: string;
+  role: string;
+  services_count: number;
+  service_revenue: number;
+  commission_earned: number;
+}
+
+export interface DetailedSalesReport {
+  filter: {
+    period: string;
+    startDate: string;
+    endDate: string;
+  };
+  summary: {
+    gross_sales: number;
+    service_sales: number;
+    product_sales: number;
+    completed_orders: number;
+    cancelled_orders: number;
+    refunded_count: number;
+    total_refund_amount: number;
+    total_discount: number;
+    tax_gst: number;
+    net_sales: number;
+    total_paid: number;
+    outstanding_due: number;
+  };
+  payment_breakdown: {
+    cash: number;
+    upi: number;
+    card: number;
+    split: number;
+    other: number;
+  };
+  staff_performance: StaffSalesRecord[];
+  day_wise_breakdown: DayWiseSalesRecord[];
+}
+
+export interface CustomerAddress {
+  label: string; // 'Home', 'Office', etc.
+  address_line: string;
+  area: string;
+  city: string;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  mobile: string;
+  email?: string;
+  birthday?: string;
+  address?: string;
+  saved_addresses?: CustomerAddress[];
+  preferences?: string;
+  allergies?: string;
+  notes?: string;
+  loyalty_points: number;
+  total_spend: number;
+  visit_count: number;
+  last_visit_at?: string;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OTPSession {
+  id: string;
+  mobile: string;
+  otp: string;
+  expires_at: string;
+  verified: boolean;
+  created_at: string;
+}
+
+export interface Staff {
+  id: string;
+  user_id?: string;
+  name: string;
+  phone: string;
+  email?: string;
+  role: string;
+  title?: string;
+  branch_id?: string;
+  joining_date: string;
+  salary_type: 'monthly' | 'commission' | 'hybrid';
+  base_salary: number;
+  commission_rate: number;
+  skills: string[];
+  working_hours?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface StaffAvailability {
+  id: string;
+  staff_id: string;
+  date: string;
+  is_on_leave: boolean;
+  shift_start: string;
+  shift_end: string;
+  notes?: string;
+}
+
+export interface ServiceCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image_url: string;
+  display_order: number;
+  is_active: boolean;
+}
+
+export interface ServiceAddOn {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes: number;
+}
+
+export interface ServiceItem {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  description: string;
+  benefits: string;
+  duration_minutes: number;
+  price: number;
+  discount_price?: number;
+  is_popular?: boolean;
+  is_bridal_festive?: boolean;
+  is_active: boolean;
+  image_url: string;
+  add_ons?: ServiceAddOn[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PackageCombo {
+  id: string;
+  name: string;
+  description: string;
+  service_ids: string[];
+  service_names: string[];
+  original_price: number;
+  package_price: number;
+  duration_minutes: number;
+  is_active: boolean;
+}
+
+export interface AppointmentItem {
+  id: string;
+  name: string;
+  duration: number;
+  price: number;
+  staff_id?: string;
+  staff_name?: string;
+}
+
+export interface Appointment {
+  id: string;
+  booking_reference: string;
+  branch_id?: string;
+  customer_id?: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  appointment_date: string;
+  time_slot: string;
+  status: 'Pending' | 'Confirmed' | 'Checked In' | 'Service In Progress' | 'Completed' | 'Cancelled' | 'No Show';
+  assigned_staff_id?: string;
+  assigned_staff_name?: string;
+  services: AppointmentItem[];
+  total_amount: number;
+  discount_amount: number;
+  final_amount: number;
+  payment_preference?: 'pay_at_salon' | 'upi' | 'card' | 'advance';
+  notes?: string;
+  booking_source: 'website' | 'pos' | 'whatsapp' | 'walkin' | 'phone';
+  created_at: string;
+  updated_at?: string;
+  completed_at?: string;
+  whatsapp_status?: WhatsAppMessageStatus;
+  last_whatsapp_sent_at?: string;
+  last_whatsapp_error?: string;
+}
+
+export interface OrderItem {
+  service_id?: string;
+  product_id?: string;
+  item_name: string;
+  item_type: 'service' | 'product';
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  staff_id?: string;
+  staff_name?: string;
+  commission_amount?: number;
+}
+
+export interface Order {
+  id: string;
+  bill_number: string;
+  invoice_number?: string;
+  branch_id?: string;
+  appointment_id?: string;
+  customer_id?: string;
+  customer_name: string;
+  customer_phone: string;
+  items: OrderItem[];
+  subtotal: number;
+  discount: number;
+  tax_percent: number;
+  tax_amount: number;
+  tip_amount?: number;
+  grand_total: number;
+  paid_amount: number;
+  due_amount: number;
+  payment_status: 'Paid' | 'Partial' | 'Pending' | 'Refunded' | 'Cancelled';
+  primary_payment_mode: 'Cash' | 'UPI' | 'Card' | 'Bank Transfer' | 'Split Payment' | 'Pay Later';
+  cashier_id?: string;
+  cashier_name?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  order_id: string;
+  bill_number: string;
+  customer_name: string;
+  customer_phone: string;
+  amount: number;
+  payment_mode: 'Cash' | 'UPI' | 'Card' | 'Bank Transfer' | 'Split Payment' | 'Pay Later';
+  transaction_ref?: string;
+  status: 'Success' | 'Refunded' | 'Void';
+  refund_reason?: string;
+  notes?: string;
+  recorded_by?: string;
+  created_at: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  brand: string;
+  category: string;
+  unit: string;
+  current_stock: number;
+  min_stock_alert: number;
+  purchase_cost: number;
+  sale_price: number;
+  expiry_date?: string;
+  location?: string;
+  supplier_id?: string;
+  supplier_name?: string;
+  is_retail: boolean;
+  updated_at: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contact_person: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  gstin?: string;
+  created_at: string;
+}
+
+export interface PurchaseOrderItem {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  supplier_id: string;
+  supplier_name: string;
+  items: PurchaseOrderItem[];
+  total_cost: number;
+  status: 'Draft' | 'Ordered' | 'Received' | 'Cancelled';
+  created_at: string;
+}
+
+export interface InventoryMovement {
+  id: string;
+  product_id: string;
+  product_name: string;
+  movement_type: 'stock_in' | 'stock_out' | 'damaged' | 'wastage' | 'service_usage' | 'pos_sale' | 'adjustment';
+  quantity: number;
+  balance_after: number;
+  notes?: string;
+  performed_by: string;
+  created_at: string;
+}
+
+export interface GalleryItem {
+  id: string;
+  title: string;
+  category: string;
+  artist_name?: string;
+  service_type?: string;
+  image_url: string;
+  video_url?: string;
+  description: string;
+  tags?: string[];
+  is_approved: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+export interface Enquiry {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  service_interest: string;
+  message: string;
+  status: 'New' | 'Contacted' | 'Converted' | 'Closed';
+  created_at: string;
+}
+
+export interface Offer {
+  id: string;
+  title: string;
+  coupon_code: string;
+  discount_type: 'flat' | 'percentage';
+  discount_value: number;
+  min_order_value: number;
+  valid_until: string;
+  is_active: boolean;
+}
+
+export interface Review {
+  id: string;
+  customer_name: string;
+  customer_area?: string;
+  rating: number; // 1 - 5
+  comment: string;
+  service_rendered?: string;
+  is_published: boolean;
+  created_at: string;
+}
+
+export interface PrintDevice {
+  id: string;
+  device_name: string;
+  device_id: string;
+  branch: string;
+  printer_name: string;
+  printer_type: 'thermal' | 'a4';
+  paper_size?: '58mm' | '80mm' | 'A4';
+  is_online: boolean;
+  auto_print_bill: boolean;
+  auto_print_slip: boolean;
+  copies: number;
+  last_heartbeat: string;
+}
+
+export interface PrintJob {
+  id: string;
+  device_id: string;
+  job_type: 'bill' | 'service_ticket';
+  order_id?: string;
+  appointment_id?: string;
+  status: 'Pending' | 'Printing' | 'Printed' | 'Failed' | 'Retried';
+  payload: any;
+  retry_count: number;
+  printed_at?: string;
+  created_at: string;
+}
+
+export interface SalonSettings {
+  brand_name: string;
+  salon_type: string;
+  address: string;
+  city: string;
+  phone: string;
+  whatsapp: string;
+  opening_hours: string;
+  google_maps_url: string;
+  announcement_text: string;
+  primary_color?: string;
+  accent_gold?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  entity: string;
+  entity_id: string;
+  performed_by: string;
+  details: string;
+  timestamp: string;
+}
+
+export type WhatsAppConnectionStatus = 'not_connected' | 'connecting' | 'connected' | 'error' | 'disconnected';
+
+export interface WhatsAppIntegration {
+  id: string;
+  salon_id: string;
+  waba_id?: string;
+  phone_number_id?: string;
+  display_phone_number?: string;
+  masked_phone_number?: string;
+  display_name?: string;
+  status: WhatsAppConnectionStatus;
+  connected_at?: string;
+  updated_at?: string;
+  last_verified_at?: string;
+  diagnostics?: string;
+  error_message?: string;
+}
+
+export interface WhatsAppBusinessSettings {
+  id?: string;
+  salon_id?: string;
+  business_number: string;
+  country_code: string;
+  display_name: string;
+  is_enabled: boolean;
+  masked_number: string;
+  updated_at?: string;
+  updated_by?: string;
+}
+
+export interface WhatsAppPublicConfig {
+  meta_app_id: string;
+  config_id: string;
+  api_version: string;
+  is_configured: boolean;
+}
+
+export interface WhatsAppStatusResponse {
+  integration: WhatsAppIntegration;
+  settings: WhatsAppBusinessSettings;
+  config: WhatsAppPublicConfig;
+}
+
+// ============================================================================
+// Multi-Branch Salon & Coexistence WhatsApp Integration Types
+// ============================================================================
+
+export interface SalonBranch {
+  id: string; // e.g. 'tgl-gachibowli-main'
+  name: string; // e.g. 'Gachibowli Main Flagship'
+  code: string; // e.g. 'GCB-01'
+  address: string;
+  city: string;
+  phone: string;
+  whatsapp_number: string;
+  manager_id?: string;
+  manager_name?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type BranchWhatsAppStatus = 'disconnected' | 'pairing' | 'connected' | 'failed';
+
+export interface BranchWhatsAppIntegration {
+  id: string;
+  branch_id: string;
+  configured_business_number: string;
+  waba_id?: string;
+  phone_number_id?: string;
+  display_name?: string;
+  display_phone_number?: string;
+  masked_phone_number?: string;
+  status: BranchWhatsAppStatus;
+  connected_at?: string;
+  last_verified_at?: string;
+  diagnostics?: string;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BranchWhatsAppStatusResponse {
+  branch: SalonBranch;
+  integration: BranchWhatsAppIntegration;
+  config: WhatsAppPublicConfig;
+}
+
+// ============================================================================
+// WhatsApp Automated Messaging, Feedback & Webhook Types
+// ============================================================================
+
+export type WhatsAppMessageStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'pending_approval';
+
+export interface WhatsAppMessageLog {
+  id: string;
+  appointment_id?: string;
+  order_id?: string;
+  branch_id?: string;
+  template_name: string;
+  recipient_number: string;
+  sender_phone_number_id?: string;
+  meta_message_id?: string;
+  status: WhatsAppMessageStatus;
+  error_message?: string;
+  diagnostics?: string;
+  sent_at?: string;
+  delivered_at?: string;
+  read_at?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type FeedbackRating = 'good' | 'average' | 'bad';
+
+export interface AppointmentFeedback {
+  id: string;
+  appointment_id: string;
+  branch_id: string;
+  customer_name: string;
+  customer_phone: string;
+  rating: FeedbackRating;
+  reply_text?: string;
+  meta_message_id?: string;
+  is_read: boolean;
+  notification_read?: boolean;
+  received_at: string;
+}
+
+export type ScheduledJobStatus = 'pending' | 'processing' | 'completed' | 'cancelled' | 'failed';
+
+export interface ScheduledFeedbackJob {
+  id: string;
+  appointment_id: string;
+  branch_id: string;
+  customer_name: string;
+  customer_phone: string;
+  scheduled_at: string; // ISO string 1 hour after service completion
+  status: ScheduledJobStatus;
+  attempts?: number;
+  meta_message_id?: string;
+  error_message?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ProcessedWebhookEvent {
+  id?: string;
+  event_id: string;
+  event_type: string;
+  processed_at: string;
+}
+
