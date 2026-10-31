@@ -50,6 +50,51 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
 
   const salonCategory = categories.find(c => c.slug === 'salon' || c.id === 'cat-salon');
   const facialsCategory = categories.find(c => c.slug === 'facials' || c.id === 'cat-facials');
+  const bodyPolishingCategory = categories.find(c => c.slug === 'body-polishing' || c.id === 'cat-body');
+
+  // Curated pre-bridal packages shown when a customer selects Body Polishing.
+  // The original supplied menu artwork is intentionally retained for each card.
+  const preBridalPackages: ServiceItem[] = bodyPolishingCategory ? [
+    {
+      id: 'pre-bridal-package-6999',
+      category_id: bodyPolishingCategory.id,
+      name: 'Pre Bridal Package',
+      slug: 'pre-bridal-package-6999',
+      description: 'Threading, face wax/threading, normal wax, basic facial, hair spa, manicure, pedicure, gel polish, haircut and full body massage.',
+      benefits: 'Complete pre-bridal essentials package',
+      duration_minutes: 240,
+      price: 6999,
+      is_active: true,
+      is_bridal_festive: true,
+      image_url: '/assets/body-polishing/pre-bridal-package-6999.png'
+    },
+    {
+      id: 'pre-bridal-package-9999',
+      category_id: bodyPolishingCategory.id,
+      name: 'Pre Bridal Package',
+      slug: 'pre-bridal-package-9999',
+      description: 'Full face threading, full body wax, full body D-Tan, luxury facial, manicure, pedicure, nail extension, gel polish, body polish, hair spa and haircut.',
+      benefits: 'Luxury full-body bridal preparation',
+      duration_minutes: 300,
+      price: 9999,
+      is_active: true,
+      is_bridal_festive: true,
+      image_url: '/assets/body-polishing/pre-bridal-package-9999.png'
+    },
+    {
+      id: 'pre-bridal-package-15000',
+      category_id: bodyPolishingCategory.id,
+      name: 'Pre Bridal Package',
+      slug: 'pre-bridal-package-15000',
+      description: 'Full face threading, full body wax and D-Tan, luxury facial, manicure, pedicure, acrylic nail extension, gel polish, luxury body polish, hair spa and advanced haircut.',
+      benefits: 'Premium bridal glow and nail-care package',
+      duration_minutes: 360,
+      price: 15000,
+      is_active: true,
+      is_bridal_festive: true,
+      image_url: '/assets/body-polishing/pre-bridal-package-15000.png'
+    }
+  ] : [];
 
   const isSalonActive = activeCategoryId === salonCategory?.id || activeCategoryId === 'cat-salon';
 
@@ -73,8 +118,12 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
     filteredServices = services.filter(s => s.category_id === activeCategoryId);
   }
 
+  if (activeCategoryId === bodyPolishingCategory?.id || activeCategoryId === 'cat-body') {
+    filteredServices = [...filteredServices, ...preBridalPackages];
+  }
+
   const matchedServices = searchQuery.trim()
-    ? services.filter(s =>
+    ? [...services, ...preBridalPackages].filter(s =>
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.benefits.toLowerCase().includes(searchQuery.toLowerCase())
@@ -294,11 +343,19 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
                 <div>
                   {/* Image Slot at Top */}
                   <div className="w-full h-44 relative bg-[#FAF7F5] overflow-hidden">
-                    <SalonArtwork 
-                      type={parentCat?.slug || 'salon'} 
-                      title={srv.name} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
-                    />
+                    {srv.image_url ? (
+                      <img
+                        src={srv.image_url}
+                        alt={`${srv.name} menu`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <SalonArtwork 
+                        type={parentCat?.slug || 'salon'} 
+                        title={srv.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                      />
+                    )}
                     {srv.is_popular && (
                       <span className="absolute top-2.5 left-2.5 bg-[#5B132B] text-[#D4AF37] text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md">
                         ★ Popular
