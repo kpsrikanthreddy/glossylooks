@@ -94,6 +94,11 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         {/* PRINTABLE AREA */}
         <div id="printable-receipt" className="border border-dashed border-slate-300 rounded-lg p-5 bg-[#FCFBF9] font-mono text-xs text-slate-800 shadow-inner">
           <div className="text-center border-b border-dashed border-slate-300 pb-3 mb-3">
+            <img
+              src="/assets/brand/glossy-looks-logo.png"
+              alt="The Glossy Looks logo"
+              className="w-10 h-10 rounded-full object-cover mx-auto mb-1.5"
+            />
             <h3 className="font-serif font-bold text-base text-slate-900 tracking-tight">THE GLOSSY LOOKS</h3>
             <p className="text-[10px] text-slate-600">Professional Women Salon & Bridal Studio</p>
             <p className="text-[9px] text-slate-500 mt-0.5">31, Vinayak Nagar, Gachibowli, Hyderabad - 500032</p>

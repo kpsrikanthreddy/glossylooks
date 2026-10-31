@@ -7,7 +7,7 @@
  * POS Billing, CRM, Inventory Movements, Print Provider & Audit Logging.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -76,7 +76,8 @@ import {
   DetailedSalesReport,
   SalesReportFilter,
   WhatsAppMessageLog,
-  AppointmentFeedback
+  AppointmentFeedback,
+  SalonBranch
 } from '../../types/salon';
 import { api } from '../../lib/api';
 
@@ -151,6 +152,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<SalonSettings | null>(null);
   const [reports, setReports] = useState<any>(null);
+  const [branches, setBranches] = useState<SalonBranch[]>([]);
 
   // Detailed Sales Report & Date Range Filters
   const [detailedReports, setDetailedReports] = useState<DetailedSalesReport | null>(null);
@@ -175,11 +177,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [posSelectedItems, setPosSelectedItems] = useState<Array<{ service: ServiceItem; quantity: number; staffId?: string }>>([]);
   const [posDiscount, setPosDiscount] = useState<number>(0);
   const [posTip, setPosTip] = useState<number>(0);
-  const [posPaymentMode, setPosPaymentMode] = useState<Order['primary_payment_mode']>('UPI');
+  const [posPaymentMode, setPosPaymentMode] = useState<Order['primary_payment_mode'] | ''>('');
+  const [posBranchId, setPosBranchId] = useState('');
   const [posNotes, setPosNotes] = useState('');
   const [posSuccessOrder, setPosSuccessOrder] = useState<Order | null>(null);
   const [posFeedbackSending, setPosFeedbackSending] = useState(false);
   const [posFeedbackMessage, setPosFeedbackMessage] = useState<string | null>(null);
+  const posBranchRef = useRef<HTMLSelectElement>(null);
+  const posCustomerNameRef = useRef<HTMLInputElement>(null);
+  const posCustomerPhoneRef = useRef<HTMLInputElement>(null);
+  const posPaymentModeRef = useRef<HTMLSelectElement>(null);
 
   // Modals for CRUD operations
   const [customerModal, setCustomerModal] = useState<{ isOpen: boolean; data?: Customer | null }>({ isOpen: false });
@@ -260,7 +267,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         srvsData,
         pkgsData,
         galleryData,
-        settingsData
+        settingsData,
+        branchesData
       ] = await Promise.all([
         api.getAppointments(),
         api.getCustomers(),
@@ -276,7 +284,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         api.getServices(),
         api.getPackages(),
         api.getGallery(false),
-        api.getSettings()
+        api.getSettings(),
+        api.getBranches().catch(() => [])
       ]);
 
       setAppointments(aptsData);
@@ -294,6 +303,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       setPackages(pkgsData);
       setGallery(galleryData);
       setSettings(settingsData);
+      setBranches(branchesData.filter(branch => branch.is_active));
 
       // Role-gated fetches: Users & Audit logs ONLY for Owner
       if (isOwnerRole) {
@@ -431,8 +441,28 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   // POS Checkout Handler
   const handlePosCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!posCustomerName || !posCustomerPhone || posSelectedItems.length === 0) {
-      alert('Please specify customer and at least one service/product');
+    if (!posBranchId) {
+      posBranchRef.current?.focus();
+      posBranchRef.current?.reportValidity();
+      return;
+    }
+    if (!posCustomerName.trim()) {
+      posCustomerNameRef.current?.focus();
+      posCustomerNameRef.current?.reportValidity();
+      return;
+    }
+    if (!posCustomerPhone.trim()) {
+      posCustomerPhoneRef.current?.focus();
+      posCustomerPhoneRef.current?.reportValidity();
+      return;
+    }
+    if (!posPaymentMode) {
+      posPaymentModeRef.current?.focus();
+      posPaymentModeRef.current?.reportValidity();
+      return;
+    }
+    if (posSelectedItems.length === 0) {
+      alert('Please add at least one service or product to the bill.');
       return;
     }
 
@@ -462,6 +492,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       const newOrder = await api.createOrder({
         customer_name: posCustomerName,
         customer_phone: posCustomerPhone,
+        branch_id: posBranchId,
         items,
         subtotal,
         discount: posDiscount,
@@ -470,7 +501,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         grand_total: grandTotal,
         paid_amount: grandTotal,
         payment_status: 'Paid',
-        primary_payment_mode: posPaymentMode,
+        primary_payment_mode: posPaymentMode as Order['primary_payment_mode'],
         cashier_name: currentUser?.name || 'Reception',
         notes: posNotes
       }, currentUser?.name);
@@ -712,9 +743,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           </button>
 
           <div className="text-center mt-6 mb-6">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#D4AF37] to-[#F3D7D7] text-[#120B0F] mx-auto flex items-center justify-center font-serif font-bold text-2xl shadow-xl mb-3">
-              G
-            </div>
+            <img
+              src="/assets/brand/glossy-looks-logo.png"
+              alt="The Glossy Looks logo"
+              className="w-14 h-14 rounded-full object-cover mx-auto shadow-xl mb-3"
+            />
             <h2 className="font-serif font-bold text-2xl text-white">The Glossy Looks</h2>
             <span className="text-[11px] font-bold uppercase tracking-widest text-[#D4AF37]">
               Staff & Operations Portal Login
@@ -827,9 +860,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         {/* Brand Lockup */}
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#D4AF37] to-[#F3D7D7] text-[#120B0F] font-serif font-bold text-base flex items-center justify-center shadow-md">
-              G
-            </div>
+            <img
+              src="/assets/brand/glossy-looks-logo.png"
+              alt="The Glossy Looks logo"
+              className="w-9 h-9 rounded-full object-cover shadow-md"
+            />
             <div>
               <h2 className="font-serif font-bold text-sm tracking-tight text-white leading-tight">
                 The Glossy Looks
@@ -1637,8 +1672,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                   {/* Customer Information */}
                   <div className="space-y-2">
                     <div>
+                      <label className="block text-[11px] font-semibold text-slate-700">Salon Branch *</label>
+                      <select
+                        ref={posBranchRef}
+                        required
+                        value={posBranchId}
+                        onChange={(e) => setPosBranchId(e.target.value)}
+                        className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
+                      >
+                        <option value="">Select branch</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name} · {branch.city}
+                          </option>
+                        ))}
+                      </select>
+                      {branches.length === 0 && (
+                        <p className="mt-1 text-[10px] text-amber-700">No active branch is available. Refresh the page or create the branch in Admin settings.</p>
+                      )}
+                    </div>
+                    <div>
                       <label className="block text-[11px] font-semibold text-slate-700">Customer Name *</label>
                       <input
+                        ref={posCustomerNameRef}
                         type="text"
                         required
                         value={posCustomerName}
@@ -1650,6 +1706,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-700">Mobile Number *</label>
                       <input
+                        ref={posCustomerPhoneRef}
                         type="tel"
                         required
                         value={posCustomerPhone}
@@ -1741,10 +1798,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                           Payment Mode *
                         </label>
                         <select
+                          ref={posPaymentModeRef}
+                          required
                           value={posPaymentMode}
                           onChange={(e) => setPosPaymentMode(e.target.value as any)}
                           className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg"
                         >
+                          <option value="" disabled>Select payment mode</option>
                           <option value="UPI">UPI (Google Pay / PhonePe / QR)</option>
                           <option value="Cash">Cash Counter</option>
                           <option value="Card">Credit / Debit Card</option>

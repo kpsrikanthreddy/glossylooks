@@ -9,7 +9,7 @@ import {
   ServiceCategory 
 } from '../../types/salon';
 import { SalonArtwork } from '../common/SalonArtwork';
-import { Clock, Plus, Check, Sparkles, MessageCircle, ArrowRight } from 'lucide-react';
+import { Clock, Plus, Check, Sparkles, MessageCircle, ArrowRight, Search, X } from 'lucide-react';
 
 interface ServiceMenuSectionProps {
   categories: ServiceCategory[];
@@ -33,6 +33,8 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
   whatsappNumber
 }) => {
   const [salonSubcategory, setSalonSubcategory] = useState<'salon' | 'facials'>('salon');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Filter out Facials from top-level category chips (Facials is now a subcategory inside Salon)
   const visibleCategories = categories.filter(
@@ -64,8 +66,83 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
     filteredServices = services.filter(s => s.category_id === activeCategoryId);
   }
 
+  const matchedServices = searchQuery.trim()
+    ? services.filter(s =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.benefits.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+
   return (
     <section id="services-section" className="py-6 sm:py-10">
+      {/* Service search moved here from the header so it sits directly above the menu. */}
+      <div className="relative max-w-2xl mx-auto mb-7 sm:mb-9">
+        <div className="relative">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSearchResults(true);
+            }}
+            onFocus={() => setShowSearchResults(true)}
+            placeholder="Search for makeup, facial, haircut..."
+            className="w-full pl-11 pr-10 py-3 text-sm bg-white border border-[#EBD9D0] rounded-2xl shadow-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/35 focus:border-[#D4AF37] transition-all"
+            aria-label="Search salon services"
+          />
+          <Search className="w-5 h-5 text-[#8C235A] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setShowSearchResults(false);
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#5B132B]"
+              aria-label="Clear service search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {showSearchResults && searchQuery.trim() && (
+          <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-xl border border-[#EBD9D0] overflow-hidden z-30 max-h-80 overflow-y-auto">
+            <div className="p-3 border-b border-[#F2E8E2] flex items-center justify-between text-xs text-slate-500">
+              <span>{matchedServices.length} services found</span>
+              <button type="button" onClick={() => setShowSearchResults(false)} className="font-medium text-[#8C235A] hover:text-[#5B132B]">Close</button>
+            </div>
+            {matchedServices.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">No services matched &ldquo;{searchQuery}&rdquo;. Try bridal, hair spa, or manicure.</div>
+            ) : (
+              <div className="divide-y divide-[#F2E8E2]">
+                {matchedServices.map(service => {
+                  const inCart = cartServiceIds.includes(service.id);
+                  return (
+                    <div key={service.id} className="p-3 hover:bg-[#FFFBF8] transition-colors flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-semibold text-slate-900 truncate">{service.name}</h4>
+                        <p className="text-[11px] text-slate-500 truncate">{service.benefits || service.description}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500"><span>{service.duration_minutes} mins</span><span>·</span><span className="font-bold text-[#8C235A]">₹{service.discount_price || service.price}</span></div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onToggleService(service)}
+                        className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${inCart ? 'bg-emerald-600 text-white' : 'bg-[#5B132B] text-white hover:bg-[#430D1F]'}`}
+                      >
+                        {inCart ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                        <span className="hidden sm:inline">{inCart ? 'Added' : 'Add'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
           <span className="text-[11px] font-semibold tracking-widest uppercase text-[#8C235A]">

@@ -222,9 +222,6 @@ export default function App() {
         onOpenCustomerPortal={() => setIsCustomerPortalOpen(true)}
         onOpenEnquiry={() => setIsEnquiryOpen(true)}
         onSwitchToAdmin={navigateToAdmin}
-        onSelectService={handleToggleService}
-        services={services}
-        cartServiceIds={selectedServices.map(s => s.id)}
       />
 
       {/* Main Content Area */}
@@ -314,9 +311,11 @@ export default function App() {
       <footer className="bg-[#1F0714] text-white border-t border-[#3B0E27] py-10 px-4 sm:px-6 lg:px-8 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-white/70">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#D4AF37] text-[#1F0714] font-serif font-bold flex items-center justify-center">
-              G
-            </div>
+            <img
+              src="/assets/brand/glossy-looks-logo.png"
+              alt="The Glossy Looks logo"
+              className="w-8 h-8 rounded-full object-cover"
+            />
             <div>
               <span className="font-serif font-bold text-sm text-white">The Glossy Looks</span>
               <p className="text-[11px] text-white/50">Professional Women Salon · 31, Vinayak Nagar, Gachibowli, Hyderabad</p>
