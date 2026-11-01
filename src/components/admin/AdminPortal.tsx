@@ -53,7 +53,8 @@ import {
   MessageSquare,
   ShoppingCart,
   X,
-  Minus
+  Minus,
+  MapPin
 } from 'lucide-react';
 import { WhatsAppIntegrationSection } from './WhatsAppIntegrationSection';
 import { 
@@ -197,6 +198,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [customerSearch, setCustomerSearch] = useState('');
   const [serviceSearch, setServiceSearch] = useState('');
   const [inventorySearch, setInventorySearch] = useState('');
+  const [appointmentBranchFilter, setAppointmentBranchFilter] = useState('all');
 
   // POS State
   const [posCustomerName, setPosCustomerName] = useState('');
@@ -1479,66 +1481,97 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* ================================================================= */}
           {/* 3. APPOINTMENTS MODULE */}
           {/* ================================================================= */}
-          {activeTab === 'appointments' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-600">
-                  Showing {appointments.length} total scheduled bookings
-                </span>
-              </div>
+          {activeTab === 'appointments' && (() => {
+            const filteredAppointments = appointments.filter(apt => {
+              if (appointmentBranchFilter === 'all') return true;
+              return (apt.branch_id || 'tgl-gachibowli-main') === appointmentBranchFilter;
+            });
 
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#FAF7F5] border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-                      <tr>
-                        <th className="p-3.5">Booking Ref</th>
-                        <th className="p-3.5">Client & Phone</th>
-                        <th className="p-3.5">Date & Slot</th>
-                        <th className="p-3.5">Services</th>
-                        <th className="p-3.5">Assigned Stylist</th>
-                        <th className="p-3.5">Amount</th>
-                        <th className="p-3.5">Status</th>
-                        <th className="p-3.5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {appointments.map(apt => (
-                        <tr key={apt.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3.5 font-mono font-bold text-[#5B132B]">{apt.booking_reference}</td>
-                          <td className="p-3.5">
-                            <div className="font-bold text-slate-900">{apt.customer_name}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">{apt.customer_phone}</div>
-                            {apt.whatsapp_status && (
-                              <button
-                                type="button"
-                                onClick={() => handleViewAppointmentLogs(apt)}
-                                className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
-                                  apt.whatsapp_status === 'sent' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' :
-                                  apt.whatsapp_status === 'delivered' ? 'bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100' :
-                                  apt.whatsapp_status === 'read' ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100' :
-                                  apt.whatsapp_status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' :
-                                  'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                                }`}
-                                title="Click to view WhatsApp delivery log history"
-                              >
-                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                  apt.whatsapp_status === 'read' ? 'bg-blue-600' :
-                                  apt.whatsapp_status === 'delivered' ? 'bg-teal-600' :
-                                  apt.whatsapp_status === 'sent' ? 'bg-emerald-600' :
-                                  apt.whatsapp_status === 'pending_approval' ? 'bg-amber-500' :
-                                  'bg-rose-600'
-                                }`} />
-                                <span>
-                                  {apt.whatsapp_status === 'sent' ? 'WA Sent' :
-                                   apt.whatsapp_status === 'delivered' ? 'WA Delivered' :
-                                   apt.whatsapp_status === 'read' ? 'WA Read' :
-                                   apt.whatsapp_status === 'pending_approval' ? 'Pending Approval' :
-                                   'WA Failed'}
-                                </span>
-                              </button>
-                            )}
-                          </td>
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <span className="text-xs font-semibold text-slate-600">
+                    Showing {filteredAppointments.length} scheduled bookings {appointmentBranchFilter !== 'all' ? `(filtered by ${branches.find(b => b.id === appointmentBranchFilter)?.name || 'branch'})` : `(all branches)`}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Branch:</span>
+                    <select
+                      value={appointmentBranchFilter}
+                      onChange={e => setAppointmentBranchFilter(e.target.value)}
+                      className="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-2 focus:ring-[#5B132B]/20 font-medium cursor-pointer shadow-xs"
+                    >
+                      <option value="all">All Branches ({appointments.length})</option>
+                      {branches.map(b => {
+                        const count = appointments.filter(a => (a.branch_id || 'tgl-gachibowli-main') === b.id).length;
+                        return (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({count})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#FAF7F5] border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="p-3.5">Booking Ref</th>
+                          <th className="p-3.5">Branch</th>
+                          <th className="p-3.5">Client & Phone</th>
+                          <th className="p-3.5">Date & Slot</th>
+                          <th className="p-3.5">Services</th>
+                          <th className="p-3.5">Assigned Stylist</th>
+                          <th className="p-3.5">Amount</th>
+                          <th className="p-3.5">Status</th>
+                          <th className="p-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredAppointments.map(apt => (
+                          <tr key={apt.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3.5 font-mono font-bold text-[#5B132B]">{apt.booking_reference}</td>
+                            <td className="p-3.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                <MapPin className="w-3 h-3 text-[#8C235A]" />
+                                <span>{branches.find(b => b.id === apt.branch_id)?.name || (apt.branch_id === 'brn-1793346038689' ? 'Kondapur Branch' : 'Gachibowli Main Flagship')}</span>
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-bold text-slate-900">{apt.customer_name}</div>
+                              <div className="text-[11px] text-slate-500 font-mono">{apt.customer_phone}</div>
+                              {apt.whatsapp_status && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewAppointmentLogs(apt)}
+                                  className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                    apt.whatsapp_status === 'sent' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' :
+                                    apt.whatsapp_status === 'delivered' ? 'bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100' :
+                                    apt.whatsapp_status === 'read' ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100' :
+                                    apt.whatsapp_status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' :
+                                    'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                                  }`}
+                                  title="Click to view WhatsApp delivery log history"
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    apt.whatsapp_status === 'read' ? 'bg-blue-600' :
+                                    apt.whatsapp_status === 'delivered' ? 'bg-teal-600' :
+                                    apt.whatsapp_status === 'sent' ? 'bg-emerald-600' :
+                                    apt.whatsapp_status === 'pending_approval' ? 'bg-amber-500' :
+                                    'bg-rose-600'
+                                  }`} />
+                                  <span>
+                                    {apt.whatsapp_status === 'sent' ? 'WA Sent' :
+                                     apt.whatsapp_status === 'delivered' ? 'WA Delivered' :
+                                     apt.whatsapp_status === 'read' ? 'WA Read' :
+                                     apt.whatsapp_status === 'pending_approval' ? 'Pending Approval' :
+                                     'WA Failed'}
+                                  </span>
+                                </button>
+                              )}
+                            </td>
                           <td className="p-3.5">
                             <div>{apt.appointment_date}</div>
                             <div className="text-[11px] text-slate-500">{apt.time_slot}</div>
@@ -1641,7 +1674,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                 </div>
               </div>
             </div>
-          )}
+          );
+        })()}
 
           {/* ================================================================= */}
           {/* 4. POS BILLING SCREEN */}

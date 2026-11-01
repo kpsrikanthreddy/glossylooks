@@ -11,7 +11,14 @@ ADD COLUMN IF NOT EXISTS branch_id TEXT;
 ALTER TABLE IF EXISTS public.appointments 
 ADD COLUMN IF NOT EXISTS branch_id TEXT;
 
--- 3. Ensure salon_branches table exists
+-- 3. Ensure branch_id exists on whatsapp_message_logs and appointment_feedback
+ALTER TABLE IF EXISTS public.whatsapp_message_logs 
+ADD COLUMN IF NOT EXISTS branch_id TEXT;
+
+ALTER TABLE IF EXISTS public.appointment_feedback 
+ADD COLUMN IF NOT EXISTS branch_id TEXT;
+
+-- 4. Ensure salon_branches table exists
 CREATE TABLE IF NOT EXISTS public.salon_branches (
     id TEXT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,

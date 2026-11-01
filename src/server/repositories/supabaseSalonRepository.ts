@@ -1021,35 +1021,178 @@ export class SupabaseSalonRepository implements ISalonRepository {
     if (filters?.staffId) query = query.eq('assigned_staff_id', filters.staffId);
     if (filters?.customerMobile) query = query.ilike('customer_phone', `%${filters.customerMobile}%`);
     const { data } = await query;
-    return (data || []) as Appointment[];
+    const apts = (data || []) as Appointment[];
+
+    try {
+      const { data: allItems } = await this.client.from('appointment_items').select('*');
+      if (allItems && allItems.length > 0) {
+        const itemsByApt: Record<string, any[]> = {};
+        for (const itm of allItems) {
+          if (!itemsByApt[itm.appointment_id]) itemsByApt[itm.appointment_id] = [];
+          itemsByApt[itm.appointment_id].push({
+            id: itm.service_id || itm.id,
+            name: itm.name,
+            duration: itm.duration || 30,
+            price: itm.price || 0,
+            staff_id: itm.staff_id,
+            staff_name: itm.staff_name
+          });
+        }
+        for (const apt of apts) {
+          if (itemsByApt[apt.id]) {
+            apt.services = itemsByApt[apt.id];
+          } else if (!apt.services) {
+            apt.services = [];
+          }
+          if (!apt.branch_id && apt.notes) {
+            const match = apt.notes.match(/\[Branch:\s*([^\]]+)\]/);
+            if (match) apt.branch_id = match[1];
+          }
+          if (!apt.branch_id) {
+            apt.branch_id = 'tgl-gachibowli-main';
+          }
+        }
+      }
+    } catch {
+      // Non-fatal if appointment_items table query fails
+    }
+
+    return apts;
   }
 
   public async getAppointmentById(id: string): Promise<Appointment | null> {
     const { data } = await this.client.from('appointments').select('*').eq('id', id).maybeSingle();
-    return (data || null) as Appointment | null;
+    if (!data) return null;
+    const apt = data as Appointment;
+    try {
+      const { data: items } = await this.client.from('appointment_items').select('*').eq('appointment_id', id);
+      apt.services = (items || []).map(itm => ({
+        id: itm.service_id || itm.id,
+        name: itm.name,
+        duration: itm.duration || 30,
+        price: itm.price || 0,
+        staff_id: itm.staff_id,
+        staff_name: itm.staff_name
+      }));
+    } catch {
+      apt.services = [];
+    }
+    if (!apt.branch_id && apt.notes) {
+      const match = apt.notes.match(/\[Branch:\s*([^\]]+)\]/);
+      if (match) apt.branch_id = match[1];
+    }
+    if (!apt.branch_id) {
+      apt.branch_id = 'tgl-gachibowli-main';
+    }
+    return apt;
   }
 
   public async createAppointment(apt: Omit<Appointment, 'id' | 'booking_reference' | 'created_at' | 'updated_at'>, performedBy?: string): Promise<Appointment> {
     const ref = `TGL-BK-${Date.now().toString().slice(-6)}`;
-    const { data, error } = await this.client.from('appointments').insert({
-      ...apt,
-      booking_reference: ref
-    }).select().single();
+    const { services = [], branch_id, ...aptFields } = apt;
+
+    let insertedApt: any = null;
+    const aptRowWithBranch: any = {
+      ...aptFields,
+      booking_reference: ref,
+      branch_id: branch_id || null
+    };
+
+    let { data, error } = await this.client.from('appointments').insert(aptRowWithBranch).select().single();
+    
+    // Automatically strip any columns that don't exist in Supabase schema cache
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && aptRowWithBranch[match[1]] !== undefined) {
+        const colName = match[1];
+        if (colName === 'branch_id' && branch_id) {
+          aptRowWithBranch.notes = aptRowWithBranch.notes ? `${aptRowWithBranch.notes} [Branch: ${branch_id}]` : `[Branch: ${branch_id}]`;
+        }
+        delete aptRowWithBranch[colName];
+        const retry = await this.client.from('appointments').insert(aptRowWithBranch).select().single();
+        error = retry.error;
+        data = retry.data;
+      } else {
+        break;
+      }
+    }
+
     if (error) throw error;
-    await this.logAudit('BOOKING', 'Appointment', data.id, performedBy || 'Customer Website', `Booked appointment: ${data.customer_name}`);
-    return data as Appointment;
+    insertedApt = data;
+
+    // Insert appointment items into public.appointment_items if present
+    if (insertedApt?.id && services && services.length > 0) {
+      try {
+        const itemRows = services.map(srv => ({
+          appointment_id: insertedApt.id,
+          service_id: srv.id && srv.id.includes('-') && !srv.id.startsWith('srv-') ? srv.id : null,
+          name: srv.name,
+          duration: srv.duration || 30,
+          price: srv.price || 0,
+          staff_id: srv.staff_id || null,
+          staff_name: srv.staff_name || null
+        }));
+        await this.client.from('appointment_items').insert(itemRows);
+      } catch (itemErr) {
+        console.warn('⚠️ Could not insert line items into appointment_items table:', itemErr);
+      }
+    }
+
+    await this.logAudit('BOOKING', 'Appointment', insertedApt.id, performedBy || 'Customer Website', `Booked appointment: ${insertedApt.customer_name}`);
+
+    return {
+      ...insertedApt,
+      branch_id: branch_id || insertedApt.branch_id || 'tgl-gachibowli-main',
+      services: services || []
+    } as Appointment;
   }
 
   public async updateAppointment(id: string, data: Partial<Appointment>, performedBy: string): Promise<Appointment | null> {
-    const { data: updated, error } = await this.client
+    const { services, branch_id, ...updateFields } = data;
+    const updatePayload: any = {
+      ...updateFields,
+      updated_at: new Date().toISOString()
+    };
+    if (branch_id !== undefined) {
+      updatePayload.branch_id = branch_id;
+    }
+
+    let res = await this.client
       .from('appointments')
-      .update({ ...data, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', id)
       .select()
-      .single();
-    if (error) throw error;
+      .maybeSingle();
+
+    // Automatically strip any columns that don't exist in Supabase schema cache
+    while (res.error && (res.error.code === 'PGRST204' || (res.error.message && res.error.message.includes('schema cache')))) {
+      const match = res.error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && updatePayload[match[1]] !== undefined) {
+        const colName = match[1];
+        if (colName === 'branch_id' && branch_id) {
+          updatePayload.notes = updatePayload.notes ? `${updatePayload.notes} [Branch: ${branch_id}]` : `[Branch: ${branch_id}]`;
+        }
+        delete updatePayload[colName];
+        res = await this.client
+          .from('appointments')
+          .update(updatePayload)
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+      } else {
+        break;
+      }
+    }
+
+    if (res.error) throw res.error;
+    if (!res.data) return null;
+    const updated = res.data as Appointment;
     await this.logAudit('UPDATE', 'Appointment', id, performedBy, `Updated appointment: ${id}`);
-    return updated as Appointment;
+    return {
+      ...updated,
+      branch_id: branch_id || updated.branch_id || 'tgl-gachibowli-main',
+      services: services || updated.services || []
+    } as Appointment;
   }
 
   public async cancelAppointment(id: string, reason: string, performedBy: string): Promise<Appointment | null> {
@@ -1460,20 +1603,35 @@ export class SupabaseSalonRepository implements ISalonRepository {
     const id = `wml-${Date.now()}`;
     const now = new Date().toISOString();
     const newLog: WhatsAppMessageLog = { ...log, id, created_at: now, updated_at: now };
-    const { data, error } = await this.client.from('whatsapp_message_logs').insert(newLog).select().single();
-    if (error) throw error;
-    return data as WhatsAppMessageLog;
+    try {
+      const { data, error } = await this.client.from('whatsapp_message_logs').insert(newLog).select().single();
+      if (!error && data) return data as WhatsAppMessageLog;
+      if (error && (error.code === 'PGRST204' || (error.message && error.message.includes('branch_id')))) {
+        const { branch_id, ...fallbackLog } = newLog;
+        const retry = await this.client.from('whatsapp_message_logs').insert(fallbackLog).select().single();
+        if (!retry.error && retry.data) {
+          return { ...retry.data, branch_id: log.branch_id } as WhatsAppMessageLog;
+        }
+      }
+    } catch {
+      // Non-fatal if message logging table is not available
+    }
+    return newLog;
   }
 
   public async updateWhatsAppMessageLogByMetaId(metaMessageId: string, data: Partial<WhatsAppMessageLog>): Promise<WhatsAppMessageLog | null> {
-    const { data: updated, error } = await this.client
-      .from('whatsapp_message_logs')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('meta_message_id', metaMessageId)
-      .select()
-      .maybeSingle();
-    if (error) throw error;
-    return (updated || null) as WhatsAppMessageLog | null;
+    try {
+      const { data: updated, error } = await this.client
+        .from('whatsapp_message_logs')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('meta_message_id', metaMessageId)
+        .select()
+        .maybeSingle();
+      if (!error && updated) return updated as WhatsAppMessageLog;
+    } catch {
+      // Non-fatal if update fails
+    }
+    return null;
   }
 
   // --- Customer Feedback ---

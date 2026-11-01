@@ -16,9 +16,10 @@ import {
   CheckCircle, 
   ArrowRight,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  MapPin
 } from 'lucide-react';
-import { ServiceItem, Appointment, Staff } from '../../types/salon';
+import { ServiceItem, Appointment, Staff, SalonBranch } from '../../types/salon';
 import { api } from '../../lib/api';
 
 interface BookingDrawerProps {
@@ -30,6 +31,33 @@ interface BookingDrawerProps {
   onBookingSuccess: (appointment: Appointment) => void;
   whatsappNumber?: string;
 }
+
+const defaultBranchesFallback: SalonBranch[] = [
+  {
+    id: 'tgl-gachibowli-main',
+    name: 'Gachibowli Main Flagship',
+    code: 'GCB-01',
+    address: '31, Vinayak Nagar, Gachibowli',
+    city: 'Hyderabad, Telangana - 500032',
+    phone: '8985799459',
+    whatsapp_number: '8985799459',
+    is_active: true,
+    created_at: '2026-01-01T10:00:00Z',
+    updated_at: '2026-10-31T09:09:41.008Z'
+  },
+  {
+    id: 'brn-1793346038689',
+    name: 'Kondapur Branch',
+    code: 'KND-02',
+    address: 'Road No 2, Kondapur',
+    city: 'Hyderabad, Telangana - 500084',
+    phone: '9491914422',
+    whatsapp_number: '9491914422',
+    is_active: true,
+    created_at: '2026-10-30T07:40:38.689Z',
+    updated_at: '2026-10-30T07:40:38.689Z'
+  }
+];
 
 const TIME_SLOTS = [
   '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
@@ -49,6 +77,8 @@ export const BookingDrawer: React.FC<BookingDrawerProps> = ({
   onBookingSuccess,
   whatsappNumber
 }) => {
+  const [branches, setBranches] = useState<SalonBranch[]>(defaultBranchesFallback);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('tgl-gachibowli-main');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -65,6 +95,17 @@ export const BookingDrawer: React.FC<BookingDrawerProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      api.getBranches()
+        .then(data => {
+          const active = (data || []).filter(b => b.is_active !== false);
+          const hasKondapur = active.some(b => b.id === 'brn-1793346038689' || b.name.toLowerCase().includes('kondapur'));
+          const finalBranches = active.length > 0
+            ? (hasKondapur ? active : [...active, defaultBranchesFallback[1]])
+            : defaultBranchesFallback;
+          setBranches(finalBranches);
+        })
+        .catch(err => console.warn('Could not load branches for booking:', err));
+
       api.getStaff()
         .then(data => setStaffList(data.filter(s => s.is_active)))
         .catch(err => console.warn('Could not load staff for booking:', err));
@@ -73,6 +114,7 @@ export const BookingDrawer: React.FC<BookingDrawerProps> = ({
 
   if (!isOpen) return null;
 
+  const selectedBranch = branches.find(b => b.id === selectedBranchId) || branches[0];
   const totalAmount = selectedServices.reduce((sum, s) => sum + (s.discount_price || s.price), 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration_minutes, 0);
 
@@ -80,6 +122,10 @@ export const BookingDrawer: React.FC<BookingDrawerProps> = ({
     e.preventDefault();
     setErrorMessage('');
 
+    if (!selectedBranchId) {
+      setErrorMessage('Please select a salon branch (Mandatory)');
+      return;
+    }
     if (!customerName.trim()) {
       setErrorMessage('Please enter your full name');
       return;
@@ -99,6 +145,7 @@ export const BookingDrawer: React.FC<BookingDrawerProps> = ({
       const newApt = await api.createAppointment({
         customer_name: customerName.trim(),
         customer_phone: customerPhone.replace(/\D/g, '').slice(-10),
+        branch_id: selectedBranchId,
         appointment_date: appointmentDate,
         time_slot: timeSlot,
         services: selectedServices.map(s => ({
@@ -127,8 +174,11 @@ export const BookingDrawer: React.FC<BookingDrawerProps> = ({
 
   const getWhatsAppBookingUrl = (apt: Appointment) => {
     const serviceNames = apt.services.map(s => s.name).join(', ');
+    const branchInfo = branches.find(b => b.id === (apt.branch_id || selectedBranchId)) || selectedBranch;
+    const branchText = branchInfo ? `${branchInfo.name} (${branchInfo.city || branchInfo.address})` : 'The Glossy Looks';
     const msg = `*New Booking Request - The Glossy Looks Salon*
 Booking Ref: ${apt.booking_reference}
+Salon Branch: ${branchText}
 Name: ${apt.customer_name}
 Phone: ${apt.customer_phone}
 Date: ${apt.appointment_date}
@@ -139,7 +189,7 @@ Total: ₹${apt.final_amount}
 Notes: ${apt.notes || 'None'}
 
 Please confirm my appointment slot. Thank you!`;
-    const cleanNumber = (whatsappNumber || '').replace(/\D/g, '').slice(-10);
+    const cleanNumber = (branchInfo?.whatsapp_number || whatsappNumber || '8985799459').replace(/\D/g, '').slice(-10);
     return `https://wa.me/91${cleanNumber}?text=${encodeURIComponent(msg)}`;
   };
 
@@ -157,7 +207,7 @@ Please confirm my appointment slot. Thank you!`;
                 {confirmedAppointment ? 'Booking Confirmed' : 'Appointment Booking'}
               </h3>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                The Glossy Looks · Gachibowli
+                The Glossy Looks · {selectedBranch?.name || 'Flagship'}
               </span>
             </div>
           </div>
@@ -183,7 +233,7 @@ Please confirm my appointment slot. Thank you!`;
               Appointment Scheduled!
             </h2>
             <p className="text-xs text-slate-600 max-w-xs mb-4">
-              Your booking has been registered in the salon admin system. Our receptionist will confirm your slot.
+              Your booking has been registered in the salon admin system. Our reception team will confirm your slot.
             </p>
 
             {/* Reference Card */}
@@ -191,6 +241,12 @@ Please confirm my appointment slot. Thank you!`;
               <div className="flex justify-between border-b pb-2">
                 <span className="text-slate-500">Booking Reference:</span>
                 <span className="font-mono font-bold text-[#5B132B]">{confirmedAppointment.booking_reference}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-slate-500">Salon Branch:</span>
+                <span className="font-semibold text-slate-800">
+                  {branches.find(b => b.id === confirmedAppointment.branch_id)?.name || selectedBranch?.name || 'Gachibowli Main Flagship'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Date & Slot:</span>
@@ -344,6 +400,35 @@ Please confirm my appointment slot. Thank you!`;
                 <h4 className="text-xs uppercase tracking-wider font-bold text-[#8C235A]">
                   Appointment Details
                 </h4>
+
+                {/* 1. Salon Branch (Mandatory) */}
+                <div className="bg-[#FAF4F0] p-3 rounded-xl border border-[#EBD9D0]">
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    Select Salon Branch *
+                  </label>
+                  <div className="relative">
+                    <select
+                      required
+                      value={selectedBranchId}
+                      onChange={e => setSelectedBranchId(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-[#EBD9D0] rounded-xl focus:ring-2 focus:ring-[#8C235A]/30 focus:border-[#8C235A] outline-none font-medium text-slate-800 cursor-pointer shadow-xs"
+                    >
+                      <option value="" disabled>-- Select salon branch (Required) --</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} — {b.city || b.address}
+                        </option>
+                      ))}
+                    </select>
+                    <MapPin className="w-4 h-4 text-[#8C235A] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                  {selectedBranch && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-600 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                      <span className="truncate">{selectedBranch.address}, {selectedBranch.city}</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Name */}
                 <div>
