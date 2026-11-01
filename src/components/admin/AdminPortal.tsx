@@ -167,7 +167,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
     created_at: '2026-01-01T10:00:00Z',
     updated_at: '2026-10-31T09:09:41.008Z'
   };
-  const [branches, setBranches] = useState<SalonBranch[]>([defaultBranchFallback]);
+  const defaultKondapurBranch: SalonBranch = {
+    id: 'brn-1793346038689',
+    name: 'Kondapur Branch',
+    code: 'KND-02',
+    address: 'Road No 2, Kondapur',
+    city: 'Hyderabad, Telangana - 500084',
+    phone: '9491914422',
+    whatsapp_number: '9491914422',
+    is_active: true,
+    created_at: '2026-10-30T07:40:38.689Z',
+    updated_at: '2026-10-30T07:40:38.689Z'
+  };
+  const [branches, setBranches] = useState<SalonBranch[]>([defaultBranchFallback, defaultKondapurBranch]);
 
   // Detailed Sales Report & Date Range Filters
   const [detailedReports, setDetailedReports] = useState<DetailedSalesReport | null>(null);
@@ -200,7 +212,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [posFeedbackMessage, setPosFeedbackMessage] = useState<string | null>(null);
   const [posSearch, setPosSearch] = useState('');
   const [posCategoryFilter, setPosCategoryFilter] = useState('all');
-  const [posSalonSubcategory, setPosSalonSubcategory] = useState('threading');
+  const [posSalonGroup, setPosSalonGroup] = useState<string>('all');
+  const [posSalonSubcategory, setPosSalonSubcategory] = useState<string>('');
   const [isPosCartOpen, setIsPosCartOpen] = useState(false);
   const posBranchRef = useRef<HTMLSelectElement>(null);
   const posCustomerNameRef = useRef<HTMLInputElement>(null);
@@ -323,7 +336,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       setGallery(galleryData);
       setSettings(settingsData);
       const activeBranches = (branchesData || []).filter(branch => branch.is_active !== false);
-      const finalBranches = activeBranches.length > 0 ? activeBranches : [defaultBranchFallback];
+      const hasKondapur = activeBranches.some(b => b.id === 'brn-1793346038689' || b.name.toLowerCase().includes('kondapur'));
+      const finalBranches = activeBranches.length > 0 
+        ? (hasKondapur ? activeBranches : [...activeBranches, defaultKondapurBranch])
+        : [defaultBranchFallback, defaultKondapurBranch];
       setBranches(finalBranches);
       setPosBranchId(prev => prev || finalBranches[0].id);
 
@@ -1654,40 +1670,106 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
               s.category_id === 'salon'
             );
 
-            const posSalonSubcategoriesList = [
-              { id: 'threading', label: 'Threading' },
-              { id: 'face-wax', label: 'Face Wax' },
-              { id: 'normal-wax', label: 'Normal Wax' },
-              { id: 'rica-wax', label: 'Rica Wax' },
-              { id: 'roll-on-wax', label: 'Roll On Wax' },
-              { id: 'peel-off-wax', label: 'Peel Off Wax' },
-              { id: 'd-tan-clean-up', label: 'D-Tan & Clean Up' },
-              { id: 'facial-treatments', label: 'Facial Treatments' },
-              { id: 'top-up-masks', label: 'Top Up Masks' },
-              { id: 'massage', label: 'Massage' },
-              { id: 'pedicure-manicure', label: 'Pedi & Mani' },
-              { id: 'hair-wash-massage', label: 'Hair Wash & Massage' },
-              { id: 'hair-cuts', label: 'Hair Cuts' },
-              { id: 'hair-colour', label: 'Hair Colour' },
-              { id: 'blow-dry-styling', label: 'Blow Dry & Styling' },
-              { id: 'hair-spa', label: 'Hair Spa' },
-              { id: 'hair-makeover', label: 'Hair Makeover' }
+            interface PosSalonGroupItem {
+              id: string;
+              name: string;
+              children?: { id: string; name: string }[];
+            }
+
+            const POS_SALON_GROUPS: PosSalonGroupItem[] = [
+              { id: 'threading', name: 'Threading' },
+              {
+                id: 'waxing',
+                name: 'Waxing',
+                children: [
+                  { id: 'face-wax', name: 'Face Wax' },
+                  { id: 'normal-wax', name: 'Normal Wax' },
+                  { id: 'rica-wax', name: 'Rica Wax' },
+                  { id: 'roll-on-wax', name: 'Roll On Wax' },
+                  { id: 'peel-off-wax', name: 'Peel Off Wax' }
+                ]
+              },
+              { id: 'd-tan-clean-up', name: 'D-Tan & Clean Up' },
+              { id: 'facial-treatments', name: 'Facial Treatments' },
+              { id: 'top-up-masks', name: 'Top Up Masks' },
+              { id: 'massage', name: 'Massage' },
+              { id: 'pedicure-manicure', name: 'Pedi & Mani' },
+              {
+                id: 'hair-care',
+                name: 'Hair Care',
+                children: [
+                  { id: 'hair-wash-massage', name: 'Hair Wash & Massage' },
+                  { id: 'hair-cuts', name: 'Hair Cuts' },
+                  { id: 'hair-colour', name: 'Hair Colour' },
+                  { id: 'blow-dry-styling', name: 'Blow Dry & Styling' },
+                  { id: 'hair-spa', name: 'Hair Spa' },
+                  { id: 'hair-makeover', name: 'Hair Makeover' }
+                ]
+              }
             ];
 
             const resolvePosSalonSubcategory = (srv: ServiceItem): string => {
-              if (srv.salon_subcategory) {
-                if (srv.salon_subcategory === 'body-care') return 'massage';
-                return srv.salon_subcategory;
-              }
+              const sub = srv.salon_subcategory || '';
+              if (sub === 'body-care') return 'massage';
+              return sub;
+            };
+
+            const resolvePosSalonGroup = (srv: ServiceItem): string => {
               if (srv.salon_group) {
                 if (srv.salon_group === 'body-care') return 'massage';
                 return srv.salon_group;
               }
-              return 'threading';
+              const sub = srv.salon_subcategory || '';
+              if (['face-wax', 'normal-wax', 'rica-wax', 'roll-on-wax', 'peel-off-wax'].includes(sub)) {
+                return 'waxing';
+              }
+              if (['hair-wash-massage', 'hair-cuts', 'hair-colour', 'blow-dry-styling', 'hair-spa', 'hair-makeover'].includes(sub)) {
+                return 'hair-care';
+              }
+              if (sub === 'body-care' || sub === 'massage') {
+                return 'massage';
+              }
+              return sub || 'threading';
             };
 
-            const getPosSubcategoryCount = (subId: string) => {
-              return salonServices.filter(s => resolvePosSalonSubcategory(s) === subId).length;
+            const getPosGroupCount = (groupId: string) => {
+              if (groupId === 'all') return salonServices.length;
+              return salonServices.filter(s => resolvePosSalonGroup(s) === groupId).length;
+            };
+
+            const getPosChildCount = (childId: string) => {
+              return salonServices.filter(s => resolvePosSalonSubcategory(s) === childId).length;
+            };
+
+            const handleSelectPosSalonGroup = (groupId: string) => {
+              setPosSalonGroup(groupId);
+              if (groupId === 'all') {
+                setPosSalonSubcategory('');
+                return;
+              }
+              const groupDef = POS_SALON_GROUPS.find(g => g.id === groupId);
+              if (groupDef?.children && groupDef.children.length > 0) {
+                const childExists = groupDef.children.some(c => c.id === posSalonSubcategory);
+                if (!childExists) {
+                  setPosSalonSubcategory(groupDef.children[0].id);
+                }
+              } else {
+                setPosSalonSubcategory('');
+              }
+            };
+
+            const activePosGroupDef = POS_SALON_GROUPS.find(g => g.id === posSalonGroup);
+
+            const getViewingLabel = () => {
+              if (posSalonGroup === 'all') {
+                return `All Salon (${salonServices.length})`;
+              }
+              if (!activePosGroupDef) return 'All Salon';
+              if (activePosGroupDef.children && activePosGroupDef.children.length > 0) {
+                const activeChild = activePosGroupDef.children.find(c => c.id === posSalonSubcategory) || activePosGroupDef.children[0];
+                return `${activePosGroupDef.name} · ${activeChild?.name || ''}`;
+              }
+              return activePosGroupDef.name;
             };
 
             const filteredPosServices = services.filter(srv => {
@@ -1709,8 +1791,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                 const isSalonSrv = (salonCategory && srv.category_id === salonCategory.id) || srv.category_id === 'cat-salon' || srv.category_id === 'salon';
                 if (!isSalonSrv) return false;
 
-                if (posSalonSubcategory && posSalonSubcategory !== 'all') {
-                  return resolvePosSalonSubcategory(srv) === posSalonSubcategory;
+                if (posSalonGroup === 'all') return true;
+
+                const srvGroup = resolvePosSalonGroup(srv);
+                if (srvGroup !== posSalonGroup) return false;
+
+                if (activePosGroupDef?.children && activePosGroupDef.children.length > 0) {
+                  if (posSalonSubcategory) {
+                    return resolvePosSalonSubcategory(srv) === posSalonSubcategory;
+                  }
                 }
                 return true;
               }
@@ -1821,7 +1910,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                             onClick={() => {
                               setPosCategoryFilter(cat.id);
                               if (cat.slug === 'salon' || cat.id === 'cat-salon') {
-                                setPosSalonSubcategory('threading');
+                                setPosSalonGroup('all');
+                                setPosSalonSubcategory('');
                               }
                             }}
                             className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
@@ -1840,57 +1930,58 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                     </div>
                   </div>
 
-                  {/* Salon Subcategories Card (Displayed when Salon is selected, matching SS1!) */}
+                  {/* Salon Subcategories Card (Grouped together like customer page, SS1/image_f40d05ba) */}
                   {isSalonActive && (
-                    <div className="p-3 sm:p-3.5 bg-gradient-to-r from-[#FAF4F0] via-white to-[#FAF4F0] rounded-xl border border-[#EBD9D0] shadow-2xs">
-                      <div className="flex items-start gap-2.5 mb-2.5">
+                    <div className="p-3 sm:p-4 bg-gradient-to-r from-[#FAF4F0] via-white to-[#FAF4F0] rounded-xl border border-[#EBD9D0] shadow-2xs space-y-3">
+                      <div className="flex items-start gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-[#5B132B] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">✦</div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8C235A]">Salon Subcategories</h4>
+                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8C235A]">Salon Services</h4>
                             <span className="text-[10px] bg-[#5B132B]/10 text-[#5B132B] font-semibold px-2 py-0.5 rounded-full">
-                              Viewing {posSalonSubcategoriesList.find(s => s.id === posSalonSubcategory)?.label || 'All Salon'}
+                              Viewing {getViewingLabel()}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-600 mt-0.5">Choose a service group to view the full Salon menu and pricing.</p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">Select a subcategory to browse targeted treatments.</p>
                         </div>
                       </div>
 
-                      {/* Subcategory Pills Row with Item Counts (SS1 style) */}
+                      {/* Primary Groups Row: All Salon (192) BEFORE Threading, matching Requirement 2 */}
                       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                         <button
                           type="button"
-                          onClick={() => setPosSalonSubcategory('all')}
-                          className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                            posSalonSubcategory === 'all'
+                          onClick={() => handleSelectPosSalonGroup('all')}
+                          className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                            posSalonGroup === 'all'
                               ? 'bg-[#5B132B] text-white shadow-xs'
                               : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
                           }`}
                         >
                           <span>All Salon</span>
                           <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                            posSalonSubcategory === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                            posSalonGroup === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                           }`}>
                             {salonServices.length}
                           </span>
                         </button>
-                        {posSalonSubcategoriesList.map((sub) => {
-                          const isSubActive = posSalonSubcategory === sub.id;
-                          const count = getPosSubcategoryCount(sub.id);
+
+                        {POS_SALON_GROUPS.map((grp) => {
+                          const isGrpActive = posSalonGroup === grp.id;
+                          const count = getPosGroupCount(grp.id);
                           return (
                             <button
-                              key={sub.id}
+                              key={grp.id}
                               type="button"
-                              onClick={() => setPosSalonSubcategory(sub.id)}
-                              className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                                isSubActive
+                              onClick={() => handleSelectPosSalonGroup(grp.id)}
+                              className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                                isGrpActive
                                   ? 'bg-[#5B132B] text-white shadow-xs'
                                   : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
                               }`}
                             >
-                              <span>{sub.label}</span>
+                              <span>{grp.name}</span>
                               <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                                isSubActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                                isGrpActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                               }`}>
                                 {count}
                               </span>
@@ -1898,6 +1989,41 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                           );
                         })}
                       </div>
+
+                      {/* Secondary Subcategories Row: Shown when Waxing or Hair Care is selected */}
+                      {activePosGroupDef?.children && activePosGroupDef.children.length > 0 && (
+                        <div className="pt-2 border-t border-[#EBD9D0]/60">
+                          <p className="text-xs font-semibold text-[#8C235A] flex items-center gap-1.5 mb-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#8C235A]"></span>
+                            <span>{activePosGroupDef.name} Subcategories:</span>
+                          </p>
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                            {activePosGroupDef.children.map((child) => {
+                              const isChildActive = posSalonSubcategory === child.id;
+                              const childCount = getPosChildCount(child.id);
+                              return (
+                                <button
+                                  key={child.id}
+                                  type="button"
+                                  onClick={() => setPosSalonSubcategory(child.id)}
+                                  className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                                    isChildActive
+                                      ? 'bg-[#5B132B] text-white shadow-xs'
+                                      : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
+                                  }`}
+                                >
+                                  <span>{child.name}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                    isChildActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {childCount}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

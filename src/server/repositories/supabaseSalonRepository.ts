@@ -29,6 +29,7 @@ import type {
   PackageCombo,
   Appointment,
   Order,
+  OrderItem,
   PaymentRecord,
   Product,
   Supplier,
@@ -77,11 +78,7 @@ export class SupabaseSalonRepository implements ISalonRepository {
     } catch {
       // Table may not exist yet
     }
-    const fallbackBranches = getFallbackStore().branches;
-    if (fallbackBranches && fallbackBranches.length > 0) {
-      return fallbackBranches;
-    }
-    return [
+    const defaultBranches: SalonBranch[] = [
       {
         id: 'tgl-gachibowli-main',
         name: 'Gachibowli Main Flagship',
@@ -95,8 +92,29 @@ export class SupabaseSalonRepository implements ISalonRepository {
         is_active: true,
         created_at: '2026-01-01T10:00:00Z',
         updated_at: '2026-10-31T09:09:41.008Z'
+      },
+      {
+        id: 'brn-1793346038689',
+        name: 'Kondapur Branch',
+        code: 'KND-02',
+        address: 'Road No 2, Kondapur',
+        city: 'Hyderabad, Telangana - 500084',
+        phone: '9491914422',
+        whatsapp_number: '9491914422',
+        manager_id: '00000000-0000-0000-0000-000000000001',
+        manager_name: 'Madu Mounika',
+        is_active: true,
+        created_at: '2026-10-30T07:40:38.689Z',
+        updated_at: '2026-10-30T07:40:38.689Z'
       }
     ];
+
+    const fallbackBranches = getFallbackStore().branches;
+    if (fallbackBranches && fallbackBranches.length > 0) {
+      const hasKondapur = fallbackBranches.some((b: SalonBranch) => b.id === 'brn-1793346038689' || b.name.toLowerCase().includes('kondapur'));
+      return hasKondapur ? fallbackBranches : [...fallbackBranches, defaultBranches[1]];
+    }
+    return defaultBranches;
   }
 
   public async getBranchById(id: string): Promise<SalonBranch | null> {
@@ -1044,23 +1062,120 @@ export class SupabaseSalonRepository implements ISalonRepository {
     if (filters?.customerMobile) query = query.ilike('customer_phone', `%${filters.customerMobile}%`);
     if (filters?.paymentStatus) query = query.eq('payment_status', filters.paymentStatus);
     const { data } = await query;
-    return (data || []) as Order[];
+    const ordersList = (data || []) as Order[];
+
+    try {
+      const { data: allItems } = await this.client.from('order_items').select('*');
+      if (allItems && allItems.length > 0) {
+        const itemsByOrder: Record<string, OrderItem[]> = {};
+        for (const itm of allItems) {
+          if (!itemsByOrder[itm.order_id]) itemsByOrder[itm.order_id] = [];
+          itemsByOrder[itm.order_id].push(itm);
+        }
+        for (const ord of ordersList) {
+          if (itemsByOrder[ord.id]) {
+            ord.items = itemsByOrder[ord.id];
+          } else if (!ord.items) {
+            ord.items = [];
+          }
+          if (!ord.branch_id && ord.notes) {
+            const match = ord.notes.match(/\[Branch:\s*([^\]]+)\]/);
+            if (match) ord.branch_id = match[1];
+          }
+        }
+      }
+    } catch {
+      // Non-fatal if order_items retrieval fails
+    }
+
+    return ordersList;
   }
 
   public async getOrderById(id: string): Promise<Order | null> {
     const { data } = await this.client.from('orders').select('*').eq('id', id).maybeSingle();
-    return (data || null) as Order | null;
+    if (!data) return null;
+    const ord = data as Order;
+    try {
+      const { data: items } = await this.client.from('order_items').select('*').eq('order_id', id);
+      ord.items = (items || []) as OrderItem[];
+    } catch {
+      ord.items = [];
+    }
+    if (!ord.branch_id && ord.notes) {
+      const match = ord.notes.match(/\[Branch:\s*([^\]]+)\]/);
+      if (match) ord.branch_id = match[1];
+    }
+    return ord;
   }
 
   public async createOrder(orderData: Omit<Order, 'id' | 'bill_number' | 'created_at'>, performedBy: string): Promise<Order> {
     const billNum = `TGL-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
-    const { data, error } = await this.client.from('orders').insert({
-      ...orderData,
-      bill_number: billNum
-    }).select().single();
-    if (error) throw error;
-    await this.logAudit('CREATE_BILL', 'Order', data.id, performedBy, `Generated bill ${data.bill_number} for ${data.customer_name}`);
-    return data as Order;
+    const { items = [], branch_id, ...orderFields } = orderData;
+    
+    let insertedOrder: any = null;
+    const orderRowWithBranch: any = {
+      ...orderFields,
+      bill_number: billNum,
+      branch_id: branch_id || null
+    };
+
+    let { data, error } = await this.client.from('orders').insert(orderRowWithBranch).select().single();
+    if (error) {
+      const isBranchColumnMissing = error.code === 'PGRST204' || 
+        (error.message && error.message.toLowerCase().includes('branch_id')) ||
+        (error.details && error.details.toLowerCase().includes('branch_id'));
+      
+      if (isBranchColumnMissing) {
+        // Fallback: omit branch_id from orders row and embed branch reference into notes
+        const currentNotes = orderFields.notes || '';
+        const notesWithBranch = branch_id 
+          ? (currentNotes ? `${currentNotes} [Branch: ${branch_id}]` : `[Branch: ${branch_id}]`)
+          : currentNotes;
+        
+        const fallbackRow = {
+          ...orderFields,
+          bill_number: billNum,
+          notes: notesWithBranch
+        };
+        const retry = await this.client.from('orders').insert(fallbackRow).select().single();
+        if (retry.error) throw retry.error;
+        insertedOrder = retry.data;
+      } else {
+        throw error;
+      }
+    } else {
+      insertedOrder = data;
+    }
+
+    // Insert order line items into public.order_items
+    if (insertedOrder?.id && items && items.length > 0) {
+      try {
+        const itemRows = items.map(item => ({
+          order_id: insertedOrder.id,
+          service_id: item.service_id || null,
+          product_id: item.product_id || null,
+          item_name: item.item_name,
+          item_type: item.item_type || 'service',
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          staff_id: item.staff_id || null,
+          staff_name: item.staff_name || null,
+          commission_amount: item.commission_amount || 0
+        }));
+        await this.client.from('order_items').insert(itemRows);
+      } catch (itemErr) {
+        console.warn('⚠️ Could not insert line items into order_items table:', itemErr);
+      }
+    }
+
+    await this.logAudit('CREATE_BILL', 'Order', insertedOrder.id, performedBy, `Generated bill ${insertedOrder.bill_number} for ${insertedOrder.customer_name}`);
+
+    return {
+      ...insertedOrder,
+      branch_id: branch_id || insertedOrder.branch_id,
+      items: items || []
+    } as Order;
   }
 
   public async updateOrderStatus(id: string, status: Order['payment_status'], performedBy: string): Promise<Order | null> {
