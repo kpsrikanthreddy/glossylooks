@@ -182,7 +182,9 @@ export interface ServiceAddOn {
 export interface ServiceItem {
   id: string;
   category_id: string;
-  /** Group used for the Salon subcategory menu. */
+  /** Top-level group for Salon hierarchy (e.g. 'waxing', 'hair-care', 'threading', 'massage', etc.) */
+  salon_group?: string;
+  /** Subcategory used for the Salon menu. */
   salon_subcategory?: string;
   name: string;
   slug: string;

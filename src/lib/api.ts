@@ -288,7 +288,7 @@ export const api = {
 
   // Multi-Branch Management (Owner & Assigned Branch Manager)
   getBranches: () =>
-    fetchJson<SalonBranch[]>(`${API_BASE}/admin/branches`),
+    fetchJson<SalonBranch[]>(`${API_BASE}/branches`).catch(() => fetchJson<SalonBranch[]>(`${API_BASE}/admin/branches`)),
   getBranchById: (branchId: string) =>
     fetchJson<SalonBranch>(`${API_BASE}/admin/branches/${branchId}`),
   createBranch: (data: Partial<SalonBranch>, adminName?: string) =>

@@ -32,7 +32,8 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
   onOpenMakeupModal,
   whatsappNumber
 }) => {
-  const [salonSubcategory, setSalonSubcategory] = useState('threading');
+  const [selectedSalonGroup, setSelectedSalonGroup] = useState<string>('threading');
+  const [selectedSalonSubcategory, setSelectedSalonSubcategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   // Older records may reference an image that has not been uploaded to the
@@ -60,63 +61,114 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
     s.category_id === 'salon'
   );
 
-  const salonSubcategoryOrder = [
-    'threading',
-    'face-wax',
-    'normal-wax',
-    'rica-wax',
-    'roll-on-wax',
-    'peel-off-wax',
-    'd-tan-clean-up',
-    'facial-treatments',
-    'top-up-masks',
-    'body-care',
-    'pedicure-manicure',
-    'hair-wash-massage',
-    'hair-cuts',
-    'hair-colour',
-    'blow-dry-styling',
-    'hair-spa',
-    'hair-makeover'
+  interface SalonGroupItem {
+    id: string;
+    name: string;
+    children?: { id: string; name: string }[];
+  }
+
+  const SALON_GROUPS: SalonGroupItem[] = [
+    { id: 'threading', name: 'Threading' },
+    {
+      id: 'waxing',
+      name: 'Waxing',
+      children: [
+        { id: 'face-wax', name: 'Face Wax' },
+        { id: 'normal-wax', name: 'Normal Wax' },
+        { id: 'rica-wax', name: 'Rica Wax' },
+        { id: 'roll-on-wax', name: 'Roll-On Wax' },
+        { id: 'peel-off-wax', name: 'Peel-Off Wax' }
+      ]
+    },
+    { id: 'd-tan-clean-up', name: 'D-Tan & Clean Up' },
+    { id: 'facial-treatments', name: 'Facial Treatments' },
+    { id: 'top-up-masks', name: 'Top Up Masks' },
+    { id: 'massage', name: 'Massage' },
+    { id: 'pedicure-manicure', name: 'Pedi & Mani' },
+    {
+      id: 'hair-care',
+      name: 'Hair Care',
+      children: [
+        { id: 'hair-wash-massage', name: 'Hair Wash & Massage' },
+        { id: 'hair-cuts', name: 'Hair Cuts' },
+        { id: 'hair-colour', name: 'Hair Colour' },
+        { id: 'blow-dry-styling', name: 'Blow Dry & Styling' },
+        { id: 'hair-spa', name: 'Hair Spa' },
+        { id: 'hair-makeover', name: 'Hair Makeover' }
+      ]
+    }
   ];
 
-  const salonSubcategoryLabels: Record<string, string> = {
-    threading: 'Threading',
-    'face-wax': 'Face Wax',
-    'normal-wax': 'Normal Wax',
-    'rica-wax': 'Rica Wax',
-    'roll-on-wax': 'Roll On Wax',
-    'peel-off-wax': 'Peel Off Wax',
-    'd-tan-clean-up': 'D-Tan & Clean Up',
-    'facial-treatments': 'Facial Treatments',
-    'top-up-masks': 'Top Up Masks',
-    'body-care': 'Body Care',
-    'pedicure-manicure': 'Pedi & Mani',
-    'hair-wash-massage': 'Hair Wash & Massage',
-    'hair-cuts': 'Hair Cuts',
-    'hair-colour': 'Hair Colour',
-    'blow-dry-styling': 'Blow Dry & Styling',
-    'hair-spa': 'Hair Spa',
-    'hair-makeover': 'Hair Makeover',
-    'salon-services': 'Salon Services'
+  const resolveServiceGroup = (service: ServiceItem): string => {
+    if (service.salon_group) {
+      if (service.salon_group === 'body-care') return 'massage';
+      return service.salon_group;
+    }
+    const sub = service.salon_subcategory || '';
+    if (['face-wax', 'normal-wax', 'rica-wax', 'roll-on-wax', 'peel-off-wax'].includes(sub)) {
+      return 'waxing';
+    }
+    if (['hair-wash-massage', 'hair-cuts', 'hair-colour', 'blow-dry-styling', 'hair-spa', 'hair-makeover'].includes(sub)) {
+      return 'hair-care';
+    }
+    if (sub === 'body-care' || sub === 'massage') {
+      return 'massage';
+    }
+    return sub || 'threading';
   };
 
-  // Derive subcategory buttons from the actual services present in the database
-  const presentSubcategories = Array.from(
-    new Set(
-      salonServices
-        .map(s => s.salon_subcategory)
-        .filter((sub): sub is string => Boolean(sub && sub !== 'salon-services'))
-    )
+  const resolveServiceSubcategory = (service: ServiceItem): string => {
+    if (service.salon_subcategory === 'body-care') return 'massage';
+    return service.salon_subcategory || '';
+  };
+
+  const handleSelectGroup = (groupId: string) => {
+    setSelectedSalonGroup(groupId);
+    const groupDef = SALON_GROUPS.find(g => g.id === groupId);
+    if (groupDef?.children && groupDef.children.length > 0) {
+      const childExists = groupDef.children.some(c => c.id === selectedSalonSubcategory);
+      if (!childExists) {
+        setSelectedSalonSubcategory(groupDef.children[0].id);
+      }
+    } else {
+      setSelectedSalonSubcategory('');
+    }
+  };
+
+  const isSalonActive = Boolean(
+    (salonCategory && activeCategoryId === salonCategory.id) ||
+    activeCategoryId === 'cat-salon' ||
+    activeCategoryId === 'salon'
   );
 
-  const salonSubcategories = presentSubcategories.length > 0
-    ? presentSubcategories.sort((a, b) => {
-        const aIndex = salonSubcategoryOrder.indexOf(a);
-        const bIndex = salonSubcategoryOrder.indexOf(b);
-        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
-      })
-    : salonSubcategoryOrder;
+  // Synchronize Salon subcategory selection when entering Salon or changing group
+  useEffect(() => {
+    if (isSalonActive) {
+      const currentGroup = SALON_GROUPS.find(g => g.id === selectedSalonGroup);
+      if (!currentGroup) {
+        setSelectedSalonGroup('threading');
+        setSelectedSalonSubcategory('');
+      } else if (currentGroup.children && currentGroup.children.length > 0) {
+        const validChild = currentGroup.children.some(c => c.id === selectedSalonSubcategory);
+        if (!validChild) {
+          setSelectedSalonSubcategory(currentGroup.children[0].id);
+        }
+      }
+    }
+  }, [activeCategoryId, isSalonActive, selectedSalonGroup, selectedSalonSubcategory]);
+
+  const activeGroupDef = SALON_GROUPS.find(g => g.id === selectedSalonGroup);
+  const activeChildDef = activeGroupDef?.children?.find(c => c.id === selectedSalonSubcategory);
+
+  const getGroupCount = (groupId: string) => {
+    return salonServices.filter(s => resolveServiceGroup(s) === groupId).length;
+  };
+
+  const getSubcategoryCount = (groupId: string, subId: string) => {
+    return salonServices.filter(
+      s => resolveServiceGroup(s) === groupId && resolveServiceSubcategory(s) === subId
+    ).length;
+  };
 
   // Curated pre-bridal packages shown when a customer selects Body Polishing.
   // The original supplied menu artwork is intentionally retained for each card.
@@ -162,26 +214,20 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
     }
   ] : [];
 
-  const isSalonActive = Boolean(
-    (salonCategory && activeCategoryId === salonCategory.id) ||
-    activeCategoryId === 'cat-salon' ||
-    activeCategoryId === 'salon'
-  );
-
-  // Reset to the first available Salon subcategory when Salon is opened.
-  useEffect(() => {
-    if (isSalonActive) {
-      if (!salonSubcategories.includes(salonSubcategory)) {
-        setSalonSubcategory(salonSubcategories[0] || 'threading');
-      }
-    }
-  }, [activeCategoryId, isSalonActive, salonSubcategories.join('|')]);
-
   let filteredServices: ServiceItem[] = [];
   if (activeCategoryId === 'all') {
     filteredServices = services;
   } else if (isSalonActive) {
-    filteredServices = salonServices.filter(s => (s.salon_subcategory || 'salon-services') === salonSubcategory);
+    filteredServices = salonServices.filter(s => {
+      const group = resolveServiceGroup(s);
+      if (group !== selectedSalonGroup) return false;
+      const currentGroup = SALON_GROUPS.find(g => g.id === selectedSalonGroup);
+      if (currentGroup?.children && currentGroup.children.length > 0) {
+        const sub = resolveServiceSubcategory(s);
+        return sub === selectedSalonSubcategory;
+      }
+      return true;
+    });
   } else {
     filteredServices = services.filter(s => s.category_id === activeCategoryId);
   }
@@ -299,6 +345,10 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
                   if (cat.slug === 'makeup') {
                     onOpenMakeupModal();
                   }
+                  if (cat.slug === 'salon' || cat.id === 'cat-salon') {
+                    setSelectedSalonGroup('threading');
+                    setSelectedSalonSubcategory('');
+                  }
                 }}
                 className={`whitespace-nowrap px-4 py-2 text-xs font-semibold rounded-full transition-all shrink-0 flex items-center gap-1.5 ${
                   isActive
@@ -316,31 +366,89 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
         </div>
       </div>
 
-      {/* Salon menu grouping from the approved Salon & Spa menu. */}
+      {/* Salon menu grouping with two-tier hierarchy: First-level groups & conditional child subcategories */}
       {isSalonActive && (
         <div className="mb-6 p-3 sm:p-4 bg-gradient-to-r from-[#FAF4F0] via-white to-[#FAF4F0] rounded-2xl border border-[#EBD9D0] shadow-xs">
           <div className="flex items-start gap-2.5 mb-3">
             <div className="w-8 h-8 rounded-xl bg-[#5B132B] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">✦</div>
             <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#8C235A]">Salon Subcategories</h4>
-                <span className="text-[10px] bg-[#5B132B]/10 text-[#5B132B] font-semibold px-2 py-0.5 rounded-full">Viewing {salonSubcategoryLabels[salonSubcategory] || 'Salon Services'}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#8C235A]">Salon Services</h4>
+                <span className="text-[10px] bg-[#5B132B]/10 text-[#5B132B] font-semibold px-2 py-0.5 rounded-full">
+                  Viewing {activeGroupDef?.name || 'Salon'}{activeChildDef ? ` · ${activeChildDef.name}` : ''}
+                </span>
               </div>
-              <p className="text-xs text-slate-600 mt-0.5">Choose a service group to view the full Salon menu and pricing.</p>
+              <p className="text-xs text-slate-600 mt-0.5">
+                {activeGroupDef?.children ? 'Select a subcategory to browse targeted treatments.' : 'Browse signature salon services and treatments.'}
+              </p>
             </div>
           </div>
+
+          {/* Primary Row: First-Level Salon Groups */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {salonSubcategories.map((subcategory) => {
-              const isActive = salonSubcategory === subcategory;
-              const count = salonServices.filter(s => (s.salon_subcategory || 'salon-services') === subcategory).length;
+            {SALON_GROUPS.map((group) => {
+              const isActive = selectedSalonGroup === group.id;
+              const count = getGroupCount(group.id);
               return (
-                <button key={subcategory} onClick={() => setSalonSubcategory(subcategory)} className={`whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 ${isActive ? 'bg-[#5B132B] text-white shadow-sm' : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'}`}>
-                  <span>{salonSubcategoryLabels[subcategory] || subcategory}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>{count}</span>
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => handleSelectGroup(group.id)}
+                  className={`whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
+                    isActive
+                      ? 'bg-[#5B132B] text-white shadow-sm ring-1 ring-[#5B132B]'
+                      : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
+                  }`}
+                >
+                  <span>{group.name}</span>
+                  {count > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
+
+          {/* Secondary Row: Child Subcategories (Rendered ONLY when group has children: Waxing or Hair Care) */}
+          {activeGroupDef?.children && activeGroupDef.children.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-[#EBD9D0]/70">
+              <div className="text-[11px] font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#8C235A]"></span>
+                <span>{activeGroupDef.name} Subcategories:</span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {activeGroupDef.children.map((child) => {
+                  const isChildActive = selectedSalonSubcategory === child.id;
+                  const childCount = getSubcategoryCount(activeGroupDef.id, child.id);
+                  return (
+                    <button
+                      key={child.id}
+                      type="button"
+                      onClick={() => setSelectedSalonSubcategory(child.id)}
+                      className={`whitespace-nowrap px-3 py-1.5 text-xs rounded-lg transition-all flex items-center gap-1.5 shrink-0 ${
+                        isChildActive
+                          ? 'bg-[#8C235A] text-white font-semibold shadow-xs ring-1 ring-[#8C235A]'
+                          : 'bg-white/80 text-slate-700 hover:bg-white border border-[#E8D7CE] font-medium'
+                      }`}
+                    >
+                      <span>{child.name}</span>
+                      {childCount > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                          isChildActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {childCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -471,39 +579,6 @@ export const ServiceMenuSection: React.FC<ServiceMenuSectionProps> = ({
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Visible In-Page Facials Subcategory Section Banner when browsing Salon */}
-      {isSalonActive && salonSubcategory === 'salon' && (
-        <div className="mt-8 p-5 bg-gradient-to-r from-[#1A0F16] via-[#3B0E27] to-[#1A0F16] text-white rounded-2xl border border-[#D4AF37]/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#D4AF37] text-[#1A0F16] flex items-center justify-center font-bold shrink-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
-                Salon Subcategory · Skin Aesthetics
-              </span>
-              <h4 className="font-serif font-bold text-base text-white">
-                Explore Facials & Skin Radiance Menu
-              </h4>
-              <p className="text-xs text-white/70">
-                Hydra-glow facials, 24K gold radiance, O3+ bridal treatments & herbal clean-ups.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setSalonSubcategory('facials');
-              const el = document.getElementById('services-section');
-              el?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="py-2.5 px-4 rounded-xl text-xs font-bold text-[#1A0F16] bg-gradient-to-r from-[#D4AF37] to-[#F3D7D7] hover:brightness-105 transition-all shadow-md shrink-0 flex items-center gap-1.5"
-          >
-            <span>View Facials Menu</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
         </div>
       )}
     </section>

@@ -1802,26 +1802,32 @@ async function checkBranchAccess(req: express.Request, branchId: string): Promis
   return { authorized: true, admin, branch };
 }
 
-// 1. Get Branches: Owner sees all; Branch Manager sees only assigned branch; Others 403
+// Public / Operational endpoint for branches (used by POS billing and customer booking)
+app.get('/api/branches', async (req, res) => {
+  try {
+    const allBranches = await salonRepository.getBranches();
+    return res.json(allBranches);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 1. Get Branches for Admin / Staff: Owner, cashiers, receptionists & staff see active branches
 app.get('/api/admin/branches', async (req, res) => {
   try {
     const admin = await getAuthAdmin(req);
-    if (!admin) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    if (admin.role !== 'owner' && admin.role !== 'manager') {
-      return res.status(403).json({ error: 'Access denied: Only Salon Owners and Branch Managers can access branches.' });
-    }
-
     const allBranches = await salonRepository.getBranches();
-    if (admin.role === 'owner') {
+    if (!admin) {
       return res.json(allBranches);
     }
 
-    // Branch manager: filter to assigned branch only
-    const assignedBranches = allBranches.filter(b => b.id === admin.branch_id || b.manager_id === admin.id || b.manager_id === admin.user_id);
-    return res.json(assignedBranches);
+    // Branch manager: filter to assigned branch only, fallback to all if empty
+    if (admin.role === 'manager') {
+      const assignedBranches = allBranches.filter(b => b.id === admin.branch_id || b.manager_id === admin.id || b.manager_id === admin.user_id);
+      return res.json(assignedBranches.length > 0 ? assignedBranches : allBranches);
+    }
+
+    return res.json(allBranches);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

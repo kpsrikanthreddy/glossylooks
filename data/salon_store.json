@@ -440,7 +440,8 @@
       "duration_minutes": 20,
       "price": 50,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "threading"
     },
     {
       "id": "srv-threading-upper-lip",
@@ -453,7 +454,8 @@
       "duration_minutes": 15,
       "price": 30,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "threading"
     },
     {
       "id": "srv-threading-lower-lip",
@@ -466,7 +468,8 @@
       "duration_minutes": 15,
       "price": 30,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "threading"
     },
     {
       "id": "srv-threading-chin",
@@ -479,7 +482,8 @@
       "duration_minutes": 15,
       "price": 30,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "threading"
     },
     {
       "id": "srv-threading-forehead",
@@ -492,7 +496,8 @@
       "duration_minutes": 15,
       "price": 40,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "threading"
     },
     {
       "id": "srv-threading-side-locks",
@@ -505,7 +510,8 @@
       "duration_minutes": 25,
       "price": 120,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "threading"
     },
     {
       "id": "srv-threading-full-face",
@@ -518,7 +524,8 @@
       "duration_minutes": 40,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "threading"
     },
     {
       "id": "srv-face-wax-forehead",
@@ -531,7 +538,8 @@
       "duration_minutes": 15,
       "price": 60,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-face-wax-upper-lip",
@@ -544,7 +552,8 @@
       "duration_minutes": 15,
       "price": 60,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-face-wax-lower-lip",
@@ -557,7 +566,8 @@
       "duration_minutes": 15,
       "price": 60,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-face-wax-chin",
@@ -570,7 +580,8 @@
       "duration_minutes": 15,
       "price": 60,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-face-wax-nose",
@@ -583,7 +594,8 @@
       "duration_minutes": 15,
       "price": 60,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-face-wax-side-locks",
@@ -596,7 +608,8 @@
       "duration_minutes": 25,
       "price": 120,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-face-wax-full-face",
@@ -609,7 +622,8 @@
       "duration_minutes": 45,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-wax-underarms",
@@ -622,7 +636,8 @@
       "duration_minutes": 20,
       "price": 100,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-wax-full-arms",
@@ -635,7 +650,8 @@
       "duration_minutes": 35,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-wax-stomach",
@@ -648,7 +664,8 @@
       "duration_minutes": 35,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-wax-back",
@@ -661,7 +678,8 @@
       "duration_minutes": 40,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-wax-half-legs",
@@ -674,7 +692,8 @@
       "duration_minutes": 35,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-wax-full-legs",
@@ -687,7 +706,8 @@
       "duration_minutes": 50,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-wax-full-body",
@@ -700,7 +720,8 @@
       "duration_minutes": 120,
       "price": 3000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-underarms",
@@ -713,7 +734,8 @@
       "duration_minutes": 20,
       "price": 150,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-half-arms",
@@ -726,7 +748,8 @@
       "duration_minutes": 30,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-full-arms",
@@ -739,7 +762,8 @@
       "duration_minutes": 45,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-stomach",
@@ -752,7 +776,8 @@
       "duration_minutes": 35,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-back",
@@ -765,7 +790,8 @@
       "duration_minutes": 40,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-half-legs",
@@ -778,7 +804,8 @@
       "duration_minutes": 35,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-full-legs",
@@ -791,7 +818,8 @@
       "duration_minutes": 55,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-rica-wax-full-body",
@@ -804,7 +832,8 @@
       "duration_minutes": 135,
       "price": 3500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-underarms",
@@ -817,7 +846,8 @@
       "duration_minutes": 20,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-half-arms",
@@ -830,7 +860,8 @@
       "duration_minutes": 30,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-full-arms",
@@ -843,7 +874,8 @@
       "duration_minutes": 45,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-stomach",
@@ -856,7 +888,8 @@
       "duration_minutes": 35,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-back",
@@ -869,7 +902,8 @@
       "duration_minutes": 40,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-half-legs",
@@ -882,7 +916,8 @@
       "duration_minutes": 35,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-full-legs",
@@ -895,7 +930,8 @@
       "duration_minutes": 55,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-roll-on-wax-full-body",
@@ -908,7 +944,8 @@
       "duration_minutes": 135,
       "price": 4500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-peel-off-wax-underarms",
@@ -921,7 +958,8 @@
       "duration_minutes": 20,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "waxing"
     },
     {
       "id": "srv-normal-dtan-face",
@@ -934,7 +972,8 @@
       "duration_minutes": 35,
       "price": 350,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-face-neck",
@@ -947,7 +986,8 @@
       "duration_minutes": 50,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-back",
@@ -960,7 +1000,8 @@
       "duration_minutes": 40,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-stomach",
@@ -973,7 +1014,8 @@
       "duration_minutes": 40,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-underarms",
@@ -986,7 +1028,8 @@
       "duration_minutes": 25,
       "price": 250,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-full-hands",
@@ -999,7 +1042,8 @@
       "duration_minutes": 35,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-half-legs",
@@ -1012,7 +1056,8 @@
       "duration_minutes": 40,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-full-legs",
@@ -1025,7 +1070,8 @@
       "duration_minutes": 50,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-feet",
@@ -1038,7 +1084,8 @@
       "duration_minutes": 25,
       "price": 250,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-normal-dtan-full-body",
@@ -1051,7 +1098,8 @@
       "duration_minutes": 120,
       "price": 3000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-face",
@@ -1064,7 +1112,8 @@
       "duration_minutes": 40,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-face-neck",
@@ -1077,7 +1126,8 @@
       "duration_minutes": 55,
       "price": 700,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-back",
@@ -1090,7 +1140,8 @@
       "duration_minutes": 45,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-stomach",
@@ -1103,7 +1154,8 @@
       "duration_minutes": 45,
       "price": 700,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-underarms",
@@ -1116,7 +1168,8 @@
       "duration_minutes": 30,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-full-hands",
@@ -1129,7 +1182,8 @@
       "duration_minutes": 40,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-half-legs",
@@ -1142,7 +1196,8 @@
       "duration_minutes": 45,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-full-legs",
@@ -1155,7 +1210,8 @@
       "duration_minutes": 55,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-feet",
@@ -1168,7 +1224,8 @@
       "duration_minutes": 30,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-luxury-dtan-full-body",
@@ -1181,7 +1238,8 @@
       "duration_minutes": 135,
       "price": 4500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-bio-purifying-clean-up",
@@ -1194,7 +1252,8 @@
       "duration_minutes": 40,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-herbal-clean-up",
@@ -1207,7 +1266,8 @@
       "duration_minutes": 45,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-organic-instant-glow-clean-up",
@@ -1220,7 +1280,8 @@
       "duration_minutes": 50,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-oxy-fresh-clean-up",
@@ -1233,7 +1294,8 @@
       "duration_minutes": 60,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "d-tan-clean-up"
     },
     {
       "id": "srv-bio-purifying-facial",
@@ -1246,7 +1308,8 @@
       "duration_minutes": 60,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-oxygenating-facial",
@@ -1259,7 +1322,8 @@
       "duration_minutes": 60,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-organic-basic-facial",
@@ -1272,7 +1336,8 @@
       "duration_minutes": 60,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-wine-facial",
@@ -1285,7 +1350,8 @@
       "duration_minutes": 75,
       "price": 1500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-diamond-facial",
@@ -1298,7 +1364,8 @@
       "duration_minutes": 75,
       "price": 1800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-bio-whitening-prime-facial",
@@ -1311,7 +1378,8 @@
       "duration_minutes": 75,
       "price": 2500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-crystal-brightening-prime-facial",
@@ -1324,7 +1392,8 @@
       "duration_minutes": 80,
       "price": 3000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-organic-brightening-prime-facial",
@@ -1337,7 +1406,8 @@
       "duration_minutes": 80,
       "price": 3500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-24-carat-gold-facial",
@@ -1350,7 +1420,8 @@
       "duration_minutes": 90,
       "price": 3999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-korean-facial",
@@ -1363,7 +1434,8 @@
       "duration_minutes": 90,
       "price": 4999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-botox-effect-facial",
@@ -1376,7 +1448,8 @@
       "duration_minutes": 90,
       "price": 3999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-essential-hydra-facial",
@@ -1389,7 +1462,8 @@
       "duration_minutes": 90,
       "price": 4999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-luxury-bridal-glossy-facial",
@@ -1402,7 +1476,8 @@
       "duration_minutes": 105,
       "price": 7999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "facial-treatments"
     },
     {
       "id": "srv-organic-eye-cooling-masque",
@@ -1415,7 +1490,8 @@
       "duration_minutes": 30,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "top-up-masks"
     },
     {
       "id": "srv-anti-ageing-goji-peel-off-masque",
@@ -1428,7 +1504,8 @@
       "duration_minutes": 30,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "top-up-masks"
     },
     {
       "id": "srv-lightening-vitamin-c-peel-off-masque",
@@ -1441,7 +1518,8 @@
       "duration_minutes": 30,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "top-up-masks"
     },
     {
       "id": "srv-24-carat-gold-peel-off-masque",
@@ -1454,7 +1532,8 @@
       "duration_minutes": 35,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "top-up-masks"
     },
     {
       "id": "srv-detox-reaffirming-peel-off-masque",
@@ -1467,7 +1546,8 @@
       "duration_minutes": 40,
       "price": 2000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "top-up-masks"
     },
     {
       "id": "srv-calming-sensitive-peel-off-masque",
@@ -1480,12 +1560,13 @@
       "duration_minutes": 40,
       "price": 2000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "top-up-masks"
     },
     {
       "id": "srv-face-massage-10",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Face Massage - 10 min",
       "slug": "face-massage-10",
       "description": "Body care massage.",
@@ -1493,12 +1574,13 @@
       "duration_minutes": 10,
       "price": 200,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-face-massage-20",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Face Massage - 20 min",
       "slug": "face-massage-20",
       "description": "Body care massage.",
@@ -1506,12 +1588,13 @@
       "duration_minutes": 20,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-head-massage-20",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Head Massage - 20 min",
       "slug": "head-massage-20",
       "description": "Body care massage.",
@@ -1519,12 +1602,13 @@
       "duration_minutes": 20,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-head-massage-30",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Head Massage - 30 min",
       "slug": "head-massage-30",
       "description": "Body care massage.",
@@ -1532,12 +1616,13 @@
       "duration_minutes": 30,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-hands-massage-10",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Hands Massage - 10 min",
       "slug": "hands-massage-10",
       "description": "Body care massage.",
@@ -1545,12 +1630,13 @@
       "duration_minutes": 10,
       "price": 250,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-hands-massage-20",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Hands Massage - 20 min",
       "slug": "hands-massage-20",
       "description": "Body care massage.",
@@ -1558,12 +1644,13 @@
       "duration_minutes": 20,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-back-massage-10",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Back Massage - 10 min",
       "slug": "back-massage-10",
       "description": "Body care massage.",
@@ -1571,12 +1658,13 @@
       "duration_minutes": 10,
       "price": 250,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-back-massage-20",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Back Massage - 20 min",
       "slug": "back-massage-20",
       "description": "Body care massage.",
@@ -1584,12 +1672,13 @@
       "duration_minutes": 20,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-half-legs-massage-10",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Half Legs Massage - 10 min",
       "slug": "half-legs-massage-10",
       "description": "Body care massage.",
@@ -1597,12 +1686,13 @@
       "duration_minutes": 10,
       "price": 250,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-half-legs-massage-20",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Half Legs Massage - 20 min",
       "slug": "half-legs-massage-20",
       "description": "Body care massage.",
@@ -1610,12 +1700,13 @@
       "duration_minutes": 20,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-legs-massage-10",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Legs Massage - 10 min",
       "slug": "legs-massage-10",
       "description": "Body care massage.",
@@ -1623,12 +1714,13 @@
       "duration_minutes": 10,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-legs-massage-20",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Legs Massage - 20 min",
       "slug": "legs-massage-20",
       "description": "Body care massage.",
@@ -1636,12 +1728,13 @@
       "duration_minutes": 20,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-full-body-clean-massage",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Full Body Clean / Massage",
       "slug": "full-body-clean-massage",
       "description": "Full body clean, scrub, massage, steam and pack.",
@@ -1649,12 +1742,13 @@
       "duration_minutes": 90,
       "price": 3000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-full-body-polishing",
       "category_id": "cat-salon",
-      "salon_subcategory": "body-care",
+      "salon_subcategory": "massage",
       "name": "Full Body Polishing",
       "slug": "full-body-polishing",
       "description": "Full body clean, scrub, massage, steam and pack.",
@@ -1662,7 +1756,8 @@
       "duration_minutes": 120,
       "price": 4000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "massage"
     },
     {
       "id": "srv-classic-pedicure",
@@ -1675,7 +1770,8 @@
       "duration_minutes": 50,
       "price": 499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-chocolate-flavours-pedicure",
@@ -1688,7 +1784,8 @@
       "duration_minutes": 60,
       "price": 599,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-babul-pedicure",
@@ -1701,7 +1798,8 @@
       "duration_minutes": 60,
       "price": 799,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-organic-pedicure",
@@ -1714,7 +1812,8 @@
       "duration_minutes": 70,
       "price": 999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-hydra-effect-pedicure",
@@ -1727,7 +1826,8 @@
       "duration_minutes": 75,
       "price": 1200,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-tan-removal-pedicure",
@@ -1740,7 +1840,8 @@
       "duration_minutes": 75,
       "price": 1300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-korean-pedicure",
@@ -1753,7 +1854,8 @@
       "duration_minutes": 80,
       "price": 1499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-candle-parafin-pedicure",
@@ -1766,7 +1868,8 @@
       "duration_minutes": 90,
       "price": 2000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-classic-manicure",
@@ -1779,7 +1882,8 @@
       "duration_minutes": 45,
       "price": 499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-chocolate-manicure",
@@ -1792,7 +1896,8 @@
       "duration_minutes": 50,
       "price": 599,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-babul-manicure",
@@ -1805,7 +1910,8 @@
       "duration_minutes": 50,
       "price": 799,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-organic-manicure",
@@ -1818,7 +1924,8 @@
       "duration_minutes": 60,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-hydra-effect-manicure",
@@ -1831,7 +1938,8 @@
       "duration_minutes": 65,
       "price": 1200,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-tan-removal-manicure",
@@ -1844,7 +1952,8 @@
       "duration_minutes": 65,
       "price": 1300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-korean-manicure",
@@ -1857,7 +1966,8 @@
       "duration_minutes": 70,
       "price": 1500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-candle-parafin-manicure",
@@ -1870,7 +1980,8 @@
       "duration_minutes": 80,
       "price": 2000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "pedicure-manicure"
     },
     {
       "id": "srv-regular-hair-wash-short",
@@ -1883,7 +1994,8 @@
       "duration_minutes": 25,
       "price": 300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-regular-hair-wash-medium",
@@ -1896,7 +2008,8 @@
       "duration_minutes": 30,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-regular-hair-wash-long",
@@ -1909,7 +2022,8 @@
       "duration_minutes": 35,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-treatment-shampoo-short",
@@ -1922,7 +2036,8 @@
       "duration_minutes": 30,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-treatment-shampoo-medium",
@@ -1935,7 +2050,8 @@
       "duration_minutes": 35,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-treatment-shampoo-long",
@@ -1948,7 +2064,8 @@
       "duration_minutes": 40,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-coconut-oil-head-massage-20",
@@ -1961,7 +2078,8 @@
       "duration_minutes": 20,
       "price": 400,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-coconut-oil-head-massage-30",
@@ -1974,7 +2092,8 @@
       "duration_minutes": 30,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-almond-oil-head-massage-20",
@@ -1987,7 +2106,8 @@
       "duration_minutes": 20,
       "price": 450,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-almond-oil-head-massage-30",
@@ -2000,7 +2120,8 @@
       "duration_minutes": 30,
       "price": 650,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-bringaraj-oil-head-massage-20",
@@ -2013,7 +2134,8 @@
       "duration_minutes": 20,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-bringaraj-oil-head-massage-30",
@@ -2026,7 +2148,8 @@
       "duration_minutes": 30,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-vitamin-c-oil-head-massage-20",
@@ -2039,7 +2162,8 @@
       "duration_minutes": 20,
       "price": 700,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-vitamin-c-oil-head-massage-30",
@@ -2052,7 +2176,8 @@
       "duration_minutes": 30,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-baby-hair-cut",
@@ -2065,7 +2190,8 @@
       "duration_minutes": 30,
       "price": 350,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-bob-cut",
@@ -2078,7 +2204,8 @@
       "duration_minutes": 45,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-basic-hair-cut",
@@ -2091,7 +2218,8 @@
       "duration_minutes": 30,
       "price": 350,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-advance-hair-cut",
@@ -2104,7 +2232,8 @@
       "duration_minutes": 60,
       "price": 999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-creative-hair-cut",
@@ -2117,7 +2246,8 @@
       "duration_minutes": 75,
       "price": 1300,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-multi-creative-hair-cut",
@@ -2130,7 +2260,8 @@
       "duration_minutes": 90,
       "price": 1500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-hair-colour-neck",
@@ -2143,7 +2274,8 @@
       "duration_minutes": 90,
       "price": 1499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-hair-colour-shoulder",
@@ -2156,7 +2288,8 @@
       "duration_minutes": 120,
       "price": 1999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-hair-colour-mid-back",
@@ -2169,7 +2302,8 @@
       "duration_minutes": 150,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-hair-colour-waist",
@@ -2182,7 +2316,8 @@
       "duration_minutes": 180,
       "price": 4499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-root-touch-up-1-inch",
@@ -2195,7 +2330,8 @@
       "duration_minutes": 60,
       "price": 1200,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-root-growth-2-inches",
@@ -2208,7 +2344,8 @@
       "duration_minutes": 75,
       "price": 1500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-highlights-neck",
@@ -2221,7 +2358,8 @@
       "duration_minutes": 120,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-highlights-shoulder",
@@ -2234,7 +2372,8 @@
       "duration_minutes": 150,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-highlights-mid-back",
@@ -2247,7 +2386,8 @@
       "duration_minutes": 180,
       "price": 4999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-global-highlights-waist",
@@ -2260,7 +2400,8 @@
       "duration_minutes": 210,
       "price": 5999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-each-hair-streak",
@@ -2273,7 +2414,8 @@
       "duration_minutes": 20,
       "price": 249,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-blow-dry-straight-neck",
@@ -2286,7 +2428,8 @@
       "duration_minutes": 30,
       "price": 299,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-blow-dry-straight-shoulder",
@@ -2299,7 +2442,8 @@
       "duration_minutes": 35,
       "price": 349,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-blow-dry-straight-mid-back",
@@ -2312,7 +2456,8 @@
       "duration_minutes": 40,
       "price": 399,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-blow-dry-straight-waist",
@@ -2325,7 +2470,8 @@
       "duration_minutes": 45,
       "price": 399,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-out-curl-neck",
@@ -2338,7 +2484,8 @@
       "duration_minutes": 35,
       "price": 349,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-out-curl-shoulder",
@@ -2351,7 +2498,8 @@
       "duration_minutes": 40,
       "price": 399,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-out-curl-mid-back",
@@ -2364,7 +2512,8 @@
       "duration_minutes": 50,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-out-curl-waist",
@@ -2377,7 +2526,8 @@
       "duration_minutes": 60,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-ironing-curls-neck",
@@ -2390,7 +2540,8 @@
       "duration_minutes": 40,
       "price": 500,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-ironing-curls-shoulder",
@@ -2403,7 +2554,8 @@
       "duration_minutes": 45,
       "price": 600,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-ironing-curls-mid-back",
@@ -2416,7 +2568,8 @@
       "duration_minutes": 60,
       "price": 800,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-ironing-curls-waist",
@@ -2429,7 +2582,8 @@
       "duration_minutes": 75,
       "price": 999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-iron-tongs-neck",
@@ -2442,7 +2596,8 @@
       "duration_minutes": 40,
       "price": 549,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-iron-tongs-shoulder",
@@ -2455,7 +2610,8 @@
       "duration_minutes": 50,
       "price": 649,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-iron-tongs-mid-back",
@@ -2468,7 +2624,8 @@
       "duration_minutes": 65,
       "price": 999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-iron-tongs-waist",
@@ -2481,7 +2638,8 @@
       "duration_minutes": 80,
       "price": 1499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-party-hair-updo-classic",
@@ -2494,7 +2652,8 @@
       "duration_minutes": 60,
       "price": 999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-party-hair-updo-traditional",
@@ -2507,7 +2666,8 @@
       "duration_minutes": 75,
       "price": 1499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-party-hair-updo-glamorous",
@@ -2520,7 +2680,8 @@
       "duration_minutes": 90,
       "price": 1999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-hair-extension",
@@ -2533,7 +2694,8 @@
       "duration_minutes": 60,
       "price": 1000,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-smoothening-hair-spa-neck",
@@ -2546,7 +2708,8 @@
       "duration_minutes": 75,
       "price": 1499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-smoothening-hair-spa-shoulder",
@@ -2559,7 +2722,8 @@
       "duration_minutes": 90,
       "price": 1999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-smoothening-hair-spa-mid-back",
@@ -2572,7 +2736,8 @@
       "duration_minutes": 105,
       "price": 2499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-hydrating-hair-spa-neck",
@@ -2585,7 +2750,8 @@
       "duration_minutes": 75,
       "price": 1999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-hydrating-hair-spa-shoulder",
@@ -2598,7 +2764,8 @@
       "duration_minutes": 90,
       "price": 2499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-hydrating-hair-spa-mid-back",
@@ -2611,7 +2778,8 @@
       "duration_minutes": 105,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-anti-dandruff-neck",
@@ -2624,7 +2792,8 @@
       "duration_minutes": 90,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-anti-dandruff-shoulder",
@@ -2637,7 +2806,8 @@
       "duration_minutes": 105,
       "price": 3499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-anti-dandruff-mid-back",
@@ -2650,7 +2820,8 @@
       "duration_minutes": 120,
       "price": 3999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-repair-hair-spa-neck",
@@ -2663,7 +2834,8 @@
       "duration_minutes": 90,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-repair-hair-spa-shoulder",
@@ -2676,7 +2848,8 @@
       "duration_minutes": 105,
       "price": 3499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-repair-hair-spa-mid-back",
@@ -2689,7 +2862,8 @@
       "duration_minutes": 120,
       "price": 3999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-color-save-spa-neck",
@@ -2702,7 +2876,8 @@
       "duration_minutes": 90,
       "price": 2499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-color-save-spa-shoulder",
@@ -2715,7 +2890,8 @@
       "duration_minutes": 105,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-color-save-spa-mid-back",
@@ -2728,7 +2904,8 @@
       "duration_minutes": 120,
       "price": 3499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-straightening-regrowth-4-inches",
@@ -2741,7 +2918,8 @@
       "duration_minutes": 90,
       "price": 1999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-straightening-fringe",
@@ -2754,7 +2932,8 @@
       "duration_minutes": 45,
       "price": 999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-straightening-neck",
@@ -2767,7 +2946,8 @@
       "duration_minutes": 150,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-straightening-shoulder",
@@ -2780,7 +2960,8 @@
       "duration_minutes": 180,
       "price": 3999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-straightening-waist",
@@ -2793,7 +2974,8 @@
       "duration_minutes": 240,
       "price": 5999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-pro-keratin-fringe",
@@ -2806,7 +2988,8 @@
       "duration_minutes": 45,
       "price": 999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-pro-keratin-neck",
@@ -2819,7 +3002,8 @@
       "duration_minutes": 150,
       "price": 2999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-pro-keratin-shoulder",
@@ -2832,7 +3016,8 @@
       "duration_minutes": 180,
       "price": 3999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-pro-keratin-mid-back",
@@ -2845,7 +3030,8 @@
       "duration_minutes": 210,
       "price": 4999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-pro-keratin-waist",
@@ -2858,7 +3044,8 @@
       "duration_minutes": 270,
       "price": 7999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-nano-plastia-botox-fringe",
@@ -2871,7 +3058,8 @@
       "duration_minutes": 60,
       "price": 1499,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-nano-plastia-botox-neck",
@@ -2884,7 +3072,8 @@
       "duration_minutes": 180,
       "price": 3999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-nano-plastia-botox-shoulder",
@@ -2897,7 +3086,8 @@
       "duration_minutes": 210,
       "price": 5999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-nano-plastia-botox-mid-back",
@@ -2910,7 +3100,8 @@
       "duration_minutes": 240,
       "price": 7999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     },
     {
       "id": "srv-nano-plastia-botox-waist",
@@ -2923,7 +3114,8 @@
       "duration_minutes": 300,
       "price": 9999,
       "is_active": true,
-      "image_url": ""
+      "image_url": "",
+      "salon_group": "hair-care"
     }
   ],
   "packages": [

@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS public.service_categories (
 CREATE TABLE IF NOT EXISTS public.services (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     category_id UUID REFERENCES public.service_categories(id) ON DELETE CASCADE,
+    salon_group TEXT,
     salon_subcategory TEXT,
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,

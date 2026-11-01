@@ -65,6 +65,7 @@ CREATE TABLE service_categories (
 CREATE TABLE services (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     category_id UUID REFERENCES service_categories(id) ON DELETE CASCADE,
+    salon_group TEXT,
     salon_subcategory TEXT,
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,

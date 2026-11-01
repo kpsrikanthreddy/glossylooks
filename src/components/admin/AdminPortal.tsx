@@ -50,7 +50,10 @@ import {
   EyeOff,
   UserPlus,
   Shield,
-  MessageSquare
+  MessageSquare,
+  ShoppingCart,
+  X,
+  Minus
 } from 'lucide-react';
 import { WhatsAppIntegrationSection } from './WhatsAppIntegrationSection';
 import { 
@@ -152,7 +155,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<SalonSettings | null>(null);
   const [reports, setReports] = useState<any>(null);
-  const [branches, setBranches] = useState<SalonBranch[]>([]);
+  const defaultBranchFallback: SalonBranch = {
+    id: 'tgl-gachibowli-main',
+    name: 'Gachibowli Main Flagship',
+    code: 'GCB-01',
+    address: '31, Vinayak Nagar, Gachibowli',
+    city: 'Hyderabad, Telangana - 500032',
+    phone: '8985799459',
+    whatsapp_number: '8985799459',
+    is_active: true,
+    created_at: '2026-01-01T10:00:00Z',
+    updated_at: '2026-10-31T09:09:41.008Z'
+  };
+  const [branches, setBranches] = useState<SalonBranch[]>([defaultBranchFallback]);
 
   // Detailed Sales Report & Date Range Filters
   const [detailedReports, setDetailedReports] = useState<DetailedSalesReport | null>(null);
@@ -177,12 +192,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [posSelectedItems, setPosSelectedItems] = useState<Array<{ service: ServiceItem; quantity: number; staffId?: string }>>([]);
   const [posDiscount, setPosDiscount] = useState<number>(0);
   const [posTip, setPosTip] = useState<number>(0);
-  const [posPaymentMode, setPosPaymentMode] = useState<Order['primary_payment_mode'] | ''>('');
-  const [posBranchId, setPosBranchId] = useState('');
+  const [posPaymentMode, setPosPaymentMode] = useState<Order['primary_payment_mode'] | ''>('UPI');
+  const [posBranchId, setPosBranchId] = useState('tgl-gachibowli-main');
   const [posNotes, setPosNotes] = useState('');
   const [posSuccessOrder, setPosSuccessOrder] = useState<Order | null>(null);
   const [posFeedbackSending, setPosFeedbackSending] = useState(false);
   const [posFeedbackMessage, setPosFeedbackMessage] = useState<string | null>(null);
+  const [posSearch, setPosSearch] = useState('');
+  const [posCategoryFilter, setPosCategoryFilter] = useState('all');
+  const [posSalonSubcategory, setPosSalonSubcategory] = useState('threading');
+  const [isPosCartOpen, setIsPosCartOpen] = useState(false);
   const posBranchRef = useRef<HTMLSelectElement>(null);
   const posCustomerNameRef = useRef<HTMLInputElement>(null);
   const posCustomerPhoneRef = useRef<HTMLInputElement>(null);
@@ -303,7 +322,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       setPackages(pkgsData);
       setGallery(galleryData);
       setSettings(settingsData);
-      setBranches(branchesData.filter(branch => branch.is_active));
+      const activeBranches = (branchesData || []).filter(branch => branch.is_active !== false);
+      const finalBranches = activeBranches.length > 0 ? activeBranches : [defaultBranchFallback];
+      setBranches(finalBranches);
+      setPosBranchId(prev => prev || finalBranches[0].id);
 
       // Role-gated fetches: Users & Audit logs ONLY for Owner
       if (isOwnerRole) {
@@ -1608,267 +1630,652 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* ================================================================= */}
           {/* 4. POS BILLING SCREEN */}
           {/* ================================================================= */}
-          {activeTab === 'pos' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column: Menu Picker */}
-              <div className="lg:col-span-2 space-y-4">
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-                  <h3 className="font-serif font-bold text-base text-slate-900">
-                    Salon Service Menu & Retail Products
-                  </h3>
-                  <span className="text-xs text-slate-500">Tap service to add to billing cart</span>
-                </div>
+          {/* ================================================================= */}
+          {/* 4. POS BILLING SCREEN */}
+          {/* ================================================================= */}
+          {activeTab === 'pos' && (() => {
+            const posCategoryPriority = ['makeup', 'mani-pedi', 'salon', 'spa', 'body-polishing'];
+            const posDisplayCategoryName = (cat: ServiceCategory) =>
+              cat.slug === 'mani-pedi' ? 'Nails Art' : cat.name;
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {services.map(srv => (
-                    <button
-                      key={srv.id}
-                      type="button"
-                      onClick={() => {
-                        const existing = posSelectedItems.find(i => i.service.id === srv.id);
-                        if (existing) {
-                          setPosSelectedItems(prev => prev.map(i => i.service.id === srv.id ? { ...i, quantity: i.quantity + 1 } : i));
-                        } else {
-                          const defaultStylist = staffList.find(s => s.is_active && (s.role === 'stylist' || !s.role.includes('owner'))) || staffList.find(s => s.is_active) || staffList[0];
-                          setPosSelectedItems(prev => [...prev, { service: srv, quantity: 1, staffId: defaultStylist?.id }]);
-                        }
-                      }}
-                      className="bg-white p-3 rounded-xl border border-slate-200 text-left hover:border-[#5B132B] hover:shadow-xs transition-all flex flex-col justify-between group"
-                    >
-                      <div>
-                        <span className="text-[10px] font-bold text-[#8C235A] uppercase block">
-                          {categories.find(c => c.id === srv.category_id)?.name}
-                        </span>
-                        <h4 className="font-serif font-bold text-xs text-slate-900 group-hover:text-[#5B132B] line-clamp-1 mt-0.5">
-                          {srv.name}
-                        </h4>
-                        <span className="text-[10px] text-slate-400">{srv.duration_minutes}m</span>
-                      </div>
-                      <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100">
-                        <span className="font-bold text-xs text-slate-900">
-                          ₹{srv.discount_price || srv.price}
-                        </span>
-                        <span className="w-5 h-5 rounded-full bg-[#FAF4F0] text-[#5B132B] flex items-center justify-center text-xs font-bold">
-                          +
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            const posVisibleCategories = categories
+              .filter(cat => cat.slug !== 'facials' && cat.name.toLowerCase() !== 'facials' && cat.id !== 'cat-facials')
+              .sort((a, b) => {
+                const aIndex = posCategoryPriority.indexOf(a.slug);
+                const bIndex = posCategoryPriority.indexOf(b.slug);
+                return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+              });
 
-              {/* Right Column: Checkout Cart & Bill Generation */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
-                <form onSubmit={handlePosCheckout} className="space-y-4">
-                  <div className="border-b pb-3">
-                    <h3 className="font-serif font-bold text-base text-slate-900">
-                      Receipt Cart & POS Checkout
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Cashier: <strong className="text-slate-800">{currentUser.name}</strong>
-                    </p>
-                  </div>
+            const salonCategory = categories.find(c => c.slug === 'salon' || c.id === 'cat-salon');
+            const isSalonActive = posCategoryFilter === 'salon' || (salonCategory && posCategoryFilter === salonCategory.id);
+            const salonServices = services.filter(s =>
+              (salonCategory && s.category_id === salonCategory.id) ||
+              s.category_id === 'cat-salon' ||
+              s.category_id === 'salon'
+            );
 
-                  {/* Customer Information */}
-                  <div className="space-y-2">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700">Salon Branch *</label>
-                      <select
-                        ref={posBranchRef}
-                        required
-                        value={posBranchId}
-                        onChange={(e) => setPosBranchId(e.target.value)}
-                        className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
-                      >
-                        <option value="">Select branch</option>
-                        {branches.map((branch) => (
-                          <option key={branch.id} value={branch.id}>
-                            {branch.name} · {branch.city}
-                          </option>
-                        ))}
-                      </select>
-                      {branches.length === 0 && (
-                        <p className="mt-1 text-[10px] text-amber-700">No active branch is available. Refresh the page or create the branch in Admin settings.</p>
+            const posSalonSubcategoriesList = [
+              { id: 'threading', label: 'Threading' },
+              { id: 'face-wax', label: 'Face Wax' },
+              { id: 'normal-wax', label: 'Normal Wax' },
+              { id: 'rica-wax', label: 'Rica Wax' },
+              { id: 'roll-on-wax', label: 'Roll On Wax' },
+              { id: 'peel-off-wax', label: 'Peel Off Wax' },
+              { id: 'd-tan-clean-up', label: 'D-Tan & Clean Up' },
+              { id: 'facial-treatments', label: 'Facial Treatments' },
+              { id: 'top-up-masks', label: 'Top Up Masks' },
+              { id: 'massage', label: 'Massage' },
+              { id: 'pedicure-manicure', label: 'Pedi & Mani' },
+              { id: 'hair-wash-massage', label: 'Hair Wash & Massage' },
+              { id: 'hair-cuts', label: 'Hair Cuts' },
+              { id: 'hair-colour', label: 'Hair Colour' },
+              { id: 'blow-dry-styling', label: 'Blow Dry & Styling' },
+              { id: 'hair-spa', label: 'Hair Spa' },
+              { id: 'hair-makeover', label: 'Hair Makeover' }
+            ];
+
+            const resolvePosSalonSubcategory = (srv: ServiceItem): string => {
+              if (srv.salon_subcategory) {
+                if (srv.salon_subcategory === 'body-care') return 'massage';
+                return srv.salon_subcategory;
+              }
+              if (srv.salon_group) {
+                if (srv.salon_group === 'body-care') return 'massage';
+                return srv.salon_group;
+              }
+              return 'threading';
+            };
+
+            const getPosSubcategoryCount = (subId: string) => {
+              return salonServices.filter(s => resolvePosSalonSubcategory(s) === subId).length;
+            };
+
+            const filteredPosServices = services.filter(srv => {
+              if (posSearch.trim()) {
+                const q = posSearch.trim().toLowerCase();
+                const match = (
+                  srv.name.toLowerCase().includes(q) ||
+                  (srv.description && srv.description.toLowerCase().includes(q)) ||
+                  (srv.benefits && srv.benefits.toLowerCase().includes(q)) ||
+                  (srv.salon_subcategory && srv.salon_subcategory.toLowerCase().includes(q)) ||
+                  (srv.salon_group && srv.salon_group.toLowerCase().includes(q))
+                );
+                if (!match) return false;
+              }
+
+              if (posCategoryFilter === 'all') return true;
+
+              if (isSalonActive) {
+                const isSalonSrv = (salonCategory && srv.category_id === salonCategory.id) || srv.category_id === 'cat-salon' || srv.category_id === 'salon';
+                if (!isSalonSrv) return false;
+
+                if (posSalonSubcategory && posSalonSubcategory !== 'all') {
+                  return resolvePosSalonSubcategory(srv) === posSalonSubcategory;
+                }
+                return true;
+              }
+
+              return srv.category_id === posCategoryFilter;
+            });
+
+            const posTotalItemsCount = posSelectedItems.reduce((sum, i) => sum + i.quantity, 0);
+            const posSubtotalAmount = posSelectedItems.reduce((sum, i) => sum + ((i.service.discount_price || i.service.price) * i.quantity), 0);
+            const posTaxAmount = Math.round(posSubtotalAmount * 0.05);
+            const posGrandTotal = Math.max(0, posSubtotalAmount - posDiscount + posTaxAmount + posTip);
+
+            const handleAddPosItem = (srv: ServiceItem) => {
+              const existing = posSelectedItems.find(i => i.service.id === srv.id);
+              if (existing) {
+                setPosSelectedItems(prev => prev.map(i => i.service.id === srv.id ? { ...i, quantity: i.quantity + 1 } : i));
+              } else {
+                const defaultStylist = staffList.find(s => s.is_active && (s.role === 'stylist' || !s.role.includes('owner'))) || staffList.find(s => s.is_active) || staffList[0];
+                setPosSelectedItems(prev => [...prev, { service: srv, quantity: 1, staffId: defaultStylist?.id }]);
+              }
+            };
+
+            return (
+              <div className="space-y-4">
+                {/* 2) SEARCH BAR IN PLACE OF "Salon Service Menu & Retail Products" */}
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="search"
+                        value={posSearch}
+                        onChange={(e) => setPosSearch(e.target.value)}
+                        placeholder="Search services by name, category, or code..."
+                        className="w-full pl-9 pr-9 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/30 focus:border-[#5B132B] transition-all"
+                        aria-label="Search POS services"
+                      />
+                      {posSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setPosSearch('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#5B132B]"
+                          title="Clear search"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700">Customer Name *</label>
-                      <input
-                        ref={posCustomerNameRef}
-                        type="text"
-                        required
-                        value={posCustomerName}
-                        onChange={e => setPosCustomerName(e.target.value)}
-                        placeholder="e.g. Pooja Agarwal"
-                        className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700">Mobile Number *</label>
-                      <input
-                        ref={posCustomerPhoneRef}
-                        type="tel"
-                        required
-                        value={posCustomerPhone}
-                        onChange={e => setPosCustomerPhone(e.target.value)}
-                        placeholder="10-digit number"
-                        className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none"
-                      />
-                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {}}
+                      className="px-4 py-2.5 bg-[#5B132B] hover:bg-[#430D1F] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      <span>Search</span>
+                    </button>
                   </div>
 
-                  {/* Selected Items */}
-                  <div className="border-t pt-3">
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-2">
-                      Selected Items ({posSelectedItems.length})
-                    </label>
-                    {posSelectedItems.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic">No services added to bill yet.</p>
-                    ) : (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {posSelectedItems.map((item, idx) => (
-                          <div key={idx} className="p-2 bg-[#FAF7F5] rounded-lg border border-slate-200 text-xs flex flex-col gap-1">
-                            <div className="flex justify-between items-center">
-                              <span className="font-semibold text-slate-900 truncate max-w-[150px]">
-                                {item.service.name}
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold">₹{(item.service.discount_price || item.service.price) * item.quantity}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setPosSelectedItems(prev => prev.filter((_, i) => i !== idx))}
-                                  className="text-rose-600 hover:text-rose-800"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px] text-slate-500">
-                              <span>Qty: {item.quantity}</span>
-                              <select
-                                value={item.staffId}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setPosSelectedItems(prev => prev.map((x, i) => i === idx ? { ...x, staffId: val } : x));
-                                }}
-                                className="text-[10px] bg-white border border-slate-200 rounded px-1 py-0.5"
-                              >
-                                {staffList
-                                  .filter(s => s.is_active || s.id === item.staffId)
-                                  .map(s => (
-                                    <option key={s.id} value={s.id}>
-                                      {s.name} ({s.title || s.role})
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Pricing Breakdown */}
-                  {posSelectedItems.length > 0 && (
-                    <div className="border-t pt-3 space-y-1.5 text-xs">
-                      <div className="flex justify-between text-slate-600">
-                        <span>Subtotal:</span>
-                        <span>₹{posSelectedItems.reduce((sum, i) => sum + ((i.service.discount_price || i.service.price) * i.quantity), 0)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-slate-600">
-                        <span>Discount (₹):</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={posDiscount}
-                          onChange={e => setPosDiscount(Number(e.target.value))}
-                          className="w-20 p-1 text-right text-xs bg-slate-50 border rounded"
-                        />
-                      </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>GST (5%):</span>
-                        <span>
-                          ₹{Math.round(posSelectedItems.reduce((sum, i) => sum + ((i.service.discount_price || i.service.price) * i.quantity), 0) * 0.05)}
-                        </span>
-                      </div>
-
-                      {/* Payment Mode */}
-                      <div className="pt-2">
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                          Payment Mode *
-                        </label>
-                        <select
-                          ref={posPaymentModeRef}
-                          required
-                          value={posPaymentMode}
-                          onChange={(e) => setPosPaymentMode(e.target.value as any)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg"
-                        >
-                          <option value="" disabled>Select payment mode</option>
-                          <option value="UPI">UPI (Google Pay / PhonePe / QR)</option>
-                          <option value="Cash">Cash Counter</option>
-                          <option value="Card">Credit / Debit Card</option>
-                          <option value="Bank Transfer">Bank Transfer / IMPS</option>
-                          <option value="Split Payment">Split Payment</option>
-                          <option value="Pay Later">Pay Later</option>
-                        </select>
-                      </div>
-
-                      <div className="flex justify-between font-bold text-sm text-[#5B132B] pt-2 border-t">
-                        <span>Grand Total:</span>
-                        <span>
-                          ₹{Math.max(0, posSelectedItems.reduce((sum, i) => sum + ((i.service.discount_price || i.service.price) * i.quantity), 0) - posDiscount + Math.round(posSelectedItems.reduce((sum, i) => sum + ((i.service.discount_price || i.service.price) * i.quantity), 0) * 0.05) + posTip)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={posSelectedItems.length === 0}
-                    className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#5B132B]/15 disabled:opacity-50"
-                  >
-                    <Receipt className="w-4 h-4 text-[#D4AF37]" />
-                    <span>Generate Bill & Auto-Print Receipt</span>
-                  </button>
+                  {/* 4) CART BUTTON - POPS OUT THE CART MODAL WHEN SELECTED */}
                   <button
                     type="button"
-                    onClick={handleSendPosFeedback}
-                    disabled={!posSuccessOrder || posFeedbackSending}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-[#087443] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={posSuccessOrder ? 'Send the approved customer feedback template on WhatsApp' : 'Generate the bill first'}
+                    onClick={() => setIsPosCartOpen(true)}
+                    className="px-4 py-2.5 bg-gradient-to-r from-[#5B132B] to-[#781B3C] hover:from-[#430D1F] hover:to-[#5B132B] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all shrink-0 cursor-pointer"
+                    title="Open Receipt Cart & POS Checkout"
                   >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>{posFeedbackSending ? 'Sending Customer Feedback…' : 'Send Customer Feedback on WhatsApp'}</span>
+                    <ShoppingCart className="w-4 h-4 text-[#D4AF37]" />
+                    <span>Receipt Cart ({posTotalItemsCount})</span>
+                    {posTotalItemsCount > 0 && (
+                      <span className="bg-[#D4AF37] text-[#5B132B] px-2 py-0.5 rounded-full text-[11px] font-extrabold ml-1">
+                        ₹{posSubtotalAmount}
+                      </span>
+                    )}
                   </button>
-                  <p className="text-center text-[10px] text-slate-400 -mt-2">
-                    {posSuccessOrder ? 'Sends the approved feedback template to this bill’s customer.' : 'Generate a bill first to enable manual feedback.'}
-                  </p>
-                  {posFeedbackMessage && (
-                    <p className={`text-center text-[11px] font-medium ${posFeedbackMessage.includes('sent') ? 'text-emerald-700' : 'text-rose-600'}`}>
-                      {posFeedbackMessage}
-                    </p>
-                  )}
-                </form>
+                </div>
 
-                {posSuccessOrder && (
-                  <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
-                    <div className="font-bold flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Bill {posSuccessOrder.bill_number} Created!</span>
+                {/* 1) SERVICE CATEGORIES (MATCHING SS1) */}
+                <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div>
+                      <span className="text-[10px] font-bold tracking-widest uppercase text-[#8C235A]">
+                        Service Menu
+                      </span>
+                      <h3 className="text-base font-serif font-bold text-slate-900 tracking-tight">
+                        Select Your Pampering Journey
+                      </h3>
                     </div>
-                    <p className="text-[11px]">Auto-queued to Salon Desktop Print Agent.</p>
+
+                    {/* Category Chips (SS1 style) */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none max-w-full">
+                      <button
+                        type="button"
+                        onClick={() => setPosCategoryFilter('all')}
+                        className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all shrink-0 cursor-pointer ${
+                          posCategoryFilter === 'all'
+                            ? 'bg-[#5B132B] text-white shadow-xs'
+                            : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
+                        }`}
+                      >
+                        All Services
+                      </button>
+                      {posVisibleCategories.map((cat) => {
+                        const isActive = posCategoryFilter === cat.id || (posCategoryFilter === 'salon' && (cat.slug === 'salon' || cat.id === 'cat-salon'));
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setPosCategoryFilter(cat.id);
+                              if (cat.slug === 'salon' || cat.id === 'cat-salon') {
+                                setPosSalonSubcategory('threading');
+                              }
+                            }}
+                            className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                              isActive
+                                ? 'bg-[#5B132B] text-white shadow-xs'
+                                : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
+                            }`}
+                          >
+                            <span>{posDisplayCategoryName(cat)}</span>
+                            {cat.slug === 'makeup' && (
+                              <Sparkles className="w-3 h-3 text-[#D4AF37]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Salon Subcategories Card (Displayed when Salon is selected, matching SS1!) */}
+                  {isSalonActive && (
+                    <div className="p-3 sm:p-3.5 bg-gradient-to-r from-[#FAF4F0] via-white to-[#FAF4F0] rounded-xl border border-[#EBD9D0] shadow-2xs">
+                      <div className="flex items-start gap-2.5 mb-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-[#5B132B] text-[#D4AF37] flex items-center justify-center font-bold text-xs shrink-0">✦</div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8C235A]">Salon Subcategories</h4>
+                            <span className="text-[10px] bg-[#5B132B]/10 text-[#5B132B] font-semibold px-2 py-0.5 rounded-full">
+                              Viewing {posSalonSubcategoriesList.find(s => s.id === posSalonSubcategory)?.label || 'All Salon'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 mt-0.5">Choose a service group to view the full Salon menu and pricing.</p>
+                        </div>
+                      </div>
+
+                      {/* Subcategory Pills Row with Item Counts (SS1 style) */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                        <button
+                          type="button"
+                          onClick={() => setPosSalonSubcategory('all')}
+                          className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                            posSalonSubcategory === 'all'
+                              ? 'bg-[#5B132B] text-white shadow-xs'
+                              : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
+                          }`}
+                        >
+                          <span>All Salon</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                            posSalonSubcategory === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {salonServices.length}
+                          </span>
+                        </button>
+                        {posSalonSubcategoriesList.map((sub) => {
+                          const isSubActive = posSalonSubcategory === sub.id;
+                          const count = getPosSubcategoryCount(sub.id);
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => setPosSalonSubcategory(sub.id)}
+                              className={`whitespace-nowrap px-3 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                                isSubActive
+                                  ? 'bg-[#5B132B] text-white shadow-xs'
+                                  : 'bg-white text-slate-700 hover:bg-[#FAF4F0] border border-[#EBD9D0]'
+                              }`}
+                            >
+                              <span>{sub.label}</span>
+                              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                isSubActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3) SERVICES GRID WITH INSTANT ADD-TO-CART */}
+                {filteredPosServices.length === 0 ? (
+                  <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center">
+                    <p className="text-xs text-slate-500 font-medium">No services match the current filter or search &ldquo;{posSearch}&rdquo;.</p>
                     <button
-                      onClick={() => onViewReceipt(posSuccessOrder, undefined, 'bill')}
-                      className="w-full py-1.5 bg-emerald-700 text-white rounded-lg font-bold text-[11px]"
+                      type="button"
+                      onClick={() => { setPosSearch(''); setPosCategoryFilter('all'); }}
+                      className="mt-3 px-3.5 py-1.5 bg-[#5B132B] text-white text-xs font-semibold rounded-lg"
                     >
-                      Preview / Reprint Thermal Receipt
+                      Show All Services
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {filteredPosServices.map(srv => {
+                      const existingInCart = posSelectedItems.find(i => i.service.id === srv.id);
+                      const inCartQty = existingInCart?.quantity || 0;
+                      return (
+                        <button
+                          key={srv.id}
+                          type="button"
+                          onClick={() => handleAddPosItem(srv)}
+                          className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between group cursor-pointer relative ${
+                            inCartQty > 0
+                              ? 'bg-[#FFF9F6] border-[#5B132B] shadow-xs ring-1 ring-[#5B132B]/30'
+                              : 'bg-white border-slate-200 hover:border-[#5B132B] hover:shadow-xs'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-[10px] font-bold text-[#8C235A] uppercase truncate">
+                                {categories.find(c => c.id === srv.category_id)?.name || 'Salon'}
+                              </span>
+                              {inCartQty > 0 && (
+                                <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5 shrink-0">
+                                  <Check className="w-2.5 h-2.5" />
+                                  <span>Qty: {inCartQty}</span>
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-serif font-bold text-xs text-slate-900 group-hover:text-[#5B132B] line-clamp-1 mt-0.5">
+                              {srv.name}
+                            </h4>
+                            <span className="text-[10px] text-slate-400">{srv.duration_minutes}m</span>
+                          </div>
+                          <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100">
+                            <div className="flex items-baseline gap-1">
+                              <span className="font-bold text-xs text-slate-900">
+                                ₹{srv.discount_price || srv.price}
+                              </span>
+                              {srv.discount_price && (
+                                <span className="text-[10px] text-slate-400 line-through">
+                                  ₹{srv.price}
+                                </span>
+                              )}
+                            </div>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                              inCartQty > 0 ? 'bg-[#5B132B] text-white' : 'bg-[#FAF4F0] text-[#5B132B] group-hover:bg-[#5B132B] group-hover:text-white'
+                            }`}>
+                              +
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* FLOATING CART BAR ON MOBILE / TABLET */}
+                {posTotalItemsCount > 0 && !isPosCartOpen && (
+                  <div className="fixed bottom-4 right-4 z-40 bg-white/95 backdrop-blur-md border border-[#EBD9D0] rounded-2xl shadow-xl p-3 flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-[#5B132B] text-[#D4AF37] flex items-center justify-center font-bold text-xs">
+                        <ShoppingCart className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">
+                          {posTotalItemsCount} {posTotalItemsCount === 1 ? 'item' : 'items'} in cart
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#8C235A]">
+                          Subtotal: ₹{posSubtotalAmount}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPosCartOpen(true)}
+                      className="px-4 py-2 bg-[#5B132B] hover:bg-[#430D1F] text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                      Open Cart & Checkout →
                     </button>
                   </div>
                 )}
+
+                {/* 4) POPOUT CART & POS CHECKOUT MODAL */}
+                {isPosCartOpen && (
+                  <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[92vh] overflow-hidden flex flex-col my-auto animate-in fade-in zoom-in-95 duration-150">
+                      {/* Modal Header */}
+                      <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-[#FAF7F5]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-[#5B132B] text-[#D4AF37] flex items-center justify-center font-bold text-sm shadow-xs">
+                            <Receipt className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-serif font-bold text-base text-slate-900">
+                              Receipt Cart & POS Checkout
+                            </h3>
+                            <p className="text-[11px] text-slate-500">
+                              Cashier: <strong className="text-slate-800">{currentUser.name}</strong>
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsPosCartOpen(false)}
+                          className="w-8 h-8 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                          aria-label="Close cart popout"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Modal Body / Form */}
+                      <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4">
+                        <form onSubmit={handlePosCheckout} className="space-y-4">
+                          {/* 4) Branch Dropdown (Requirement 4: Populated from live branches) */}
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              Salon Branch *
+                            </label>
+                            <select
+                              ref={posBranchRef}
+                              required
+                              value={posBranchId}
+                              onChange={(e) => setPosBranchId(e.target.value)}
+                              className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#D4AF37]/50 font-medium text-slate-900 shadow-xs cursor-pointer"
+                            >
+                              <option value="" disabled>Select salon branch...</option>
+                              {branches.map((branch) => (
+                                <option key={branch.id} value={branch.id}>
+                                  {branch.name} — {branch.city || branch.address || 'Flagship'}
+                                </option>
+                              ))}
+                            </select>
+                            {branches.length === 0 && (
+                              <p className="mt-1 text-[10px] text-amber-700">Loading branch list...</p>
+                            )}
+                          </div>
+
+                          {/* Customer Info */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Customer Name *</label>
+                              <input
+                                ref={posCustomerNameRef}
+                                type="text"
+                                required
+                                value={posCustomerName}
+                                onChange={e => setPosCustomerName(e.target.value)}
+                                placeholder="e.g. Pooja Agarwal"
+                                className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-1 focus:ring-[#5B132B]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Mobile Number *</label>
+                              <input
+                                ref={posCustomerPhoneRef}
+                                type="tel"
+                                required
+                                value={posCustomerPhone}
+                                onChange={e => setPosCustomerPhone(e.target.value)}
+                                placeholder="10-digit number"
+                                className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-1 focus:ring-[#5B132B]"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Selected Items List */}
+                          <div className="border-t border-slate-100 pt-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-[11px] font-bold text-slate-800">
+                                Selected Items ({posSelectedItems.length})
+                              </label>
+                              {posSelectedItems.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPosSelectedItems([])}
+                                  className="text-[11px] text-rose-600 hover:text-rose-800 font-medium cursor-pointer"
+                                >
+                                  Clear All
+                                </button>
+                              )}
+                            </div>
+
+                            {posSelectedItems.length === 0 ? (
+                              <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                <p className="text-xs text-slate-400 italic">No services added to bill yet.</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsPosCartOpen(false)}
+                                  className="mt-2 text-xs font-semibold text-[#8C235A] hover:underline cursor-pointer"
+                                >
+                                  Browse Menu & Add Services
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                {posSelectedItems.map((item, idx) => (
+                                  <div key={idx} className="p-2.5 bg-[#FAF7F5] rounded-xl border border-slate-200 text-xs flex flex-col gap-1.5">
+                                    <div className="flex justify-between items-center">
+                                      <span className="font-semibold text-slate-900 truncate max-w-[220px]">
+                                        {item.service.name}
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-slate-900">₹{(item.service.discount_price || item.service.price) * item.quantity}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setPosSelectedItems(prev => prev.filter((_, i) => i !== idx))}
+                                          className="w-5 h-5 rounded-full hover:bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-sm cursor-pointer"
+                                          title="Remove item"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-600">Qty:</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (item.quantity > 1) {
+                                              setPosSelectedItems(prev => prev.map((x, i) => i === idx ? { ...x, quantity: x.quantity - 1 } : x));
+                                            } else {
+                                              setPosSelectedItems(prev => prev.filter((_, i) => i !== idx));
+                                            }
+                                          }}
+                                          className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 font-bold cursor-pointer"
+                                        >
+                                          <Minus className="w-2.5 h-2.5" />
+                                        </button>
+                                        <span className="font-bold text-slate-800 px-1">{item.quantity}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setPosSelectedItems(prev => prev.map((x, i) => i === idx ? { ...x, quantity: x.quantity + 1 } : x));
+                                          }}
+                                          className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-100 font-bold cursor-pointer"
+                                        >
+                                          <Plus className="w-2.5 h-2.5" />
+                                        </button>
+                                      </div>
+                                      <select
+                                        value={item.staffId}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setPosSelectedItems(prev => prev.map((x, i) => i === idx ? { ...x, staffId: val } : x));
+                                        }}
+                                        className="text-[10px] bg-white border border-slate-200 rounded-md px-1.5 py-0.5 outline-none cursor-pointer"
+                                      >
+                                        {staffList
+                                          .filter(s => s.is_active || s.id === item.staffId)
+                                          .map(s => (
+                                            <option key={s.id} value={s.id}>
+                                              Stylist: {s.name} ({s.title || s.role})
+                                            </option>
+                                          ))}
+                                      </select>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Pricing Breakdown */}
+                          {posSelectedItems.length > 0 && (
+                            <div className="border-t border-slate-100 pt-3 space-y-1.5 text-xs">
+                              <div className="flex justify-between text-slate-600">
+                                <span>Subtotal:</span>
+                                <span>₹{posSubtotalAmount}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-slate-600">
+                                <span>Discount (₹):</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={posDiscount}
+                                  onChange={e => setPosDiscount(Number(e.target.value))}
+                                  className="w-20 p-1 text-right text-xs bg-slate-50 border border-slate-200 rounded"
+                                />
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>GST (5%):</span>
+                                <span>₹{posTaxAmount}</span>
+                              </div>
+
+                              {/* Payment Mode */}
+                              <div className="pt-2">
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Payment Mode *
+                                </label>
+                                <select
+                                  ref={posPaymentModeRef}
+                                  required
+                                  value={posPaymentMode}
+                                  onChange={(e) => setPosPaymentMode(e.target.value as any)}
+                                  className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg outline-none cursor-pointer"
+                                >
+                                  <option value="" disabled>Select payment mode</option>
+                                  <option value="UPI">UPI (Google Pay / PhonePe / QR)</option>
+                                  <option value="Cash">Cash Counter</option>
+                                  <option value="Card">Credit / Debit Card</option>
+                                  <option value="Bank Transfer">Bank Transfer / IMPS</option>
+                                  <option value="Split Payment">Split Payment</option>
+                                  <option value="Pay Later">Pay Later</option>
+                                </select>
+                              </div>
+
+                              <div className="flex justify-between font-bold text-sm text-[#5B132B] pt-2 border-t border-slate-200">
+                                <span>Grand Total:</span>
+                                <span>₹{posGrandTotal}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          <button
+                            type="submit"
+                            disabled={posSelectedItems.length === 0}
+                            className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#5B132B]/15 disabled:opacity-50 cursor-pointer"
+                          >
+                            <Receipt className="w-4 h-4 text-[#D4AF37]" />
+                            <span>Generate Bill & Auto-Print Receipt</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSendPosFeedback}
+                            disabled={!posSuccessOrder || posFeedbackSending}
+                            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-[#087443] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            title={posSuccessOrder ? 'Send the approved customer feedback template on WhatsApp' : 'Generate the bill first'}
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            <span>{posFeedbackSending ? 'Sending Customer Feedback…' : 'Send Customer Feedback on WhatsApp'}</span>
+                          </button>
+                          {posFeedbackMessage && (
+                            <p className={`text-center text-[11px] font-medium ${posFeedbackMessage.includes('sent') ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              {posFeedbackMessage}
+                            </p>
+                          )}
+                        </form>
+
+                        {posSuccessOrder && (
+                          <div className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
+                            <div className="font-bold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Bill {posSuccessOrder.bill_number} Created!</span>
+                            </div>
+                            <p className="text-[11px]">Auto-queued to Salon Desktop Print Agent.</p>
+                            <button
+                              onClick={() => onViewReceipt(posSuccessOrder, undefined, 'bill')}
+                              className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs cursor-pointer"
+                            >
+                              Preview / Reprint Thermal Receipt
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ================================================================= */}
           {/* 5. PAYMENTS & RECONCILIATION MODULE */}
