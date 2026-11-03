@@ -117,7 +117,13 @@ export interface Customer {
   loyalty_points: number;
   total_spend: number;
   visit_count: number;
+  branch_id?: string;
+  branch_name?: string;
+  first_visit_at?: string;
   last_visit_at?: string;
+  latest_bill_number?: string;
+  feedback_rating?: 'good' | 'average' | 'bad' | string;
+  status?: string;
   tags?: string[];
   created_at: string;
   updated_at: string;
@@ -316,6 +322,15 @@ export interface PaymentRecord {
   refund_reason?: string;
   notes?: string;
   recorded_by?: string;
+  branch_id?: string;
+  branch_name?: string;
+  subtotal?: number;
+  discount?: number;
+  tax_amount?: number;
+  receipt_whatsapp_status?: WhatsAppMessageStatus;
+  receipt_whatsapp_error?: string;
+  feedback_whatsapp_status?: WhatsAppMessageStatus;
+  items?: OrderItem[];
   created_at: string;
 }
 
@@ -622,6 +637,9 @@ export interface AppointmentFeedback {
   meta_message_id?: string;
   is_read: boolean;
   notification_read?: boolean;
+  reply_status?: 'pending' | 'sending' | 'sent' | 'failed';
+  outgoing_meta_message_id?: string;
+  reply_sent_at?: string;
   received_at: string;
 }
 

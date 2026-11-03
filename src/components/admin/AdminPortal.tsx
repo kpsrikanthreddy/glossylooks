@@ -273,6 +273,61 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [feedbackList, setFeedbackList] = useState<AppointmentFeedback[]>([]);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
+  // Asia/Kolkata (IST) Date Formatting & Comparison Helpers
+  const getKolkataDateString = (dateInput?: string | Date): string => {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d);
+  };
+
+  const formatKolkataDateTime = (dateInput?: string | Date): string => {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    if (isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(d);
+  };
+
+  // Payment Ledger & Order Management State
+  const [ledgerDateFilter, setLedgerDateFilter] = useState<'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom'>('all');
+  const [ledgerStartDate, setLedgerStartDate] = useState(() => getKolkataDateString());
+  const [ledgerEndDate, setLedgerEndDate] = useState(() => getKolkataDateString());
+  const [ledgerBranchFilter, setLedgerBranchFilter] = useState('all');
+  const [ledgerModeFilter, setLedgerModeFilter] = useState('all');
+  const [ledgerSearch, setLedgerSearch] = useState('');
+
+  // Order Details & Edit Modals
+  const [orderDetailsModal, setOrderDetailsModal] = useState<{
+    isOpen: boolean;
+    order?: Order | null;
+    payment?: PaymentRecord | null;
+  }>({ isOpen: false, order: null, payment: null });
+
+  const [orderEditModal, setOrderEditModal] = useState<{
+    isOpen: boolean;
+    order?: Order | null;
+    payment?: PaymentRecord | null;
+  }>({ isOpen: false, order: null, payment: null });
+  const [orderEditSaving, setOrderEditSaving] = useState(false);
+  const [orderEditError, setOrderEditError] = useState<string | null>(null);
+  const [editOrderDiscount, setEditOrderDiscount] = useState<number>(0);
+  const [editOrderPaymentMode, setEditOrderPaymentMode] = useState<Order['primary_payment_mode']>('Cash');
+  const [editOrderPaymentStatus, setEditOrderPaymentStatus] = useState<Order['payment_status']>('Paid');
+  const [editOrderCustomerName, setEditOrderCustomerName] = useState('');
+  const [editOrderCustomerPhone, setEditOrderCustomerPhone] = useState('');
+  const [editOrderNotes, setEditOrderNotes] = useState('');
+
   const loadDetailedReports = async (period: 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom', start?: string, end?: string) => {
     try {
       setLoadingReports(true);
@@ -1519,111 +1574,239 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* ================================================================= */}
           {/* 2. CUSTOMER CRM MODULE */}
           {/* ================================================================= */}
-          {activeTab === 'customers' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative flex-1 max-w-sm w-full">
-                  <input
-                    type="text"
-                    value={customerSearch}
-                    onChange={e => setCustomerSearch(e.target.value)}
-                    placeholder="Search by customer mobile or name..."
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8C235A]/30"
-                  />
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
-                <button
-                  onClick={() => setCustomerModal({ isOpen: true, data: null })}
-                  className="py-2 px-4 text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] rounded-xl flex items-center gap-1.5 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Walk-in Customer</span>
-                </button>
-              </div>
+          {activeTab === 'customers' && (() => {
+            const filteredCustomers = customers.filter(c => {
+              if (!customerSearch.trim()) return true;
+              const q = customerSearch.trim().toLowerCase();
+              return (
+                (c.name && c.name.toLowerCase().includes(q)) ||
+                (c.mobile && c.mobile.includes(q)) ||
+                (c.email && c.email.toLowerCase().includes(q)) ||
+                (c.latest_bill_number && c.latest_bill_number.toLowerCase().includes(q))
+              );
+            });
 
-              {/* Customers table */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#FAF7F5] border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-                      <tr>
-                        <th className="p-3.5">Customer</th>
-                        <th className="p-3.5">Mobile</th>
-                        <th className="p-3.5">Visits</th>
-                        <th className="p-3.5">Points</th>
-                        <th className="p-3.5">Total Spent</th>
-                        <th className="p-3.5">Tags & Allergies</th>
-                        <th className="p-3.5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {customers
-                        .filter(c => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.mobile.includes(customerSearch))
-                        .map(c => (
-                          <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-3.5">
-                              <div className="font-bold text-slate-900">{c.name}</div>
-                              {c.birthday && <div className="text-[10px] text-slate-400">DOB: {c.birthday}</div>}
-                            </td>
-                            <td className="p-3.5 text-slate-600">{c.mobile}</td>
-                            <td className="p-3.5 font-semibold text-slate-800">{c.visit_count}</td>
-                            <td className="p-3.5 text-[#D4AF37] font-bold">{c.loyalty_points}</td>
-                            <td className="p-3.5 font-bold text-[#5B132B]">₹{c.total_spend}</td>
-                            <td className="p-3.5 text-slate-500 max-w-xs truncate">
-                              {c.allergies ? <span className="text-rose-600 font-bold mr-1">⚠️ {c.allergies}</span> : null}
-                              {c.tags?.join(', ') || 'Regular'}
-                            </td>
-                            <td className="p-3.5 text-right space-x-1.5">
-                              <a
-                                href={`https://wa.me/91${c.mobile}?text=${encodeURIComponent(`Hi ${c.name}, greetings from The Glossy Looks salon, Gachibowli!`)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg"
-                                title="Chat on WhatsApp"
-                              >
-                                <MessageCircle className="w-4 h-4" />
-                              </a>
-                              <button
-                                onClick={() => setCustomerModal({ isOpen: true, data: c })}
-                                className="inline-flex p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg"
-                                title="Edit Customer"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setPosCustomerName(c.name);
-                                  setPosCustomerPhone(c.mobile);
-                                  setActiveTab('pos');
-                                }}
-                                className="inline-flex p-1.5 text-[#5B132B] hover:bg-[#FAF4F0] rounded-lg"
-                                title="New POS Bill"
-                              >
-                                <Receipt className="w-4 h-4" />
-                              </button>
-                              {isManager && (
-                                <button
-                                  onClick={async () => {
-                                    if (confirm(`Are you sure you want to delete customer ${c.name}?`)) {
-                                      await api.deleteCustomer(c.id, currentUser.name);
-                                      loadAllData();
-                                    }
-                                  }}
-                                  className="inline-flex p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
-                                  title="Delete Customer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </td>
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                  <div className="flex-1 flex items-center gap-2">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="search"
+                        value={customerSearch}
+                        onChange={e => setCustomerSearch(e.target.value)}
+                        placeholder="Search by customer name, mobile, email, or bill #..."
+                        className="w-full pl-9 pr-8 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20 focus:border-[#5B132B] transition-all"
+                      />
+                      {customerSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomerSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => loadAllData()}
+                      className="px-3 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Refresh CRM customers from Supabase"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#5B132B]' : ''}`} />
+                      <span className="hidden sm:inline">Refresh</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium">
+                      Total: <strong className="text-slate-900">{filteredCustomers.length}</strong> customers
+                    </span>
+                    <button
+                      onClick={() => setCustomerModal({ isOpen: true, data: null })}
+                      className="py-2.5 px-4 text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] rounded-xl flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Walk-in Customer</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Customers Table */}
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  {filteredCustomers.length === 0 ? (
+                    <div className="p-12 text-center space-y-3">
+                      <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+                        <Users className="w-7 h-7" />
+                      </div>
+                      <h4 className="font-serif font-bold text-base text-slate-800">
+                        {customerSearch ? 'No matching customers found' : 'No customers in Supabase CRM'}
+                      </h4>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                        {customerSearch
+                          ? `No customer matches "${customerSearch}". Try searching by a different name, phone number or bill number.`
+                          : 'Whenever a customer books an online appointment or a POS bill is generated, they will automatically be recorded here with complete visit history and spend.'}
+                      </p>
+                      {customerSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomerSearch('')}
+                          className="px-3.5 py-1.5 text-xs font-semibold text-[#5B132B] hover:underline cursor-pointer"
+                        >
+                          Clear search filter
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#FAF7F5] border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+                          <tr>
+                            <th className="p-3.5">Customer Name</th>
+                            <th className="p-3.5">Mobile & Email</th>
+                            <th className="p-3.5">Branch</th>
+                            <th className="p-3.5">First Visit</th>
+                            <th className="p-3.5">Latest Visit</th>
+                            <th className="p-3.5 text-center">Visits</th>
+                            <th className="p-3.5">Total Billed</th>
+                            <th className="p-3.5">Latest Bill #</th>
+                            <th className="p-3.5">Feedback / Rating</th>
+                            <th className="p-3.5 text-right">Actions</th>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredCustomers.map(c => {
+                            const branchName = branches.find(b => b.id === c.branch_id)?.name || c.branch_name || (c.branch_id === 'brn-1793346038689' ? 'Kondapur' : 'Gachibowli Main');
+                            const firstVisitDisplay = c.first_visit_at ? formatKolkataDateTime(c.first_visit_at) : (c.created_at ? formatKolkataDateTime(c.created_at) : '—');
+                            const lastVisitDisplay = c.last_visit_at ? formatKolkataDateTime(c.last_visit_at) : (c.updated_at ? formatKolkataDateTime(c.updated_at) : '—');
+                            const rating = (c.feedback_rating || '').toLowerCase();
+
+                            return (
+                              <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-3.5">
+                                  <div className="font-bold text-slate-900">{c.name}</div>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+                                      c.status === 'vip' ? 'bg-amber-100 text-amber-800' :
+                                      c.status === 'inactive' ? 'bg-slate-100 text-slate-500' :
+                                      c.status === 'blocked' ? 'bg-rose-100 text-rose-700' :
+                                      'bg-emerald-50 text-emerald-700'
+                                    }`}>
+                                      {c.status || 'active'}
+                                    </span>
+                                    {c.allergies && (
+                                      <span className="text-rose-600 font-semibold text-[10px]" title={c.allergies}>⚠️ Sensitive</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3.5">
+                                  <div className="font-mono text-slate-800 font-medium">+91 {c.mobile}</div>
+                                  {c.email ? (
+                                    <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{c.email}</div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic">No email</span>
+                                  )}
+                                </td>
+                                <td className="p-3.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                                    <MapPin className="w-3 h-3 text-[#8C235A]" />
+                                    <span>{branchName}</span>
+                                  </span>
+                                </td>
+                                <td className="p-3.5 text-slate-600 text-[11px]">
+                                  {firstVisitDisplay}
+                                </td>
+                                <td className="p-3.5 text-slate-600 text-[11px]">
+                                  {lastVisitDisplay}
+                                </td>
+                                <td className="p-3.5 text-center font-bold text-slate-900">
+                                  {c.visit_count || 1}
+                                </td>
+                                <td className="p-3.5 font-bold text-[#5B132B]">
+                                  ₹{Number(c.total_spend || 0).toFixed(2)}
+                                </td>
+                                <td className="p-3.5">
+                                  {c.latest_bill_number ? (
+                                    <span className="font-mono text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                                      {c.latest_bill_number}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 text-[11px]">—</span>
+                                  )}
+                                </td>
+                                <td className="p-3.5">
+                                  {rating ? (
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                                      rating === 'good' ? 'bg-emerald-100 text-emerald-800' :
+                                      rating === 'average' ? 'bg-amber-100 text-amber-800' :
+                                      'bg-rose-100 text-rose-800'
+                                    }`}>
+                                      {rating === 'good' && '★ '}
+                                      {rating.toUpperCase()}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 text-[10px] italic">No rating yet</span>
+                                  )}
+                                </td>
+                                <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                                  <a
+                                    href={`https://wa.me/91${c.mobile}?text=${encodeURIComponent(`Hi ${c.name}, greetings from The Glossy Looks!`)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                                    title="Chat with customer on WhatsApp"
+                                  >
+                                    <MessageCircle className="w-4 h-4" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCustomerModal({ isOpen: true, data: c })}
+                                    className="inline-flex p-1.5 text-slate-600 hover:text-[#5B132B] hover:bg-slate-100 rounded-lg transition-colors"
+                                    title="Edit Customer Profile"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPosCustomerName(c.name);
+                                      setPosCustomerPhone(c.mobile);
+                                      setActiveTab('pos');
+                                    }}
+                                    className="inline-flex p-1.5 text-[#5B132B] hover:bg-[#FAF4F0] rounded-lg transition-colors font-bold"
+                                    title="Create New POS Bill for Customer"
+                                  >
+                                    <Receipt className="w-4 h-4" />
+                                  </button>
+                                  {isManager && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (confirm(`Are you sure you want to delete customer ${c.name}?`)) {
+                                          await api.deleteCustomer(c.id, currentUser.name);
+                                          loadAllData();
+                                        }
+                                      }}
+                                      className="inline-flex p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                      title="Delete Customer"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ================================================================= */}
           {/* 3. APPOINTMENTS MODULE */}
@@ -2704,6 +2887,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                                         </button>
                                       )}
                                     </div>
+                                    {receiptStatus === 'failed' && posSuccessOrder.receipt_whatsapp_error && (
+                                      <div className="w-full text-[10px] text-rose-700 bg-rose-50 border border-rose-200 rounded p-1.5 mt-1 font-mono break-all">
+                                        <span className="font-semibold text-rose-900">Error: </span>
+                                        {posSuccessOrder.receipt_whatsapp_error}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })()}
@@ -2783,130 +2972,453 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* ================================================================= */}
           {/* 5. PAYMENTS & RECONCILIATION MODULE */}
           {/* ================================================================= */}
-          {activeTab === 'payments' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-serif font-bold text-base text-slate-900">
-                    Daily Payment Transactions Ledger & Cash Reconciliation
-                  </h3>
-                  <span className="text-xs text-slate-500">Track settlements across UPI, Cash, Cards, and process refunds</span>
-                </div>
-              </div>
+          {/* ================================================================= */}
+          {/* 5. PAYMENTS & RECONCILIATION MODULE */}
+          {/* ================================================================= */}
+          {activeTab === 'payments' && (() => {
+            const filteredPayments = payments
+              .slice()
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .filter(p => {
+                // 1. Search by Bill Number, Customer Name or Mobile
+                if (ledgerSearch.trim()) {
+                  const q = ledgerSearch.trim().toLowerCase();
+                  const match = (
+                    (p.bill_number && p.bill_number.toLowerCase().includes(q)) ||
+                    (p.customer_phone && p.customer_phone.includes(q)) ||
+                    (p.customer_name && p.customer_name.toLowerCase().includes(q))
+                  );
+                  if (!match) return false;
+                }
 
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#FAF7F5] border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-                      <tr>
-                        <th className="p-3.5">Bill No</th>
-                        <th className="p-3.5">Customer</th>
-                        <th className="p-3.5">Amount</th>
-                        <th className="p-3.5">Payment Mode</th>
-                        <th className="p-3.5">Status</th>
-                        <th className="p-3.5">WhatsApp</th>
-                        <th className="p-3.5">Recorded By</th>
-                        <th className="p-3.5">Date & Time</th>
-                        <th className="p-3.5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {payments.map(p => {
-                        const matchingOrder = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
-                        const receiptStatus = matchingOrder?.receipt_whatsapp_status || matchingOrder?.whatsapp_status || 'queued';
-                        const feedbackStatus = matchingOrder?.feedback_whatsapp_status || 'scheduled';
-                        return (
-                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-3.5 font-mono font-bold text-[#5B132B]">{p.bill_number}</td>
-                            <td className="p-3.5 font-medium">{p.customer_name} ({p.customer_phone})</td>
-                            <td className="p-3.5 font-bold text-slate-900">₹{p.amount.toFixed(2)}</td>
-                            <td className="p-3.5">
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                                {p.payment_mode}
-                              </span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                p.status === 'Success' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                              }`}>
-                                {p.status}
-                              </span>
-                            </td>
-                            <td className="p-3.5">
-                              <div className="flex flex-col gap-1 text-[10px]">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-slate-400 font-medium">Receipt:</span>
-                                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                                    receiptStatus === 'delivered' || receiptStatus === 'read' ? 'bg-emerald-100 text-emerald-800' :
-                                    receiptStatus === 'sent' ? 'bg-blue-100 text-blue-800' :
-                                    receiptStatus === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
-                                  }`}>
-                                    {receiptStatus === 'delivered' || receiptStatus === 'read' ? 'Delivered' :
-                                     receiptStatus === 'sent' ? 'Sent' :
-                                     receiptStatus === 'failed' ? 'Failed' : 'Queued'}
+                // 2. Branch Filter
+                if (ledgerBranchFilter !== 'all') {
+                  const pBranch = p.branch_id || 'tgl-gachibowli-main';
+                  if (pBranch !== ledgerBranchFilter) return false;
+                }
+
+                // 3. Payment Mode Filter
+                if (ledgerModeFilter !== 'all') {
+                  if (p.payment_mode !== ledgerModeFilter) return false;
+                }
+
+                // 4. Date Filtering in Asia/Kolkata Timezone
+                if (ledgerDateFilter !== 'all') {
+                  const recordDateKolkata = getKolkataDateString(p.created_at);
+                  const todayKolkata = getKolkataDateString(new Date());
+
+                  if (ledgerDateFilter === 'today') {
+                    if (recordDateKolkata !== todayKolkata) return false;
+                  } else if (ledgerDateFilter === 'yesterday') {
+                    const yDate = new Date();
+                    yDate.setDate(yDate.getDate() - 1);
+                    const yesterdayKolkata = getKolkataDateString(yDate);
+                    if (recordDateKolkata !== yesterdayKolkata) return false;
+                  } else if (ledgerDateFilter === 'this_week') {
+                    const [y, m, d] = todayKolkata.split('-').map(Number);
+                    const tDate = new Date(y, m - 1, d);
+                    const day = tDate.getDay();
+                    const diff = (day + 6) % 7;
+                    const monday = new Date(tDate);
+                    monday.setDate(tDate.getDate() - diff);
+                    const sunday = new Date(monday);
+                    sunday.setDate(monday.getDate() + 6);
+                    const monStr = getKolkataDateString(monday);
+                    const sunStr = getKolkataDateString(sunday);
+                    if (recordDateKolkata < monStr || recordDateKolkata > sunStr) return false;
+                  } else if (ledgerDateFilter === 'this_month') {
+                    const monthPrefix = todayKolkata.slice(0, 7);
+                    if (!recordDateKolkata.startsWith(monthPrefix)) return false;
+                  } else if (ledgerDateFilter === 'custom') {
+                    if (ledgerStartDate && recordDateKolkata < ledgerStartDate) return false;
+                    if (ledgerEndDate && recordDateKolkata > ledgerEndDate) return false;
+                  }
+                }
+
+                return true;
+              });
+
+            // Calculate KPI Totals for Filtered Payments
+            const ledgerTotalBills = filteredPayments.length;
+            const ledgerTotalSales = filteredPayments.reduce((sum, p) => {
+              const matchingOrder = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
+              const sub = p.subtotal ?? matchingOrder?.subtotal ?? p.amount;
+              return sum + Number(sub || 0);
+            }, 0);
+            const ledgerTotalDiscount = filteredPayments.reduce((sum, p) => {
+              const matchingOrder = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
+              const disc = p.discount ?? matchingOrder?.discount ?? 0;
+              return sum + Number(disc || 0);
+            }, 0);
+            const ledgerTotalGST = filteredPayments.reduce((sum, p) => {
+              const matchingOrder = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
+              const tax = p.tax_amount ?? matchingOrder?.tax_amount ?? 0;
+              return sum + Number(tax || 0);
+            }, 0);
+            const ledgerTotalCollected = filteredPayments.reduce((sum, p) => {
+              if (p.status === 'Success') {
+                return sum + Number(p.amount || 0);
+              }
+              return sum;
+            }, 0);
+
+            const handleOpenOrderDetails = (p: PaymentRecord) => {
+              const ord = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
+              setOrderDetailsModal({ isOpen: true, order: ord || null, payment: p });
+            };
+
+            const handleOpenOrderEdit = (p: PaymentRecord) => {
+              const ord = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
+              setOrderEditModal({ isOpen: true, order: ord || null, payment: p });
+              setEditOrderDiscount(ord?.discount ?? p.discount ?? 0);
+              setEditOrderPaymentMode((ord?.primary_payment_mode || p.payment_mode || 'Cash') as any);
+              setEditOrderPaymentStatus((ord?.payment_status || (p.status === 'Success' ? 'Paid' : 'Pending')) as any);
+              setEditOrderCustomerName(ord?.customer_name || p.customer_name || '');
+              setEditOrderCustomerPhone(ord?.customer_phone || p.customer_phone || '');
+              setEditOrderNotes(ord?.notes || p.notes || '');
+              setOrderEditError(null);
+            };
+
+            return (
+              <div className="space-y-4">
+                {/* Header & Description */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-serif font-bold text-base text-slate-900">
+                      Payment Ledger & Order Settlements
+                    </h3>
+                    <span className="text-xs text-slate-500">
+                      Real-time settlements across UPI, Cash, Cards, and online appointment bookings (Asia/Kolkata)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => loadAllData()}
+                    className="self-start sm:self-auto px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                    title="Refresh payment records from Supabase"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#5B132B]' : ''}`} />
+                    <span>Refresh Ledger</span>
+                  </button>
+                </div>
+
+                {/* KPI Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Total Bills</span>
+                    <div className="text-lg font-extrabold text-slate-900">{ledgerTotalBills}</div>
+                    <span className="text-[10px] text-slate-500">Filtered bills</span>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Gross Sales</span>
+                    <div className="text-lg font-extrabold text-[#5B132B]">₹{ledgerTotalSales.toFixed(2)}</div>
+                    <span className="text-[10px] text-slate-500">Before discounts</span>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Discounts</span>
+                    <div className="text-lg font-extrabold text-amber-700">₹{ledgerTotalDiscount.toFixed(2)}</div>
+                    <span className="text-[10px] text-slate-500">Customer savings</span>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">GST (5%)</span>
+                    <div className="text-lg font-extrabold text-slate-800">₹{ledgerTotalGST.toFixed(2)}</div>
+                    <span className="text-[10px] text-slate-500">Tax component</span>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50/40 shadow-xs col-span-2 sm:col-span-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block mb-1">Total Collected</span>
+                    <div className="text-lg font-extrabold text-emerald-700">₹{ledgerTotalCollected.toFixed(2)}</div>
+                    <span className="text-[10px] text-emerald-600 font-medium">Settled revenue</span>
+                  </div>
+                </div>
+
+                {/* Filter Controls Bar */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Date Presets */}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {[
+                        { id: 'all', label: 'All Time' },
+                        { id: 'today', label: 'Today' },
+                        { id: 'yesterday', label: 'Yesterday' },
+                        { id: 'this_week', label: 'This Week' },
+                        { id: 'this_month', label: 'This Month' },
+                        { id: 'custom', label: 'Custom Range' }
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setLedgerDateFilter(tab.id as any)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                            ledgerDateFilter === tab.id
+                              ? 'bg-[#5B132B] text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom Range Inputs */}
+                    {ledgerDateFilter === 'custom' && (
+                      <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="text-slate-500 text-[11px]">From:</span>
+                          <input
+                            type="date"
+                            value={ledgerStartDate}
+                            onChange={e => setLedgerStartDate(e.target.value)}
+                            className="p-1 text-xs bg-slate-50 border border-slate-200 rounded-md focus:bg-white"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="text-slate-500 text-[11px]">To:</span>
+                          <input
+                            type="date"
+                            value={ledgerEndDate}
+                            onChange={e => setLedgerEndDate(e.target.value)}
+                            className="p-1 text-xs bg-slate-50 border border-slate-200 rounded-md focus:bg-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100">
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="search"
+                        value={ledgerSearch}
+                        onChange={e => setLedgerSearch(e.target.value)}
+                        placeholder="Search bill # or mobile..."
+                        className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
+                      />
+                      {ledgerSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setLedgerSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Branch Filter */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-slate-500 shrink-0">Branch:</span>
+                      <select
+                        value={ledgerBranchFilter}
+                        onChange={e => setLedgerBranchFilter(e.target.value)}
+                        className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white cursor-pointer"
+                      >
+                        <option value="all">All Branches</option>
+                        {branches.map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Payment Mode Filter */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-slate-500 shrink-0">Mode:</span>
+                      <select
+                        value={ledgerModeFilter}
+                        onChange={e => setLedgerModeFilter(e.target.value)}
+                        className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white cursor-pointer"
+                      >
+                        <option value="all">All Payment Modes</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Cash">Cash Counter</option>
+                        <option value="Card">Card</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Split Payment">Split Payment</option>
+                        <option value="Pay Later">Pay Later</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payments Table */}
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  {filteredPayments.length === 0 ? (
+                    <div className="p-12 text-center space-y-3">
+                      <div className="w-14 h-14 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+                        <CreditCard className="w-7 h-7" />
+                      </div>
+                      <h4 className="font-serif font-bold text-base text-slate-800">
+                        No payment records found
+                      </h4>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                        {ledgerSearch || ledgerDateFilter !== 'all' || ledgerBranchFilter !== 'all' || ledgerModeFilter !== 'all'
+                          ? 'No payments match the active filter criteria. Try resetting the filters.'
+                          : 'Every POS bill and completed appointment payment will automatically appear here with complete audit trail and WhatsApp delivery logs.'}
+                      </p>
+                      {(ledgerSearch || ledgerDateFilter !== 'all' || ledgerBranchFilter !== 'all' || ledgerModeFilter !== 'all') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLedgerDateFilter('all');
+                            setLedgerBranchFilter('all');
+                            setLedgerModeFilter('all');
+                            setLedgerSearch('');
+                          }}
+                          className="px-3.5 py-1.5 text-xs font-semibold text-[#5B132B] hover:underline cursor-pointer"
+                        >
+                          Reset all filters
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#FAF7F5] border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+                          <tr>
+                            <th className="p-3.5">Bill Number</th>
+                            <th className="p-3.5">Date & Time (IST)</th>
+                            <th className="p-3.5">Customer & Phone</th>
+                            <th className="p-3.5">Branch</th>
+                            <th className="p-3.5">Mode</th>
+                            <th className="p-3.5">Subtotal</th>
+                            <th className="p-3.5">Discount</th>
+                            <th className="p-3.5">GST (5%)</th>
+                            <th className="p-3.5">Paid Total</th>
+                            <th className="p-3.5">Status</th>
+                            <th className="p-3.5">Receipt WhatsApp</th>
+                            <th className="p-3.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredPayments.map(p => {
+                            const matchingOrder = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
+                            const receiptStatus = matchingOrder?.receipt_whatsapp_status || matchingOrder?.whatsapp_status || p.receipt_whatsapp_status || 'queued';
+                            const branchName = branches.find(b => b.id === p.branch_id)?.name || p.branch_name || (p.branch_id === 'brn-1793346038689' ? 'Kondapur' : 'Gachibowli Main');
+                            const subtotalVal = p.subtotal ?? matchingOrder?.subtotal ?? p.amount;
+                            const discountVal = p.discount ?? matchingOrder?.discount ?? 0;
+                            const taxVal = p.tax_amount ?? matchingOrder?.tax_amount ?? 0;
+
+                            return (
+                              <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-3.5 font-mono font-bold text-[#5B132B]">
+                                  {p.bill_number}
+                                </td>
+                                <td className="p-3.5 text-slate-600 text-[11px] whitespace-nowrap">
+                                  {formatKolkataDateTime(p.created_at)}
+                                </td>
+                                <td className="p-3.5">
+                                  <div className="font-semibold text-slate-900">{p.customer_name}</div>
+                                  <div className="font-mono text-[11px] text-slate-500">+91 {p.customer_phone}</div>
+                                </td>
+                                <td className="p-3.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                                    <MapPin className="w-3 h-3 text-[#8C235A]" />
+                                    <span>{branchName}</span>
                                   </span>
-                                  {receiptStatus === 'failed' && matchingOrder && (
+                                </td>
+                                <td className="p-3.5">
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold">
+                                    {p.payment_mode}
+                                  </span>
+                                </td>
+                                <td className="p-3.5 text-slate-700 font-medium">
+                                  ₹{Number(subtotalVal || 0).toFixed(2)}
+                                </td>
+                                <td className="p-3.5 text-amber-700 font-medium">
+                                  {discountVal > 0 ? `₹${Number(discountVal).toFixed(2)}` : '—'}
+                                </td>
+                                <td className="p-3.5 text-slate-700 font-medium">
+                                  ₹{Number(taxVal || 0).toFixed(2)}
+                                </td>
+                                <td className="p-3.5 font-bold text-slate-900">
+                                  ₹{Number(p.amount || 0).toFixed(2)}
+                                </td>
+                                <td className="p-3.5">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    p.status === 'Success' ? 'bg-emerald-100 text-emerald-800' :
+                                    p.status === 'Refunded' ? 'bg-amber-100 text-amber-800' :
+                                    'bg-rose-100 text-rose-800'
+                                  }`}>
+                                    {p.status}
+                                  </span>
+                                </td>
+                                <td className="p-3.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      receiptStatus === 'delivered' || receiptStatus === 'read' ? 'bg-emerald-100 text-emerald-800' :
+                                      receiptStatus === 'sent' ? 'bg-blue-100 text-blue-800' :
+                                      receiptStatus === 'failed' ? 'bg-rose-100 text-rose-800' :
+                                      'bg-amber-100 text-amber-800'
+                                    }`}>
+                                      {receiptStatus === 'delivered' || receiptStatus === 'read' ? 'Delivered' :
+                                       receiptStatus === 'sent' ? 'Sent' :
+                                       receiptStatus === 'failed' ? 'Failed' : 'Queued'}
+                                    </span>
+                                    {receiptStatus === 'failed' && (matchingOrder || p.order_id) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRetryPosReceipt(matchingOrder?.id || p.order_id)}
+                                        className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                                        title="Retry sending receipt"
+                                      >
+                                        Retry
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenOrderDetails(p)}
+                                    className="py-1 px-2.5 text-[11px] font-semibold text-[#5B132B] hover:bg-[#FAF4F0] rounded-lg transition-colors cursor-pointer"
+                                    title="View detailed order line items and pricing"
+                                  >
+                                    Order Details
+                                  </button>
+
+                                  {(isOwner || isManager) && (
                                     <button
                                       type="button"
-                                      onClick={() => handleRetryPosReceipt(matchingOrder.id)}
-                                      className="text-[9px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
-                                      title="Retry sending receipt"
+                                      onClick={() => handleOpenOrderEdit(p)}
+                                      className="py-1 px-2.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                      title="Edit Order / Payment Details"
                                     >
-                                      Retry
+                                      Edit
                                     </button>
                                   )}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-slate-400 font-medium">Feedback:</span>
-                                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                                    feedbackStatus === 'delivered' || feedbackStatus === 'read' ? 'bg-emerald-100 text-emerald-800' :
-                                    feedbackStatus === 'sent' ? 'bg-blue-100 text-blue-800' :
-                                    feedbackStatus === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
-                                  }`}>
-                                    {feedbackStatus === 'delivered' || feedbackStatus === 'read' ? 'Delivered' :
-                                     feedbackStatus === 'sent' ? 'Sent' :
-                                     feedbackStatus === 'failed' ? 'Failed' : '2m Sched'}
-                                  </span>
-                                  {feedbackStatus === 'failed' && matchingOrder && (
+
+                                  {p.status === 'Success' && isManager && (
                                     <button
                                       type="button"
-                                      onClick={() => handleRetryPosFeedback(matchingOrder.id)}
-                                      className="text-[9px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
-                                      title="Retry sending feedback"
+                                      onClick={async () => {
+                                        const reason = prompt('Please enter reason for refund:');
+                                        if (reason) {
+                                          await api.refundPayment(p.id, reason, currentUser.name);
+                                          loadAllData();
+                                        }
+                                      }}
+                                      className="py-1 px-2.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
                                     >
-                                      Retry
+                                      Refund
                                     </button>
                                   )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-3.5 text-slate-700">{p.recorded_by || 'Cashier'}</td>
-                            <td className="p-3.5 text-slate-400">{new Date(p.created_at).toLocaleString()}</td>
-                          <td className="p-3.5 text-right">
-                            {p.status === 'Success' && isManager && (
-                              <button
-                                onClick={async () => {
-                                  const reason = prompt('Please enter reason for refund:');
-                                  if (reason) {
-                                    await api.refundPayment(p.id, reason, currentUser.name);
-                                    loadAllData();
-                                  }
-                                }}
-                                className="py-1 px-2.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50 rounded-lg"
-                              >
-                                Refund / Void
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    </tbody>
-                  </table>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ================================================================= */}
           {/* 6. SERVICES & MENU MANAGEMENT MODULE */}
@@ -4001,97 +4513,180 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
             onSubmit={async (e) => {
               e.preventDefault();
               const form = e.target as any;
-              const name = form.name.value;
-              const mobile = form.mobile.value;
-              const email = form.email.value;
-              const birthday = form.birthday.value;
-              const allergies = form.allergies.value;
-              const notes = form.notes.value;
-
-              if (customerModal.data) {
-                await api.updateCustomer(customerModal.data.id, { name, mobile, email, birthday, allergies, notes }, currentUser.name);
-              } else {
-                await api.createCustomer({ name, mobile, email, birthday, allergies, notes, loyalty_points: 0, total_spend: 0, visit_count: 1 }, currentUser.name);
+              const name = form.name.value.trim();
+              const rawMobile = form.mobile.value.trim();
+              const cleanMobile = rawMobile.replace(/\D/g, '').slice(-10);
+              if (cleanMobile.length !== 10) {
+                alert('Please enter a valid 10-digit mobile number.');
+                return;
               }
-              setCustomerModal({ isOpen: false });
-              loadAllData();
+              const email = form.email.value.trim() || undefined;
+              const branch_id = form.branch_id.value || undefined;
+              const status = form.status.value || 'active';
+              const birthday = form.birthday.value || undefined;
+              const allergies = form.allergies.value.trim() || undefined;
+              const notes = form.notes.value.trim() || undefined;
+
+              try {
+                if (customerModal.data) {
+                  await api.updateCustomer(customerModal.data.id, {
+                    name,
+                    mobile: cleanMobile,
+                    email,
+                    branch_id,
+                    status,
+                    birthday,
+                    allergies,
+                    notes
+                  }, currentUser.name);
+                } else {
+                  await api.createCustomer({
+                    name,
+                    mobile: cleanMobile,
+                    email,
+                    branch_id,
+                    status,
+                    birthday,
+                    allergies,
+                    notes,
+                    loyalty_points: 0,
+                    total_spend: 0,
+                    visit_count: 1
+                  }, currentUser.name);
+                }
+                setCustomerModal({ isOpen: false });
+                await loadAllData();
+              } catch (err: any) {
+                alert('Failed to save customer: ' + (err.message || 'Unknown error'));
+              }
             }}
             className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-3 text-xs"
           >
-            <h3 className="font-serif font-bold text-base text-slate-900">
-              {customerModal.data ? 'Edit Customer Profile' : 'Add Walk-in Customer'}
-            </h3>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="font-serif font-bold text-base text-slate-900">
+                {customerModal.data ? 'Edit Customer Profile' : 'Add Walk-in Customer'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCustomerModal({ isOpen: false })}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
             <div>
-              <label className="block font-semibold mb-1">Full Name *</label>
+              <label className="block font-semibold mb-1 text-slate-700">Full Name *</label>
               <input
                 name="name"
                 type="text"
                 required
                 defaultValue={customerModal.data?.name || ''}
-                className="w-full p-2 bg-slate-50 border rounded-lg"
+                placeholder="e.g. Priyamvada Rao"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
               />
             </div>
-            <div>
-              <label className="block font-semibold mb-1">Mobile Number (WhatsApp) *</label>
-              <input
-                name="mobile"
-                type="tel"
-                required
-                maxLength={10}
-                defaultValue={customerModal.data?.mobile || ''}
-                className="w-full p-2 bg-slate-50 border rounded-lg"
-              />
-            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block font-semibold mb-1">Email</label>
+                <label className="block font-semibold mb-1 text-slate-700">Mobile (10 digits) *</label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">+91</span>
+                  <input
+                    name="mobile"
+                    type="tel"
+                    required
+                    maxLength={10}
+                    defaultValue={customerModal.data?.mobile ? customerModal.data.mobile.replace(/\D/g, '').slice(-10) : ''}
+                    placeholder="9876543210"
+                    className="w-full pl-10 pr-2.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700">Email Address</label>
                 <input
                   name="email"
                   type="email"
                   defaultValue={customerModal.data?.email || ''}
-                  className="w-full p-2 bg-slate-50 border rounded-lg"
+                  placeholder="client@example.com"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block font-semibold mb-1">Birthday</label>
+                <label className="block font-semibold mb-1 text-slate-700">Assigned Branch *</label>
+                <select
+                  name="branch_id"
+                  defaultValue={customerModal.data?.branch_id || branches[0]?.id || 'tgl-gachibowli-main'}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20 cursor-pointer"
+                >
+                  {branches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700">Customer Status</label>
+                <select
+                  name="status"
+                  defaultValue={customerModal.data?.status || 'active'}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20 cursor-pointer"
+                >
+                  <option value="active">Active Regular</option>
+                  <option value="vip">VIP Guest</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700">Birthday</label>
                 <input
                   name="birthday"
                   type="date"
                   defaultValue={customerModal.data?.birthday || ''}
-                  className="w-full p-2 bg-slate-50 border rounded-lg"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1 text-rose-700">Allergies / Notes</label>
+                <input
+                  name="allergies"
+                  type="text"
+                  defaultValue={customerModal.data?.allergies || ''}
+                  placeholder="e.g. Ammonia sensitivity"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
                 />
               </div>
             </div>
+
             <div>
-              <label className="block font-semibold mb-1 text-rose-700">Allergies / Skin Sensitivity</label>
-              <input
-                name="allergies"
-                type="text"
-                defaultValue={customerModal.data?.allergies || ''}
-                placeholder="e.g. Sensitive to ammonia or harsh bleaches"
-                className="w-full p-2 bg-slate-50 border rounded-lg"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold mb-1">Preferences & Notes</label>
+              <label className="block font-semibold mb-1 text-slate-700">Internal Salon Notes</label>
               <textarea
                 name="notes"
                 rows={2}
                 defaultValue={customerModal.data?.notes || ''}
-                className="w-full p-2 bg-slate-50 border rounded-lg"
+                placeholder="Preferred stylist, beverage choice, service history notes..."
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
               />
             </div>
+
             <div className="flex gap-2 pt-2">
               <button
                 type="submit"
-                className="flex-1 py-2 text-xs font-bold text-white bg-[#5B132B] rounded-xl"
+                className="flex-1 py-2.5 text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] rounded-xl transition-colors cursor-pointer shadow-xs"
               >
-                Save Customer
+                Save Customer to Supabase
               </button>
               <button
                 type="button"
                 onClick={() => setCustomerModal({ isOpen: false })}
-                className="py-2 px-4 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl"
+                className="py-2.5 px-4 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -5118,6 +5713,400 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* MODAL: ORDER DETAILS (Full Line Items, Stylists & Pricing) */}
+      {orderDetailsModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative space-y-4 text-xs max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#FAF4F0] text-[#5B132B] flex items-center justify-center font-bold">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-slate-900 leading-tight">
+                    Order Details & Invoice Breakdown
+                  </h3>
+                  <span className="font-mono text-xs font-bold text-[#5B132B]">
+                    {orderDetailsModal.order?.bill_number || orderDetailsModal.payment?.bill_number}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrderDetailsModal({ isOpen: false })}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Customer & Transaction Meta */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">Customer</span>
+                <span className="font-bold text-slate-900 block truncate">
+                  {orderDetailsModal.order?.customer_name || orderDetailsModal.payment?.customer_name}
+                </span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  +91 {orderDetailsModal.order?.customer_phone || orderDetailsModal.payment?.customer_phone}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">Date & Time (IST)</span>
+                <span className="font-medium text-slate-800 text-[11px] block">
+                  {formatKolkataDateTime(orderDetailsModal.order?.created_at || orderDetailsModal.payment?.created_at)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">Payment Mode</span>
+                <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-800">
+                  {orderDetailsModal.order?.primary_payment_mode || orderDetailsModal.payment?.payment_mode}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">Status</span>
+                <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  (orderDetailsModal.order?.payment_status === 'Paid' || orderDetailsModal.payment?.status === 'Success')
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {orderDetailsModal.order?.payment_status || orderDetailsModal.payment?.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-2">Itemized Services & Products</h4>
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#FAF7F5] border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px]">
+                    <tr>
+                      <th className="p-2.5">Item / Service</th>
+                      <th className="p-2.5">Type</th>
+                      <th className="p-2.5">Assigned Stylist</th>
+                      <th className="p-2.5 text-center">Qty</th>
+                      <th className="p-2.5 text-right">Unit Price</th>
+                      <th className="p-2.5 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(orderDetailsModal.order?.items && orderDetailsModal.order.items.length > 0) ? (
+                      orderDetailsModal.order.items.map((it, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-medium text-slate-900">{it.item_name}</td>
+                          <td className="p-2.5 capitalize text-slate-500">{it.item_type}</td>
+                          <td className="p-2.5 text-slate-700">{it.staff_name || 'Assigned Stylist'}</td>
+                          <td className="p-2.5 text-center font-bold">{it.quantity}</td>
+                          <td className="p-2.5 text-right text-slate-600">₹{it.unit_price}</td>
+                          <td className="p-2.5 text-right font-bold text-slate-900">₹{it.total_price}</td>
+                        </tr>
+                      ))
+                    ) : orderDetailsModal.payment?.items && orderDetailsModal.payment.items.length > 0 ? (
+                      orderDetailsModal.payment.items.map((it, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-medium text-slate-900">{it.item_name}</td>
+                          <td className="p-2.5 capitalize text-slate-500">{it.item_type}</td>
+                          <td className="p-2.5 text-slate-700">{it.staff_name || 'Assigned Stylist'}</td>
+                          <td className="p-2.5 text-center font-bold">{it.quantity}</td>
+                          <td className="p-2.5 text-right text-slate-600">₹{it.unit_price}</td>
+                          <td className="p-2.5 text-right font-bold text-slate-900">₹{it.total_price}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="p-4 text-center text-slate-500">
+                          Salon Service / Retail Transaction (Bill: {orderDetailsModal.order?.bill_number || orderDetailsModal.payment?.bill_number})
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="bg-[#FAF7F5] p-4 rounded-2xl border border-slate-200/80 space-y-1.5 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal:</span>
+                <span className="font-semibold text-slate-800">
+                  ₹{Number(orderDetailsModal.order?.subtotal ?? orderDetailsModal.payment?.subtotal ?? orderDetailsModal.payment?.amount ?? 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-amber-700">
+                <span>Discount:</span>
+                <span className="font-semibold">
+                  - ₹{Number(orderDetailsModal.order?.discount ?? orderDetailsModal.payment?.discount ?? 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>GST (5%):</span>
+                <span className="font-semibold text-slate-800">
+                  ₹{Number(orderDetailsModal.order?.tax_amount ?? orderDetailsModal.payment?.tax_amount ?? 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between font-bold text-sm text-[#5B132B] pt-2 border-t border-slate-200">
+                <span>Grand Total Paid:</span>
+                <span>
+                  ₹{Number(orderDetailsModal.order?.grand_total ?? orderDetailsModal.payment?.amount ?? 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  onViewReceipt(orderDetailsModal.order || undefined, undefined, 'bill');
+                }}
+                className="py-2.5 px-4 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print / Reprint Thermal Receipt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderDetailsModal({ isOpen: false })}
+                className="py-2.5 px-4 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT ORDER (Owner/Manager Role Protected) */}
+      {orderEditModal.isOpen && (isOwner || isManager) && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const orderId = orderEditModal.order?.id || orderEditModal.payment?.order_id;
+              if (!orderId) {
+                setOrderEditError('Order reference ID not found.');
+                return;
+              }
+              setOrderEditSaving(true);
+              setOrderEditError(null);
+              try {
+                await api.updateOrder(orderId, {
+                  customer_name: editOrderCustomerName.trim(),
+                  customer_phone: editOrderCustomerPhone.trim(),
+                  primary_payment_mode: editOrderPaymentMode,
+                  discount: Number(editOrderDiscount || 0),
+                  payment_status: editOrderPaymentStatus,
+                  notes: editOrderNotes.trim()
+                }, currentUser.name);
+
+                setOrderEditModal({ isOpen: false });
+                await loadAllData();
+              } catch (err: any) {
+                setOrderEditError(err.message || 'Failed to update order');
+              } finally {
+                setOrderEditSaving(false);
+              }
+            }}
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl relative space-y-4 text-xs max-h-[90vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold">
+                  <Edit3 className="w-5 h-5 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-slate-900 leading-tight">
+                    Edit Order & Settlement Details
+                  </h3>
+                  <span className="text-[11px] text-slate-500">
+                    Role-Protected Audit Action · Salon Owner / Manager
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrderEditModal({ isOpen: false })}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {orderEditError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl flex items-center gap-2 text-xs">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{orderEditError}</span>
+              </div>
+            )}
+
+            {/* Immutable Bill Number Notice */}
+            <div>
+              <label className="block font-semibold mb-1 text-slate-500">Bill Number (Immutable)</label>
+              <input
+                type="text"
+                readOnly
+                disabled
+                value={orderEditModal.order?.bill_number || orderEditModal.payment?.bill_number || ''}
+                className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-slate-700 cursor-not-allowed"
+                title="Bill numbers are legally immutable and cannot be edited"
+              />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                Bill number is preserved permanently for accounting integrity.
+              </span>
+            </div>
+
+            {/* Customer Details */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700">Customer Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editOrderCustomerName}
+                  onChange={e => setEditOrderCustomerName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700">Customer Phone *</label>
+                <input
+                  type="tel"
+                  required
+                  value={editOrderCustomerPhone}
+                  onChange={e => setEditOrderCustomerPhone(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
+                />
+              </div>
+            </div>
+
+            {/* Payment Mode & Status */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700">Payment Mode *</label>
+                <select
+                  value={editOrderPaymentMode}
+                  onChange={e => setEditOrderPaymentMode(e.target.value as any)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white cursor-pointer"
+                >
+                  <option value="UPI">UPI (Google Pay / PhonePe / QR)</option>
+                  <option value="Cash">Cash Counter</option>
+                  <option value="Card">Credit / Debit Card</option>
+                  <option value="Bank Transfer">Bank Transfer / IMPS</option>
+                  <option value="Split Payment">Split Payment</option>
+                  <option value="Pay Later">Pay Later</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-slate-700">Payment Status *</label>
+                <select
+                  value={editOrderPaymentStatus}
+                  onChange={e => setEditOrderPaymentStatus(e.target.value as any)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white cursor-pointer"
+                >
+                  <option value="Paid">Paid</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Partial">Partial</option>
+                  <option value="Refunded">Refunded</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Discount & Live Totals Calculation */}
+            {(() => {
+              const subtotal = orderEditModal.order?.subtotal ?? orderEditModal.payment?.subtotal ?? orderEditModal.payment?.amount ?? 0;
+              const discount = Math.max(0, Number(editOrderDiscount || 0));
+              const taxable = Math.max(0, subtotal - discount);
+              const tax = Math.round(taxable * 0.05);
+              const calculatedTotal = taxable + tax;
+
+              return (
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-semibold text-slate-700">Discount Amount (₹):</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={subtotal}
+                      value={editOrderDiscount}
+                      onChange={e => setEditOrderDiscount(Number(e.target.value))}
+                      className="w-28 p-1.5 text-right bg-white border border-slate-300 rounded-lg font-bold text-slate-900"
+                    />
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 space-y-1 text-[11px] text-slate-600">
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>₹{Number(subtotal).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-amber-700">
+                      <span>Discount:</span>
+                      <span>- ₹{Number(discount).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Auto-calculated GST (5%):</span>
+                      <span>₹{Number(tax).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-xs text-[#5B132B] pt-1 border-t border-slate-200">
+                      <span>Recalculated Grand Total:</span>
+                      <span>₹{Number(calculatedTotal).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Order Notes */}
+            <div>
+              <label className="block font-semibold mb-1 text-slate-700">Audit Notes / Reason for Edit</label>
+              <textarea
+                rows={2}
+                value={editOrderNotes}
+                onChange={e => setEditOrderNotes(e.target.value)}
+                placeholder="e.g. Corrected payment mode from Cash to UPI per bank statement"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B132B]/20"
+              />
+            </div>
+
+            <div className="text-[10px] text-slate-400 bg-[#FAF7F5] p-2.5 rounded-xl border border-slate-200 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                All edits are automatically logged into the tamper-evident security audit log with user actor, previous values, and new values.
+              </span>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="submit"
+                disabled={orderEditSaving}
+                className="flex-1 py-2.5 text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] rounded-xl transition-colors cursor-pointer shadow-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {orderEditSaving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D4AF37]" />
+                    <span>Saving Changes…</span>
+                  </>
+                ) : (
+                  <span>Save Order & Ledger Updates</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderEditModal({ isOpen: false })}
+                className="py-2.5 px-4 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -191,6 +191,8 @@ export const api = {
   getOrderById: (orderId: string) => fetchJson<Order>(`${API_BASE}/orders/${orderId}`),
   createOrder: (data: any, adminName?: string) =>
     fetchJson<Order>(`${API_BASE}/orders`, { method: 'POST', body: JSON.stringify(data) }, adminName),
+  updateOrder: (id: string, data: Partial<Order>, adminName?: string) =>
+    fetchJson<Order>(`${API_BASE}/orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }, adminName),
   getOrderWhatsAppStatus: (orderId: string) =>
     fetchJson<{
       order_id: string;

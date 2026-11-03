@@ -2303,6 +2303,56 @@ class SalonDatabase implements ISalonRepository {
     return true;
   }
 
+  public async upsertCustomerFromOrderOrAppointment(payload: {
+    name: string;
+    phone: string;
+    email?: string;
+    branchId?: string;
+    spend?: number;
+    billNumber?: string;
+    isVisit?: boolean;
+  }): Promise<Customer> {
+    const clean = payload.phone.replace(/\D/g, '').slice(-10);
+    const existing = await this.getCustomerByMobile(clean);
+    const now = new Date().toISOString();
+    const spend = Number(payload.spend) || 0;
+
+    if (!existing) {
+      const newCust: Customer = {
+        id: `cust-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        name: payload.name || 'Valued Customer',
+        mobile: clean,
+        email: payload.email,
+        branch_id: payload.branchId,
+        first_visit_at: now,
+        last_visit_at: now,
+        visit_count: payload.isVisit ? 1 : 0,
+        total_spend: spend,
+        loyalty_points: Math.floor(spend / 100) * 5,
+        latest_bill_number: payload.billNumber,
+        notes: '',
+        created_at: now,
+        updated_at: now
+      };
+      this.data.customers.unshift(newCust);
+      this.save();
+      return newCust;
+    } else {
+      existing.name = payload.name && payload.name.trim() !== '' ? payload.name : existing.name;
+      if (payload.email) existing.email = payload.email;
+      if (payload.branchId) existing.branch_id = payload.branchId;
+      existing.last_visit_at = now;
+      if (payload.isVisit) existing.visit_count = (existing.visit_count || 0) + 1;
+      existing.total_spend = (existing.total_spend || 0) + spend;
+      existing.loyalty_points = (existing.loyalty_points || 0) + Math.floor(spend / 100) * 5;
+      if (payload.billNumber) existing.latest_bill_number = payload.billNumber;
+      if (!existing.first_visit_at) existing.first_visit_at = existing.created_at || now;
+      existing.updated_at = now;
+      this.save();
+      return existing;
+    }
+  }
+
   // --- Categories & Services & Packages ---
   public async getCategories(): Promise<ServiceCategory[]> {
     return this.data.categories.filter(c => c.is_active);
@@ -3385,6 +3435,15 @@ class SalonDatabase implements ISalonRepository {
     this.data.appointment_feedback.push(newFeedback);
     this.save();
     return newFeedback;
+  }
+
+  public async updateAppointmentFeedback(id: string, data: Partial<AppointmentFeedback>): Promise<AppointmentFeedback | null> {
+    if (!this.data.appointment_feedback) this.data.appointment_feedback = [];
+    const idx = this.data.appointment_feedback.findIndex(f => f.id === id);
+    if (idx === -1) return null;
+    this.data.appointment_feedback[idx] = { ...this.data.appointment_feedback[idx], ...data };
+    this.save();
+    return this.data.appointment_feedback[idx];
   }
 
   public async markFeedbackAsRead(id: string): Promise<boolean> {

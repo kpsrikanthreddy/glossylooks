@@ -859,11 +859,57 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
   public async getCustomers(search?: string): Promise<Customer[]> {
     let query = this.client.from('customers').select('*').order('created_at', { ascending: false });
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,mobile.ilike.%${search}%`);
+    if (search && search.trim()) {
+      const q = search.trim();
+      query = query.or(`name.ilike.%${q}%,mobile.ilike.%${q}%`);
     }
     const { data } = await query;
-    return (data || []) as Customer[];
+    let list = (data || []) as Customer[];
+
+    // If customer table is genuinely empty in Supabase, auto-seed from historical orders & appointments
+    if (list.length === 0 && !search) {
+      try {
+        const { data: historicalOrders } = await this.client.from('orders').select('*').order('created_at', { ascending: true });
+        if (historicalOrders && historicalOrders.length > 0) {
+          for (const ord of historicalOrders) {
+            if (ord.customer_name && ord.customer_phone) {
+              await this.upsertCustomerFromOrderOrAppointment({
+                name: ord.customer_name,
+                phone: ord.customer_phone,
+                branchId: ord.branch_id,
+                spend: Number(ord.grand_total) || 0,
+                billNumber: ord.bill_number,
+                isVisit: true
+              });
+            }
+          }
+          const refetch = await this.client.from('customers').select('*').order('created_at', { ascending: false });
+          list = (refetch.data || []) as Customer[];
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not auto-sync historical orders to customers CRM:', err);
+      }
+    }
+
+    // Attach latest feedback rating if present in appointment_feedback
+    try {
+      const { data: feedbacks } = await this.client.from('appointment_feedback').select('customer_phone, rating').order('received_at', { ascending: false });
+      if (feedbacks && feedbacks.length > 0) {
+        const ratingMap: Record<string, string> = {};
+        for (const fb of feedbacks) {
+          const clean = (fb.customer_phone || '').replace(/\D/g, '').slice(-10);
+          if (clean && !ratingMap[clean]) ratingMap[clean] = fb.rating;
+        }
+        for (const cust of list) {
+          const clean = (cust.mobile || '').replace(/\D/g, '').slice(-10);
+          if (ratingMap[clean] && !cust.feedback_rating) {
+            cust.feedback_rating = ratingMap[clean];
+          }
+        }
+      }
+    } catch {}
+
+    return list;
   }
 
   public async getCustomerById(id: string): Promise<Customer | null> {
@@ -878,19 +924,66 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async createCustomer(data: Omit<Customer, 'id' | 'created_at' | 'updated_at'>, performedBy: string): Promise<Customer> {
-    const { data: cust, error } = await this.client.from('customers').insert(data).select().single();
+    const cleanMobile = data.mobile.replace(/\D/g, '').slice(-10);
+    const now = new Date().toISOString();
+    const row: any = {
+      ...data,
+      mobile: cleanMobile,
+      first_visit_at: data.first_visit_at || now,
+      last_visit_at: data.last_visit_at || now,
+      visit_count: data.visit_count !== undefined ? data.visit_count : 1,
+      total_spend: data.total_spend !== undefined ? data.total_spend : 0,
+      loyalty_points: data.loyalty_points !== undefined ? data.loyalty_points : 0,
+      created_at: now,
+      updated_at: now
+    };
+
+    let { data: cust, error } = await this.client.from('customers').insert(row).select().single();
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && row[match[1]] !== undefined) {
+        delete row[match[1]];
+        const retry = await this.client.from('customers').insert(row).select().single();
+        error = retry.error;
+        cust = retry.data;
+      } else {
+        break;
+      }
+    }
     if (error) throw error;
     await this.logAudit('CREATE', 'Customer', cust.id, performedBy, `Created customer: ${cust.name}`);
     return cust as Customer;
   }
 
   public async updateCustomer(id: string, data: Partial<Customer>, performedBy: string): Promise<Customer | null> {
-    const { data: cust, error } = await this.client
+    const updatePayload: any = { ...data, updated_at: new Date().toISOString() };
+    if (updatePayload.mobile) {
+      updatePayload.mobile = updatePayload.mobile.replace(/\D/g, '').slice(-10);
+    }
+
+    let { data: cust, error } = await this.client
       .from('customers')
-      .update({ ...data, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
+
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && updatePayload[match[1]] !== undefined) {
+        delete updatePayload[match[1]];
+        const retry = await this.client
+          .from('customers')
+          .update(updatePayload)
+          .eq('id', id)
+          .select()
+          .single();
+        error = retry.error;
+        cust = retry.data;
+      } else {
+        break;
+      }
+    }
     if (error) throw error;
     await this.logAudit('UPDATE', 'Customer', id, performedBy, `Updated customer: ${cust.name}`);
     return cust as Customer;
@@ -901,6 +994,102 @@ export class SupabaseSalonRepository implements ISalonRepository {
     if (error) return false;
     await this.logAudit('DELETE', 'Customer', id, performedBy, `Deleted customer: ${id}`);
     return true;
+  }
+
+  public async upsertCustomerFromOrderOrAppointment(payload: {
+    name: string;
+    phone: string;
+    email?: string;
+    branchId?: string;
+    spend?: number;
+    billNumber?: string;
+    isVisit?: boolean;
+  }): Promise<Customer> {
+    const clean = payload.phone.replace(/\D/g, '').slice(-10);
+    const existing = await this.getCustomerByMobile(clean);
+    const now = new Date().toISOString();
+    const spend = Number(payload.spend) || 0;
+
+    if (!existing) {
+      const newCust: any = {
+        name: payload.name && payload.name.trim() !== '' ? payload.name.trim() : 'Valued Customer',
+        mobile: clean,
+        email: payload.email || null,
+        branch_id: payload.branchId || null,
+        first_visit_at: now,
+        last_visit_at: now,
+        visit_count: payload.isVisit ? 1 : 0,
+        total_spend: spend,
+        loyalty_points: Math.floor(spend / 100) * 5,
+        latest_bill_number: payload.billNumber || null,
+        notes: '',
+        created_at: now,
+        updated_at: now
+      };
+
+      try {
+        let { data, error } = await this.client.from('customers').insert(newCust).select().single();
+        while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+          const match = error.message.match(/Could not find the '([^']+)' column/);
+          if (match && match[1] && newCust[match[1]] !== undefined) {
+            delete newCust[match[1]];
+            const retry = await this.client.from('customers').insert(newCust).select().single();
+            error = retry.error;
+            data = retry.data;
+          } else {
+            break;
+          }
+        }
+        if (data) return data as Customer;
+      } catch (err) {
+        console.warn('⚠️ Could not insert new customer into Supabase:', err);
+      }
+      return newCust as Customer;
+    } else {
+      const updateData: any = {
+        name: payload.name && payload.name.trim() !== '' ? payload.name.trim() : existing.name,
+        email: payload.email || existing.email,
+        branch_id: payload.branchId || existing.branch_id,
+        last_visit_at: now,
+        visit_count: (Number(existing.visit_count) || 0) + (payload.isVisit ? 1 : 0),
+        total_spend: (Number(existing.total_spend) || 0) + spend,
+        loyalty_points: (Number(existing.loyalty_points) || 0) + Math.floor(spend / 100) * 5,
+        latest_bill_number: payload.billNumber || existing.latest_bill_number,
+        updated_at: now
+      };
+      if (!existing.first_visit_at) {
+        updateData.first_visit_at = existing.created_at || now;
+      }
+
+      try {
+        let { data, error } = await this.client
+          .from('customers')
+          .update(updateData)
+          .eq('id', existing.id)
+          .select()
+          .maybeSingle();
+        while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+          const match = error.message.match(/Could not find the '([^']+)' column/);
+          if (match && match[1] && updateData[match[1]] !== undefined) {
+            delete updateData[match[1]];
+            const retry = await this.client
+              .from('customers')
+              .update(updateData)
+              .eq('id', existing.id)
+              .select()
+              .maybeSingle();
+            error = retry.error;
+            data = retry.data;
+          } else {
+            break;
+          }
+        }
+        if (data) return data as Customer;
+      } catch (err) {
+        console.warn('⚠️ Could not update customer in Supabase:', err);
+      }
+      return { ...existing, ...updateData } as Customer;
+    }
   }
 
   // --- Categories & Services & Packages ---
@@ -1324,6 +1513,48 @@ export class SupabaseSalonRepository implements ISalonRepository {
       }
     }
 
+    // Upsert customer record in CRM
+    try {
+      await this.upsertCustomerFromOrderOrAppointment({
+        name: insertedOrder.customer_name,
+        phone: insertedOrder.customer_phone,
+        branchId: insertedOrder.branch_id,
+        spend: Number(insertedOrder.grand_total) || 0,
+        billNumber: insertedOrder.bill_number,
+        isVisit: true
+      });
+    } catch (cErr) {
+      console.warn('⚠️ Could not upsert customer from order:', cErr);
+    }
+
+    // Persist payment transaction in public.payments table
+    try {
+      const paymentRow: any = {
+        order_id: insertedOrder.id,
+        bill_number: insertedOrder.bill_number,
+        customer_name: insertedOrder.customer_name,
+        customer_phone: insertedOrder.customer_phone,
+        amount: Number(insertedOrder.paid_amount !== undefined ? insertedOrder.paid_amount : insertedOrder.grand_total) || 0,
+        payment_mode: insertedOrder.primary_payment_mode || 'UPI',
+        status: 'Success',
+        recorded_by: insertedOrder.cashier_name || performedBy,
+        branch_id: insertedOrder.branch_id || null,
+        created_at: insertedOrder.created_at || new Date().toISOString()
+      };
+      let { error: pErr } = await this.client.from('payments').insert(paymentRow);
+      while (pErr && (pErr.code === 'PGRST204' || (pErr.message && pErr.message.includes('schema cache')))) {
+        const match = pErr.message.match(/Could not find the '([^']+)' column/);
+        if (match && match[1] && paymentRow[match[1]] !== undefined) {
+          delete paymentRow[match[1]];
+          pErr = (await this.client.from('payments').insert(paymentRow)).error;
+        } else {
+          break;
+        }
+      }
+    } catch (payErr) {
+      console.warn('⚠️ Could not insert payment record into Supabase:', payErr);
+    }
+
     await this.logAudit('CREATE_BILL', 'Order', insertedOrder.id, performedBy, `Generated bill ${insertedOrder.bill_number} for ${insertedOrder.customer_name}`);
 
     return {
@@ -1382,8 +1613,53 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
   // --- Payments & Refunds ---
   public async getPayments(): Promise<PaymentRecord[]> {
-    const { data } = await this.client.from('payments').select('*').order('created_at', { ascending: false });
-    return (data || []) as PaymentRecord[];
+    const { data: paymentsData } = await this.client.from('payments').select('*').order('created_at', { ascending: false });
+    let list = (paymentsData || []) as PaymentRecord[];
+
+    const orders = await this.getOrders();
+    const ordersById: Record<string, Order> = {};
+    const ordersByBill: Record<string, Order> = {};
+    for (const ord of orders) {
+      ordersById[ord.id] = ord;
+      ordersByBill[ord.bill_number] = ord;
+    }
+
+    // Auto-seed payments from orders if payments table is empty but orders exist
+    if (list.length === 0 && orders.length > 0) {
+      for (const ord of orders) {
+        try {
+          const payRow: any = {
+            order_id: ord.id,
+            bill_number: ord.bill_number,
+            customer_name: ord.customer_name,
+            customer_phone: ord.customer_phone,
+            amount: Number(ord.paid_amount !== undefined ? ord.paid_amount : ord.grand_total) || 0,
+            payment_mode: ord.primary_payment_mode || 'UPI',
+            status: 'Success',
+            recorded_by: ord.cashier_name || 'Cashier',
+            created_at: ord.created_at
+          };
+          await this.client.from('payments').insert(payRow);
+        } catch {}
+      }
+      const refetch = await this.client.from('payments').select('*').order('created_at', { ascending: false });
+      list = (refetch.data || []) as PaymentRecord[];
+    }
+
+    return list.map(p => {
+      const match = ordersById[p.order_id] || ordersByBill[p.bill_number];
+      return {
+        ...p,
+        branch_id: p.branch_id || match?.branch_id,
+        subtotal: match?.subtotal !== undefined ? match.subtotal : p.amount,
+        discount: match?.discount !== undefined ? match.discount : 0,
+        tax_amount: match?.tax_amount !== undefined ? match.tax_amount : 0,
+        receipt_whatsapp_status: match?.receipt_whatsapp_status || match?.whatsapp_status,
+        receipt_whatsapp_error: match?.receipt_whatsapp_error,
+        feedback_whatsapp_status: match?.feedback_whatsapp_status,
+        items: match?.items || []
+      };
+    });
   }
 
   public async recordPayment(payment: Omit<PaymentRecord, 'id' | 'created_at'>, performedBy: string): Promise<PaymentRecord> {
@@ -1766,11 +2042,53 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async createAppointmentFeedback(feedback: Omit<AppointmentFeedback, 'id' | 'received_at'>): Promise<AppointmentFeedback> {
-    const id = `afb-${Date.now()}`;
-    const newFb: AppointmentFeedback = { ...feedback, id, received_at: new Date().toISOString() };
-    const { data, error } = await this.client.from('appointment_feedback').insert(newFb).select().single();
-    if (error) throw error;
+    const id = `afb-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const newFb: any = { ...feedback, id, received_at: new Date().toISOString() };
+    let { data, error } = await this.client.from('appointment_feedback').insert(newFb).select().single();
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && newFb[match[1]] !== undefined) {
+        delete newFb[match[1]];
+        const retry = await this.client.from('appointment_feedback').insert(newFb).select().single();
+        error = retry.error;
+        data = retry.data;
+      } else {
+        break;
+      }
+    }
+    if (error) {
+      console.warn('⚠️ Could not insert appointment_feedback record in Supabase:', error.message);
+      return newFb as AppointmentFeedback;
+    }
     return data as AppointmentFeedback;
+  }
+
+  public async updateAppointmentFeedback(id: string, data: Partial<AppointmentFeedback>): Promise<AppointmentFeedback | null> {
+    const updatePayload: any = { ...data };
+    let { data: updated, error } = await this.client
+      .from('appointment_feedback')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && updatePayload[match[1]] !== undefined) {
+        delete updatePayload[match[1]];
+        const retry = await this.client
+          .from('appointment_feedback')
+          .update(updatePayload)
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+        error = retry.error;
+        updated = retry.data;
+      } else {
+        break;
+      }
+    }
+    return (updated || null) as AppointmentFeedback | null;
   }
 
   public async markFeedbackAsRead(id: string): Promise<boolean> {

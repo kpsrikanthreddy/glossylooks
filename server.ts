@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { salonRepository } from './src/server/db.ts';
-import type { WhatsAppMessageStatus } from './src/types/salon.ts';
+import type { WhatsAppMessageStatus, Order } from './src/types/salon.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1232,21 +1232,20 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
       ];
     }
   } else if (templateName === 'gl_bill_receipt') {
-    // Approved Meta bill receipt template
+    // Approved Meta bill receipt template on WABA (language: en, 5 positional parameters)
     resolvedTemplateName = 'gl_bill_receipt';
-    resolvedLang = resolvedLang || 'en_US';
+    resolvedLang = resolvedLang || 'en';
     if (!components) {
+      const rawTotal = String(customData?.grandTotal || '0').replace(/[^0-9.]/g, '') || '0';
       components = [
         {
           type: 'body',
           parameters: [
-            { type: 'text', parameter_name: 'customer_name', text: customData?.customerName || 'Valued Customer' },
-            { type: 'text', parameter_name: 'bill_number', text: customData?.billNumber || 'TGL-BILL' },
-            { type: 'text', parameter_name: 'bill_date', text: customData?.billDate || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) },
-            { type: 'text', parameter_name: 'items_summary', text: customData?.itemsSummary || 'Salon Services' },
-            { type: 'text', parameter_name: 'grand_total', text: customData?.grandTotal ? `${customData.grandTotal}` : '₹0' },
-            { type: 'text', parameter_name: 'payment_mode', text: customData?.paymentMode || 'UPI' },
-            { type: 'text', parameter_name: 'branch_name', text: customData?.branchName || 'The Glossy Looks' }
+            { type: 'text', text: customData?.customerName || 'Valued Customer' },
+            { type: 'text', text: customData?.billNumber || 'TGL-BILL' },
+            { type: 'text', text: customData?.itemsSummary || 'Salon Services' },
+            { type: 'text', text: rawTotal },
+            { type: 'text', text: customData?.paymentMode || 'UPI' }
           ]
         }
       ];
@@ -1466,13 +1465,24 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
   }
 }
 
-async function sendWhatsAppFreeformReply(branchId: string, recipientPhone: string, text: string): Promise<boolean> {
-  const integration = await salonRepository.getBranchWhatsAppIntegration(branchId);
-  if (!integration || integration.status !== 'connected' || !integration.phone_number_id || !META_SYSTEM_USER_ACCESS_TOKEN) {
-    return false;
+async function sendWhatsAppFreeformReply(
+  branchId: string,
+  recipientPhone: string,
+  text: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  let integration: any = await salonRepository.getBranchWhatsAppIntegration(branchId);
+  if (!integration || !integration.phone_number_id) {
+    integration = await salonRepository.getBranchWhatsAppIntegration('tgl-gachibowli-main');
+  }
+  if (!integration || !integration.phone_number_id) {
+    integration = await salonRepository.getWhatsAppIntegration();
+  }
+  if (!integration?.phone_number_id || !META_SYSTEM_USER_ACCESS_TOKEN) {
+    console.error('[WhatsApp Freeform] Missing phone_number_id or META_SYSTEM_USER_ACCESS_TOKEN');
+    return { success: false, error: 'WhatsApp integration not configured' };
   }
   const cleanPhone = phoneDigits(recipientPhone).slice(-10);
-  const to = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+  const to = '91' + cleanPhone;
   try {
     const res = await fetch(`https://graph.facebook.com/${WHATSAPP_API_VERSION}/${integration.phone_number_id}/messages`, {
       method: 'POST',
@@ -1488,9 +1498,18 @@ async function sendWhatsAppFreeformReply(branchId: string, recipientPhone: strin
         text: { body: text }
       })
     });
-    return res.ok;
-  } catch {
-    return false;
+    const data: any = await res.json().catch(() => ({}));
+    if (res.ok && data?.messages?.[0]?.id) {
+      console.log(`[WhatsApp Freeform] Sent reply successfully to ${to}, messageId: ${data.messages[0].id}`);
+      return { success: true, messageId: data.messages[0].id };
+    } else {
+      const err = data?.error?.message || res.statusText || 'Unknown Meta error';
+      console.warn(`[WhatsApp Freeform] Meta error sending reply to ${to}:`, err);
+      return { success: false, error: err };
+    }
+  } catch (err: any) {
+    console.error(`[WhatsApp Freeform] Network error sending reply to ${to}:`, err.message);
+    return { success: false, error: err.message };
   }
 }
 
@@ -1769,76 +1788,100 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
             if (!fromPhone) continue;
 
             let text = '';
+            let buttonId = '';
             if (msg.type === 'button') {
-              text = msg.button?.text || msg.button?.payload || '';
+              text = msg.button?.text || '';
+              buttonId = msg.button?.payload || '';
             } else if (msg.type === 'interactive') {
-              text = msg.interactive?.button_reply?.title || msg.interactive?.button_reply?.id || '';
+              text = msg.interactive?.button_reply?.title || '';
+              buttonId = msg.interactive?.button_reply?.id || '';
             } else if (msg.type === 'text') {
               text = msg.text?.body || '';
             }
 
-            const cleanText = text.trim().toLowerCase();
+            const cleanText = (text || '').trim().toLowerCase();
+            const cleanId = (buttonId || '').trim().toLowerCase();
             let rating: 'good' | 'average' | 'bad' | null = null;
-            if (cleanText === 'good' || cleanText.includes('good') || cleanText === 'great' || cleanText === 'excellent' || cleanText === '5') {
+            if (cleanText === 'good' || cleanId === 'good' || cleanText.includes('good') || cleanText === 'great' || cleanText === 'excellent' || cleanText === '5') {
               rating = 'good';
-            } else if (cleanText === 'average' || cleanText.includes('average') || cleanText === 'ok' || cleanText === 'okay' || cleanText === '3') {
+            } else if (cleanText === 'average' || cleanId === 'average' || cleanText.includes('average') || cleanText === 'ok' || cleanText === 'okay' || cleanText === '3') {
               rating = 'average';
-            } else if (cleanText === 'bad' || cleanText.includes('bad') || cleanText === 'poor' || cleanText === 'unhappy' || cleanText === '1' || cleanText === '2') {
+            } else if (cleanText === 'bad' || cleanId === 'bad' || cleanText.includes('bad') || cleanText === 'poor' || cleanText === 'unhappy' || cleanText === '1' || cleanText === '2') {
               rating = 'bad';
             }
 
             if (!rating) continue;
 
+            // Match recent order or appointment for this customer mobile
+            const allOrders = await salonRepository.getOrders();
+            const matchedOrder = allOrders.find(o => phoneDigits(o.customer_phone).slice(-10) === fromPhone);
             const allApts = await salonRepository.getAppointments({ customerMobile: fromPhone });
-            const apt = allApts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-            const appointmentId = apt ? apt.id : `apt-${fromPhone}`;
-            const branchId = apt?.branch_id || 'tgl-gachibowli-main';
-            const customerName = apt?.customer_name || 'Valued Customer';
+            const matchedApt = allApts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
+            const orderId = matchedOrder?.id;
+            const appointmentId = matchedApt?.id || matchedOrder?.appointment_id;
+            const branchId = matchedOrder?.branch_id || matchedApt?.branch_id || 'tgl-gachibowli-main';
+            const customerName = matchedOrder?.customer_name || matchedApt?.customer_name || 'Valued Customer';
+
+            // Idempotency: verify this specific message ID or order has not already been replied to
             const existingFeedbacks = await salonRepository.getAppointmentFeedback();
-            const alreadyRecorded = existingFeedbacks.some(f => f.appointment_id === appointmentId);
+            const alreadyRecorded = existingFeedbacks.some(f => (f.meta_message_id && f.meta_message_id === msg.id) || (orderId && f.order_id === orderId));
             if (alreadyRecorded) {
               await salonRepository.logAudit(
                 'FEEDBACK_DUPLICATE_IGNORED',
                 'Feedback',
-                appointmentId,
+                orderId || appointmentId || fromPhone,
                 `Customer ${fromPhone}`,
-                `Duplicate reply received from ${fromPhone}: "${text}". First response retained.`
+                `Duplicate reply received from ${fromPhone}: "${text || buttonId}". Response already recorded.`
               );
               continue;
             }
 
-            await salonRepository.createAppointmentFeedback({
+            const feedbackRecord = await salonRepository.createAppointmentFeedback({
               appointment_id: appointmentId,
+              order_id: orderId,
               branch_id: branchId,
               customer_name: customerName,
               customer_phone: fromPhone,
               rating: rating,
-              reply_text: text,
+              reply_text: text || buttonId || rating.toUpperCase(),
               meta_message_id: msg.id,
               is_read: false
             });
 
+            // Update customer CRM feedback rating
+            try {
+              const cust = await salonRepository.getCustomerByMobile(fromPhone);
+              if (cust) {
+                await salonRepository.updateCustomer(cust.id, { feedback_rating: rating }, 'System');
+              }
+            } catch {}
+
             let autoReplyText = '';
             if (rating === 'good') {
-              autoReplyText = "Thank you for choosing The Glossy Looks. We’re delighted you had a great experience. Your review means a lot to us: https://g.page/r/CTx5NddxkeKaEAE/review";
-            } else if (rating === 'average') {
-              autoReplyText = "Thank you for your feedback. We’re sorry that your experience was not perfect. Our team will work to improve and serve you better on your next visit.";
-            } else if (rating === 'bad') {
-              autoReplyText = "We’re truly sorry that your experience did not meet expectations. Your feedback is important to us. Our salon manager will review this and work to improve.";
+              autoReplyText = "Thank you for your wonderful feedback! We are delighted you enjoyed your experience with The Glossy Looks. Your Google review would mean a lot to us: https://g.page/r/CTx5NddxkeKaEAE/review";
+            } else if (rating === 'average' || rating === 'bad') {
+              autoReplyText = "Thank you for your valuable feedback. We sincerely apologize that your experience did not meet expectations. Our salon manager will get in touch with you shortly to make it right.";
             }
 
             if (autoReplyText) {
-              await sendWhatsAppFreeformReply(branchId, fromPhone, autoReplyText);
+              const replyResult = await sendWhatsAppFreeformReply(branchId, fromPhone, autoReplyText);
+              if (feedbackRecord?.id) {
+                await salonRepository.updateAppointmentFeedback(feedbackRecord.id, {
+                  reply_status: replyResult.success ? 'sent' : 'failed',
+                  outgoing_meta_message_id: replyResult.messageId,
+                  reply_sent_at: new Date().toISOString()
+                });
+              }
             }
 
             if (rating === 'average' || rating === 'bad') {
               await salonRepository.logAudit(
                 'CUSTOMER_FEEDBACK_ALERT',
                 'AppointmentFeedback',
-                appointmentId,
+                orderId || appointmentId || fromPhone,
                 'WhatsApp Webhook',
-                `⚠️ Customer ${customerName} (${fromPhone}) rated visit as ${rating.toUpperCase()} for Ref ${apt?.booking_reference || 'N/A'}. Manager follow-up recommended.`
+                `⚠️ Customer ${customerName} (${fromPhone}) rated visit as ${rating.toUpperCase()}. Manager follow-up recommended.`
               );
             }
           }
@@ -1919,6 +1962,34 @@ app.get('/api/admin/whatsapp/scheduled-jobs', async (req, res) => {
     }
     const jobs = await salonRepository.getScheduledFeedbackJobs(req.query.status as string);
     res.json(jobs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4b. Get Meta WhatsApp Templates directly from WABA
+app.get('/api/admin/whatsapp/templates', async (req, res) => {
+  try {
+    const admin = await getAuthAdmin(req);
+    if (!admin || (admin.role !== 'owner' && admin.role !== 'manager')) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+    const integration = await salonRepository.getWhatsAppIntegration();
+    const branch = await salonRepository.getBranchById('tgl-gachibowli-main');
+    const branchIntegration = branch ? await salonRepository.getBranchWhatsAppIntegration(branch.id) : null;
+    const wabaId = branchIntegration?.waba_id || integration?.waba_id || META_BUSINESS_ID;
+
+    if (!wabaId) {
+      return res.status(400).json({ error: 'No WABA ID configured.' });
+    }
+    const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${wabaId}/message_templates?fields=name,status,language,components,category&limit=100`;
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${META_SYSTEM_USER_ACCESS_TOKEN}`
+      }
+    });
+    const data = await response.json();
+    res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2725,6 +2796,20 @@ app.post('/api/appointments', async (req, res) => {
       booking_source: booking_source || 'website'
     }, (req.headers['x-admin-name'] as string) || customer_name);
 
+    // Upsert customer in CRM
+    try {
+      await salonRepository.upsertCustomerFromOrderOrAppointment({
+        name: customer_name,
+        phone: customer_phone,
+        email: req.body.customer_email,
+        branchId: effectiveBranchId,
+        spend: 0,
+        isVisit: true
+      });
+    } catch (cErr) {
+      console.warn('⚠️ Could not upsert customer from appointment:', cErr);
+    }
+
     // Get branch details for address and name
     const branch = await salonRepository.getBranchById(effectiveBranchId);
     const branchName = branch?.name || 'The Glossy Looks Salon';
@@ -3071,7 +3156,7 @@ app.post('/api/orders', async (req, res) => {
         billNumber: order.bill_number,
         billDate: billDate,
         itemsSummary: itemsSummary || 'Salon Services',
-        grandTotal: `₹${order.grand_total}`,
+        grandTotal: String(order.grand_total),
         paymentMode: order.primary_payment_mode || 'UPI',
         branchName: branchName
       }
@@ -3109,6 +3194,93 @@ app.get('/api/orders/:id', async (req, res) => {
   const order = await salonRepository.getOrderById(req.params.id) || (await salonRepository.getOrders()).find(item => item.id === req.params.id);
   if (!order) return res.status(404).json({ error: 'Order not found' });
   res.json(order);
+});
+
+// Edit permitted order details (Manager & Owner)
+app.patch('/api/orders/:id', async (req, res) => {
+  try {
+    const admin = await getAuthAdmin(req);
+    if (!admin || !['owner', 'manager'].includes(admin.role)) {
+      return res.status(403).json({ error: 'Access denied: Restricted to Salon Owner and Manager.' });
+    }
+
+    const orderId = req.params.id;
+    const existingOrder = await salonRepository.getOrderById(orderId) || (await salonRepository.getOrders()).find(o => o.id === orderId);
+    if (!existingOrder) return res.status(404).json({ error: 'Order not found' });
+
+    const { primary_payment_mode, discount, customer_name, customer_phone, notes, payment_status } = req.body;
+    const auditChanges: Record<string, { old: any; new: any }> = {};
+    const updates: Partial<Order> = {};
+
+    if (primary_payment_mode && primary_payment_mode !== existingOrder.primary_payment_mode) {
+      auditChanges.primary_payment_mode = { old: existingOrder.primary_payment_mode, new: primary_payment_mode };
+      updates.primary_payment_mode = primary_payment_mode;
+    }
+    if (payment_status && payment_status !== existingOrder.payment_status) {
+      auditChanges.payment_status = { old: existingOrder.payment_status, new: payment_status };
+      updates.payment_status = payment_status;
+    }
+    if (customer_name && customer_name !== existingOrder.customer_name) {
+      auditChanges.customer_name = { old: existingOrder.customer_name, new: customer_name };
+      updates.customer_name = customer_name;
+    }
+    if (customer_phone && customer_phone !== existingOrder.customer_phone) {
+      auditChanges.customer_phone = { old: existingOrder.customer_phone, new: customer_phone };
+      updates.customer_phone = customer_phone;
+    }
+    if (notes !== undefined && notes !== existingOrder.notes) {
+      auditChanges.notes = { old: existingOrder.notes, new: notes };
+      updates.notes = notes;
+    }
+    if (discount !== undefined && Number(discount) !== Number(existingOrder.discount)) {
+      const newDiscount = Math.max(0, Number(discount));
+      auditChanges.discount = { old: existingOrder.discount, new: newDiscount };
+      updates.discount = newDiscount;
+      const subtotal = existingOrder.subtotal || existingOrder.grand_total;
+      const taxable = Math.max(0, subtotal - newDiscount);
+      const taxAmount = Math.round(taxable * 0.05);
+      const grandTotal = taxable + taxAmount;
+      updates.tax_amount = taxAmount;
+      updates.grand_total = grandTotal;
+      updates.paid_amount = existingOrder.payment_status === 'Paid' ? grandTotal : existingOrder.paid_amount;
+      auditChanges.grand_total = { old: existingOrder.grand_total, new: grandTotal };
+    }
+
+    // Bill number is strictly immutable!
+    delete (updates as any).bill_number;
+
+    const actor = admin.name || (req.headers['x-admin-name'] as string) || 'Manager';
+    const updated = await salonRepository.updateOrder(orderId, updates);
+
+    // Update corresponding payment record if present
+    try {
+      const payments = await salonRepository.getPayments();
+      const match = payments.find(p => p.order_id === orderId || p.bill_number === existingOrder.bill_number);
+      if (match) {
+        const payUpdate: any = {
+          customer_name: updates.customer_name || existingOrder.customer_name,
+          customer_phone: updates.customer_phone || existingOrder.customer_phone,
+          payment_mode: updates.primary_payment_mode || existingOrder.primary_payment_mode,
+          amount: updates.paid_amount !== undefined ? updates.paid_amount : match.amount,
+          status: updates.payment_status === 'Refunded' ? 'Refunded' : match.status
+        };
+        await (salonRepository as any).client?.from('payments').update(payUpdate).eq('id', match.id);
+      }
+    } catch {}
+
+    await salonRepository.logAudit(
+      'ORDER_EDIT_AUDIT',
+      'Order',
+      orderId,
+      actor,
+      `Order ${existingOrder.bill_number} edited: ${JSON.stringify(auditChanges)}`
+    );
+
+    const fullOrder = await salonRepository.getOrderById(orderId) || updated;
+    res.json(fullOrder);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Real-time WhatsApp status endpoint for polling from POS and Admin
@@ -3265,7 +3437,7 @@ app.post('/api/admin/orders/:id/whatsapp/retry', async (req, res) => {
           billNumber: order.bill_number,
           billDate: billDate,
           itemsSummary: itemsSummary || 'Salon Services',
-          grandTotal: `₹${order.grand_total}`,
+          grandTotal: String(order.grand_total),
           paymentMode: order.primary_payment_mode || 'UPI',
           branchName: branchName
         }

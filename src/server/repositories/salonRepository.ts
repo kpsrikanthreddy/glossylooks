@@ -90,6 +90,7 @@ export interface ISalonRepository {
   createCustomer(data: Omit<Customer, 'id' | 'created_at' | 'updated_at'>, performedBy: string): Promise<Customer>;
   updateCustomer(id: string, data: Partial<Customer>, performedBy: string): Promise<Customer | null>;
   deleteCustomer(id: string, performedBy: string): Promise<boolean>;
+  upsertCustomerFromOrderOrAppointment(payload: { name: string; phone: string; email?: string; branchId?: string; spend?: number; billNumber?: string; isVisit?: boolean }): Promise<Customer>;
 
   // Categories & Services & Packages
   getCategories(): Promise<ServiceCategory[]>;
@@ -178,6 +179,7 @@ export interface ISalonRepository {
   // Customer Feedback
   getAppointmentFeedback(branchId?: string): Promise<AppointmentFeedback[]>;
   createAppointmentFeedback(feedback: Omit<AppointmentFeedback, 'id' | 'received_at'>): Promise<AppointmentFeedback>;
+  updateAppointmentFeedback(id: string, data: Partial<AppointmentFeedback>): Promise<AppointmentFeedback | null>;
   markFeedbackAsRead(id: string): Promise<boolean>;
 
   // Durable Scheduled Feedback Jobs

@@ -4,9 +4,13 @@
 -- 1. Adds dedicated receipt and feedback delivery columns to public.orders
 -- 2. Adds job_type and template_name to public.scheduled_feedback_jobs
 -- 3. Adds scheduled_at and unique idempotent constraints to whatsapp_message_logs
+-- 4. Creates/patches public.processed_webhook_events defensively
 -- =========================================================================
 
 -- 1. Orders table updates for separate receipt & feedback tracking
+ALTER TABLE IF EXISTS public.orders 
+ADD COLUMN IF NOT EXISTS whatsapp_status TEXT DEFAULT 'pending';
+
 ALTER TABLE IF EXISTS public.orders 
 ADD COLUMN IF NOT EXISTS receipt_whatsapp_status TEXT DEFAULT 'pending';
 
@@ -48,30 +52,48 @@ ON public.orders (feedback_whatsapp_status);
 -- 2. Scheduled Feedback Jobs table updates
 CREATE TABLE IF NOT EXISTS public.scheduled_feedback_jobs (
     id TEXT PRIMARY KEY,
-    appointment_id TEXT,
-    order_id TEXT,
     branch_id TEXT NOT NULL,
     customer_name TEXT NOT NULL,
     customer_phone TEXT NOT NULL,
-    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    status TEXT DEFAULT 'pending',
-    job_type TEXT DEFAULT 'customer_feedback',
-    template_name TEXT DEFAULT 'glossylooks_customer_feedback',
-    attempts INTEGER DEFAULT 0,
-    meta_message_id TEXT,
-    error_message TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ADD COLUMN IF NOT EXISTS appointment_id TEXT;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
 ADD COLUMN IF NOT EXISTS order_id TEXT;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
 
 ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
 ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT 'customer_feedback';
 
 ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
 ADD COLUMN IF NOT EXISTS template_name TEXT DEFAULT 'glossylooks_customer_feedback';
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ADD COLUMN IF NOT EXISTS meta_message_id TEXT;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+-- Allow order-only jobs by relaxing appointment_id NOT NULL and UNIQUE constraints if present from earlier schemas
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+ALTER COLUMN appointment_id DROP NOT NULL;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs 
+DROP CONSTRAINT IF EXISTS scheduled_feedback_jobs_appointment_id_key;
 
 CREATE INDEX IF NOT EXISTS idx_sfj_order_id 
 ON public.scheduled_feedback_jobs (order_id);
@@ -86,6 +108,15 @@ WHERE order_id IS NOT NULL;
 
 -- 3. WhatsApp Message Logs table updates
 ALTER TABLE IF EXISTS public.whatsapp_message_logs 
+ADD COLUMN IF NOT EXISTS order_id TEXT;
+
+ALTER TABLE IF EXISTS public.whatsapp_message_logs 
+ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT 'pos_bill';
+
+ALTER TABLE IF EXISTS public.whatsapp_message_logs 
+ADD COLUMN IF NOT EXISTS template_name TEXT;
+
+ALTER TABLE IF EXISTS public.whatsapp_message_logs 
 ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP WITH TIME ZONE;
 
 -- Ensure unique idempotent log per order, job_type, and template_name
@@ -96,10 +127,39 @@ WHERE order_id IS NOT NULL;
 -- 4. Processed Webhook Events table (for delivery webhook deduplication)
 CREATE TABLE IF NOT EXISTS public.processed_webhook_events (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    event_id TEXT NOT NULL UNIQUE,
-    event_type TEXT NOT NULL,
+    event_id TEXT,
+    event_type TEXT,
     processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_pwe_event_id 
-ON public.processed_webhook_events(event_id);
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'processed_webhook_events' AND column_name = 'event_id'
+    ) THEN
+        ALTER TABLE public.processed_webhook_events ADD COLUMN event_id TEXT;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'processed_webhook_events' AND column_name = 'event_type'
+    ) THEN
+        ALTER TABLE public.processed_webhook_events ADD COLUMN event_type TEXT;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'processed_webhook_events' AND column_name = 'processed_at'
+    ) THEN
+        ALTER TABLE public.processed_webhook_events ADD COLUMN processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes 
+        WHERE schemaname = 'public' AND tablename = 'processed_webhook_events' AND indexname = 'idx_pwe_event_id'
+    ) THEN
+        CREATE UNIQUE INDEX idx_pwe_event_id ON public.processed_webhook_events(event_id) WHERE event_id IS NOT NULL;
+    END IF;
+END $$;
+
