@@ -1325,11 +1325,13 @@ async function checkAndRunScheduledFeedbackJobs() {
     for (const job of dueJobs) {
       console.log(`[Scheduled Feedback] Executing due job ${job.id} for appointment ${job.appointment_id}...`);
 
-      const apt = await salonRepository.getAppointmentById(job.appointment_id);
-      if (!apt || apt.status === 'Cancelled' || apt.status === 'No Show') {
-        console.log(`[Scheduled Feedback] Appointment ${job.appointment_id} is cancelled/no-show. Skipping feedback.`);
-        await salonRepository.updateScheduledFeedbackJob(job.id, { status: 'cancelled' });
-        continue;
+      if (job.appointment_id) {
+        const apt = await salonRepository.getAppointmentById(job.appointment_id);
+        if (!apt || apt.status === 'Cancelled' || apt.status === 'No Show') {
+          console.log(`[Scheduled Feedback] Appointment ${job.appointment_id} is cancelled/no-show. Skipping feedback.`);
+          await salonRepository.updateScheduledFeedbackJob(job.id, { status: 'cancelled' });
+          continue;
+        }
       }
 
       if (job.status !== 'pending') continue;

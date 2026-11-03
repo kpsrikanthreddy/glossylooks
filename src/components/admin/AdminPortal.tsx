@@ -54,7 +54,9 @@ import {
   ShoppingCart,
   X,
   Minus,
-  MapPin
+  MapPin,
+  Loader2,
+  CheckCheck
 } from 'lucide-react';
 import { WhatsAppIntegrationSection } from './WhatsAppIntegrationSection';
 import { 
@@ -210,8 +212,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [posBranchId, setPosBranchId] = useState('tgl-gachibowli-main');
   const [posNotes, setPosNotes] = useState('');
   const [posSuccessOrder, setPosSuccessOrder] = useState<Order | null>(null);
+  const [isGeneratingBill, setIsGeneratingBill] = useState(false);
+  const [posBillingStatus, setPosBillingStatus] = useState<string | null>(null);
+  const [posBillingError, setPosBillingError] = useState<string | null>(null);
   const [posFeedbackSending, setPosFeedbackSending] = useState(false);
+  const [posFeedbackStatus, setPosFeedbackStatus] = useState<'sent' | 'queued' | 'failed' | null>(null);
   const [posFeedbackMessage, setPosFeedbackMessage] = useState<string | null>(null);
+  const [posIdempotencyKey, setPosIdempotencyKey] = useState<string>(() => `pos-idem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [posSearch, setPosSearch] = useState('');
   const [posCategoryFilter, setPosCategoryFilter] = useState('all');
   const [posSalonGroup, setPosSalonGroup] = useState<string>('all');
@@ -481,6 +488,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   // POS Checkout Handler
   const handlePosCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isGeneratingBill) return; // Prevent double clicks / concurrent bill creation
+
     if (!posBranchId) {
       posBranchRef.current?.focus();
       posBranchRef.current?.reportValidity();
@@ -528,8 +537,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
     const tax = Math.round(subtotal * 0.05);
     const grandTotal = Math.max(0, subtotal - posDiscount + tax + posTip);
 
+    // 1. Immediately disable button, show spinner, and show status toast
+    setIsGeneratingBill(true);
+    setPosBillingStatus('Creating bill. Please wait…');
+    setPosBillingError(null);
+    setPosFeedbackMessage(null);
+    setPosFeedbackStatus(null);
+
     try {
       const newOrder = await api.createOrder({
+        idempotency_key: posIdempotencyKey,
         customer_name: posCustomerName,
         customer_phone: posCustomerPhone,
         branch_id: posBranchId,
@@ -547,15 +564,32 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       }, currentUser?.name);
 
       setPosSuccessOrder(newOrder);
-      setPosFeedbackMessage(null);
-      setPosSelectedItems([]);
-      setPosDiscount(0);
-      setPosTip(0);
-      setPosNotes('');
+      setPosBillingStatus(null);
+      // Generate new idempotency key for next bill attempt
+      setPosIdempotencyKey(`pos-idem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
       loadAllData();
     } catch (err: any) {
-      alert(err.message || 'Error executing POS bill');
+      setPosBillingStatus(null);
+      setPosBillingError(err.message || 'Error executing POS bill. Please check inputs and retry.');
+    } finally {
+      setIsGeneratingBill(false);
     }
+  };
+
+  const handleResetPosForm = () => {
+    setPosCustomerName('');
+    setPosCustomerPhone('');
+    setPosSelectedItems([]);
+    setPosDiscount(0);
+    setPosTip(0);
+    setPosNotes('');
+    setPosSuccessOrder(null);
+    setPosBillingStatus(null);
+    setPosBillingError(null);
+    setPosFeedbackMessage(null);
+    setPosFeedbackStatus(null);
+    setPosIdempotencyKey(`pos-idem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    setIsPosCartOpen(false);
   };
 
   const handleSendPosFeedback = async () => {
@@ -566,15 +600,41 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
 
     setPosFeedbackSending(true);
     setPosFeedbackMessage(null);
+    setPosFeedbackStatus(null);
     try {
       const result = await api.sendOrderWhatsAppFeedback(posSuccessOrder.id);
-      setPosFeedbackMessage(result.success
-        ? 'Customer feedback request sent on WhatsApp.'
-        : (result.error || 'Feedback request could not be sent.'));
+      if (result.success) {
+        if (result.status === 'sent') {
+          setPosFeedbackMessage('Feedback request sent');
+          setPosFeedbackStatus('sent');
+        } else {
+          setPosFeedbackMessage('Feedback request queued and will retry automatically');
+          setPosFeedbackStatus('queued');
+        }
+      } else {
+        setPosFeedbackMessage(result.error || 'Feedback request failed — Retry');
+        setPosFeedbackStatus('failed');
+      }
+      loadAllData();
     } catch (err: any) {
-      setPosFeedbackMessage(err.message || 'Feedback request could not be sent.');
+      setPosFeedbackMessage(err.message || 'Feedback request failed — Retry');
+      setPosFeedbackStatus('failed');
     } finally {
       setPosFeedbackSending(false);
+    }
+  };
+
+  const handleRetryOrderWhatsApp = async (orderId: string) => {
+    try {
+      const res = await api.retryOrderWhatsApp(orderId);
+      if (res.success) {
+        alert(res.status === 'sent' ? 'WhatsApp feedback sent!' : 'WhatsApp feedback queued and will retry automatically.');
+      } else {
+        alert(res.error || 'Feedback retry failed.');
+      }
+      loadAllData();
+    } catch (err: any) {
+      alert(err.message || 'Error retrying WhatsApp message.');
     }
   };
 
@@ -2389,14 +2449,55 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                             </div>
                           )}
 
-                          <button
-                            type="submit"
-                            disabled={posSelectedItems.length === 0}
-                            className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#5B132B]/15 disabled:opacity-50 cursor-pointer"
-                          >
-                            <Receipt className="w-4 h-4 text-[#D4AF37]" />
-                            <span>Generate Bill & Auto-Print Receipt</span>
-                          </button>
+                          {/* Immediate Billing Status Toast / Banner */}
+                          {posBillingStatus && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-xl flex items-center gap-2.5 animate-pulse shadow-xs">
+                              <Loader2 className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                              <span className="font-semibold">{posBillingStatus}</span>
+                            </div>
+                          )}
+
+                          {posBillingError && (
+                            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-xl flex items-start gap-2.5 shadow-xs">
+                              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="font-bold">{posBillingError}</p>
+                                <p className="text-[11px] text-rose-700 mt-0.5">Your entered bill data is safely preserved. You can adjust and retry anytime.</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 1. Fast & Clear Generate Bill Button */}
+                          {isGeneratingBill ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#5B132B]/85 flex items-center justify-center gap-2 shadow-sm cursor-not-allowed"
+                            >
+                              <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" />
+                              <span>Generating Bill…</span>
+                            </button>
+                          ) : posSuccessOrder ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-emerald-900 bg-emerald-100 border border-emerald-300 flex items-center justify-center gap-2 cursor-default"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Bill Generated ({posSuccessOrder.bill_number})</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="submit"
+                              disabled={posSelectedItems.length === 0}
+                              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#5B132B]/15 disabled:opacity-50 cursor-pointer"
+                            >
+                              <Receipt className="w-4 h-4 text-[#D4AF37]" />
+                              <span>Generate Bill & Auto-Print Receipt</span>
+                            </button>
+                          )}
+
+                          {/* 2. Manual Send Customer Feedback on WhatsApp */}
                           <button
                             type="button"
                             onClick={handleSendPosFeedback}
@@ -2404,29 +2505,91 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                             className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-[#087443] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             title={posSuccessOrder ? 'Send the approved customer feedback template on WhatsApp' : 'Generate the bill first'}
                           >
-                            <MessageCircle className="w-4 h-4" />
-                            <span>{posFeedbackSending ? 'Sending Customer Feedback…' : 'Send Customer Feedback on WhatsApp'}</span>
+                            {posFeedbackSending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                                <span>Sending feedback…</span>
+                              </>
+                            ) : (
+                              <>
+                                <MessageCircle className="w-4 h-4" />
+                                <span>Send Customer Feedback on WhatsApp</span>
+                              </>
+                            )}
                           </button>
+
+                          {/* Clear Results Banner for Feedback */}
                           {posFeedbackMessage && (
-                            <p className={`text-center text-[11px] font-medium ${posFeedbackMessage.includes('sent') ? 'text-emerald-700' : 'text-rose-600'}`}>
-                              {posFeedbackMessage}
-                            </p>
+                            <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+                              posFeedbackStatus === 'sent'
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                : posFeedbackStatus === 'queued'
+                                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                : 'bg-rose-50 border-rose-200 text-rose-900'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                {posFeedbackStatus === 'sent' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                                {posFeedbackStatus === 'queued' && <Clock className="w-4 h-4 text-amber-600 shrink-0" />}
+                                {posFeedbackStatus === 'failed' && <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />}
+                                <span className="font-semibold">{posFeedbackMessage}</span>
+                              </div>
+                              {posFeedbackStatus === 'failed' && posSuccessOrder && (
+                                <button
+                                  type="button"
+                                  onClick={handleSendPosFeedback}
+                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-[10px] font-bold cursor-pointer"
+                                >
+                                  Retry
+                                </button>
+                              )}
+                            </div>
                           )}
                         </form>
 
+                        {/* Bill Generated Success Banner & Actions */}
                         {posSuccessOrder && (
-                          <div className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
-                            <div className="font-bold flex items-center gap-1.5">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                              <span>Bill {posSuccessOrder.bill_number} Created!</span>
+                          <div className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="font-bold flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                <span>Bill {posSuccessOrder.bill_number} Created!</span>
+                              </div>
+                              {/* WhatsApp Delivery Status Badge */}
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-500 font-medium">WhatsApp:</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                                  posSuccessOrder.whatsapp_status === 'delivered' || posSuccessOrder.whatsapp_status === 'read'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : posSuccessOrder.whatsapp_status === 'sent'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : posSuccessOrder.whatsapp_status === 'failed'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {posSuccessOrder.whatsapp_status === 'delivered' || posSuccessOrder.whatsapp_status === 'read' ? 'Delivered' :
+                                   posSuccessOrder.whatsapp_status === 'sent' ? 'Sent' :
+                                   posSuccessOrder.whatsapp_status === 'failed' ? 'Failed' : 'Queued'}
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-[11px]">Auto-queued to Salon Desktop Print Agent.</p>
-                            <button
-                              onClick={() => onViewReceipt(posSuccessOrder, undefined, 'bill')}
-                              className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs cursor-pointer"
-                            >
-                              Preview / Reprint Thermal Receipt
-                            </button>
+                            <p className="text-[11px] text-emerald-700">Auto-queued to Salon Desktop Print Agent.</p>
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => onViewReceipt(posSuccessOrder, undefined, 'bill')}
+                                className="flex-1 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs cursor-pointer text-center transition-colors"
+                              >
+                                Preview / Reprint Thermal Receipt
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleResetPosForm}
+                                className="py-2 px-3.5 bg-white hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl font-bold text-xs cursor-pointer transition-colors"
+                                title="Clear form and start a new bill"
+                              >
+                                New Bill
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2461,31 +2624,62 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                         <th className="p-3.5">Amount</th>
                         <th className="p-3.5">Payment Mode</th>
                         <th className="p-3.5">Status</th>
+                        <th className="p-3.5">WhatsApp</th>
                         <th className="p-3.5">Recorded By</th>
                         <th className="p-3.5">Date & Time</th>
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {payments.map(p => (
-                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3.5 font-mono font-bold text-[#5B132B]">{p.bill_number}</td>
-                          <td className="p-3.5 font-medium">{p.customer_name} ({p.customer_phone})</td>
-                          <td className="p-3.5 font-bold text-slate-900">₹{p.amount.toFixed(2)}</td>
-                          <td className="p-3.5">
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                              {p.payment_mode}
-                            </span>
-                          </td>
-                          <td className="p-3.5">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              p.status === 'Success' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                            }`}>
-                              {p.status}
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-slate-700">{p.recorded_by || 'Cashier'}</td>
-                          <td className="p-3.5 text-slate-400">{new Date(p.created_at).toLocaleString()}</td>
+                      {payments.map(p => {
+                        const matchingOrder = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
+                        const waStatus = matchingOrder?.whatsapp_status || 'queued';
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3.5 font-mono font-bold text-[#5B132B]">{p.bill_number}</td>
+                            <td className="p-3.5 font-medium">{p.customer_name} ({p.customer_phone})</td>
+                            <td className="p-3.5 font-bold text-slate-900">₹{p.amount.toFixed(2)}</td>
+                            <td className="p-3.5">
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
+                                {p.payment_mode}
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                p.status === 'Success' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                                  waStatus === 'delivered' || waStatus === 'read'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : waStatus === 'sent'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : waStatus === 'failed'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {waStatus === 'delivered' || waStatus === 'read' ? 'Delivered' :
+                                   waStatus === 'sent' ? 'Sent' :
+                                   waStatus === 'failed' ? 'Failed' : 'Queued'}
+                                </span>
+                                {waStatus === 'failed' && matchingOrder && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRetryOrderWhatsApp(matchingOrder.id)}
+                                    className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                                    title="Retry WhatsApp message delivery"
+                                  >
+                                    Retry
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3.5 text-slate-700">{p.recorded_by || 'Cashier'}</td>
+                            <td className="p-3.5 text-slate-400">{new Date(p.created_at).toLocaleString()}</td>
                           <td className="p-3.5 text-right">
                             {p.status === 'Success' && isManager && (
                               <button
@@ -2503,7 +2697,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                             )}
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                     </tbody>
                   </table>
                 </div>

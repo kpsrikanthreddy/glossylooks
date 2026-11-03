@@ -119,6 +119,7 @@ export interface ISalonRepository {
   getOrders(filters?: { customerMobile?: string; paymentStatus?: string }): Promise<Order[]>;
   getOrderById(id: string): Promise<Order | null>;
   createOrder(orderData: Omit<Order, 'id' | 'bill_number' | 'created_at'>, performedBy: string): Promise<Order>;
+  updateOrder(id: string, data: Partial<Order>): Promise<Order | null>;
   updateOrderStatus(id: string, status: Order['payment_status'], performedBy: string): Promise<Order | null>;
 
   // Payments & Refunds
@@ -170,7 +171,9 @@ export interface ISalonRepository {
   // WhatsApp Message Logs
   getWhatsAppMessageLogs(appointmentId?: string, branchId?: string): Promise<WhatsAppMessageLog[]>;
   createWhatsAppMessageLog(log: Omit<WhatsAppMessageLog, 'id' | 'created_at' | 'updated_at'>): Promise<WhatsAppMessageLog>;
+  updateWhatsAppMessageLog(id: string, data: Partial<WhatsAppMessageLog>): Promise<WhatsAppMessageLog | null>;
   updateWhatsAppMessageLogByMetaId(metaMessageId: string, data: Partial<WhatsAppMessageLog>): Promise<WhatsAppMessageLog | null>;
+  getDueWhatsAppMessageRetries(): Promise<WhatsAppMessageLog[]>;
 
   // Customer Feedback
   getAppointmentFeedback(branchId?: string): Promise<AppointmentFeedback[]>;
@@ -183,6 +186,7 @@ export interface ISalonRepository {
   createScheduledFeedbackJob(job: Omit<ScheduledFeedbackJob, 'id' | 'created_at' | 'updated_at'>): Promise<ScheduledFeedbackJob>;
   updateScheduledFeedbackJob(id: string, data: Partial<ScheduledFeedbackJob>): Promise<ScheduledFeedbackJob | null>;
   cancelScheduledFeedbackJobByAppointment(appointmentId: string): Promise<boolean>;
+  cancelScheduledFeedbackJobByOrder(orderId: string): Promise<boolean>;
 
   // Webhook Event Idempotency
   isWebhookEventProcessed(eventId: string): Promise<boolean>;

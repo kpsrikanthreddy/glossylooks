@@ -287,6 +287,10 @@ export interface Order {
   cashier_id?: string;
   cashier_name?: string;
   notes?: string;
+  idempotency_key?: string;
+  whatsapp_status?: WhatsAppMessageStatus;
+  whatsapp_message_id?: string;
+  whatsapp_error?: string;
   created_at: string;
 }
 
@@ -559,7 +563,7 @@ export interface BranchWhatsAppStatusResponse {
 // WhatsApp Automated Messaging, Feedback & Webhook Types
 // ============================================================================
 
-export type WhatsAppMessageStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'pending_approval';
+export type WhatsAppMessageStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'retrying' | 'pending_approval';
 
 export interface WhatsAppMessageLog {
   id: string;
@@ -568,11 +572,15 @@ export interface WhatsAppMessageLog {
   branch_id?: string;
   template_name: string;
   recipient_number: string;
+  customer_name?: string;
+  job_type?: 'appointment_confirmation' | 'customer_feedback' | 'pos_bill' | 'custom' | string;
   sender_phone_number_id?: string;
   meta_message_id?: string;
   status: WhatsAppMessageStatus;
   error_message?: string;
   diagnostics?: string;
+  retry_count?: number;
+  next_retry_at?: string;
   sent_at?: string;
   delivered_at?: string;
   read_at?: string;
@@ -584,7 +592,8 @@ export type FeedbackRating = 'good' | 'average' | 'bad';
 
 export interface AppointmentFeedback {
   id: string;
-  appointment_id: string;
+  appointment_id?: string;
+  order_id?: string;
   branch_id: string;
   customer_name: string;
   customer_phone: string;
@@ -600,11 +609,12 @@ export type ScheduledJobStatus = 'pending' | 'processing' | 'completed' | 'cance
 
 export interface ScheduledFeedbackJob {
   id: string;
-  appointment_id: string;
+  appointment_id?: string;
+  order_id?: string;
   branch_id: string;
   customer_name: string;
   customer_phone: string;
-  scheduled_at: string; // ISO string 1 hour after service completion
+  scheduled_at: string; // ISO string
   status: ScheduledJobStatus;
   attempts?: number;
   meta_message_id?: string;

@@ -1252,43 +1252,55 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async createOrder(orderData: Omit<Order, 'id' | 'bill_number' | 'created_at'>, performedBy: string): Promise<Order> {
+    // 1. Check idempotency if idempotency_key is provided
+    if (orderData.idempotency_key) {
+      try {
+        const { data: existing } = await this.client
+          .from('orders')
+          .select('*')
+          .eq('idempotency_key', orderData.idempotency_key)
+          .maybeSingle();
+        if (existing) {
+          const fullOrder = await this.getOrderById(existing.id);
+          if (fullOrder) return fullOrder;
+          return existing as Order;
+        }
+      } catch {
+        // Non-fatal if idempotency_key column doesn't exist yet
+      }
+    }
+
     const billNum = `TGL-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
     const { items = [], branch_id, ...orderFields } = orderData;
     
     let insertedOrder: any = null;
-    const orderRowWithBranch: any = {
+    const orderRow: any = {
       ...orderFields,
       bill_number: billNum,
       branch_id: branch_id || null
     };
 
-    let { data, error } = await this.client.from('orders').insert(orderRowWithBranch).select().single();
-    if (error) {
-      const isBranchColumnMissing = error.code === 'PGRST204' || 
-        (error.message && error.message.toLowerCase().includes('branch_id')) ||
-        (error.details && error.details.toLowerCase().includes('branch_id'));
-      
-      if (isBranchColumnMissing) {
-        // Fallback: omit branch_id from orders row and embed branch reference into notes
-        const currentNotes = orderFields.notes || '';
-        const notesWithBranch = branch_id 
-          ? (currentNotes ? `${currentNotes} [Branch: ${branch_id}]` : `[Branch: ${branch_id}]`)
-          : currentNotes;
-        
-        const fallbackRow = {
-          ...orderFields,
-          bill_number: billNum,
-          notes: notesWithBranch
-        };
-        const retry = await this.client.from('orders').insert(fallbackRow).select().single();
-        if (retry.error) throw retry.error;
-        insertedOrder = retry.data;
+    let { data, error } = await this.client.from('orders').insert(orderRow).select().single();
+
+    // Automatically strip any columns that don't exist in Supabase schema cache
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && orderRow[match[1]] !== undefined) {
+        const colName = match[1];
+        if (colName === 'branch_id' && branch_id) {
+          orderRow.notes = orderRow.notes ? `${orderRow.notes} [Branch: ${branch_id}]` : `[Branch: ${branch_id}]`;
+        }
+        delete orderRow[colName];
+        const retry = await this.client.from('orders').insert(orderRow).select().single();
+        error = retry.error;
+        data = retry.data;
       } else {
-        throw error;
+        break;
       }
-    } else {
-      insertedOrder = data;
     }
+
+    if (error) throw error;
+    insertedOrder = data;
 
     // Insert order line items into public.order_items
     if (insertedOrder?.id && items && items.length > 0) {
@@ -1319,6 +1331,41 @@ export class SupabaseSalonRepository implements ISalonRepository {
       branch_id: branch_id || insertedOrder.branch_id,
       items: items || []
     } as Order;
+  }
+
+  public async updateOrder(id: string, data: Partial<Order>): Promise<Order | null> {
+    const updatePayload: any = { ...data };
+    delete updatePayload.items;
+
+    let { data: updated, error } = await this.client
+      .from('orders')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && updatePayload[match[1]] !== undefined) {
+        delete updatePayload[match[1]];
+        const retry = await this.client
+          .from('orders')
+          .update(updatePayload)
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+        error = retry.error;
+        updated = retry.data;
+      } else {
+        break;
+      }
+    }
+
+    if (error) {
+      console.warn('⚠️ updateOrder failed:', error.message);
+      return null;
+    }
+    return updated as Order;
   }
 
   public async updateOrderStatus(id: string, status: Order['payment_status'], performedBy: string): Promise<Order | null> {
@@ -1600,38 +1647,114 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async createWhatsAppMessageLog(log: Omit<WhatsAppMessageLog, 'id' | 'created_at' | 'updated_at'>): Promise<WhatsAppMessageLog> {
-    const id = `wml-${Date.now()}`;
+    const id = `wml-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
     const now = new Date().toISOString();
-    const newLog: WhatsAppMessageLog = { ...log, id, created_at: now, updated_at: now };
+    const newLog: any = { ...log, id, created_at: now, updated_at: now };
     try {
-      const { data, error } = await this.client.from('whatsapp_message_logs').insert(newLog).select().single();
-      if (!error && data) return data as WhatsAppMessageLog;
-      if (error && (error.code === 'PGRST204' || (error.message && error.message.includes('branch_id')))) {
-        const { branch_id, ...fallbackLog } = newLog;
-        const retry = await this.client.from('whatsapp_message_logs').insert(fallbackLog).select().single();
-        if (!retry.error && retry.data) {
-          return { ...retry.data, branch_id: log.branch_id } as WhatsAppMessageLog;
+      let { data, error } = await this.client.from('whatsapp_message_logs').insert(newLog).select().single();
+
+      // Automatically strip missing columns if migration 013 has not been run yet
+      while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+        const match = error.message.match(/Could not find the '([^']+)' column/);
+        if (match && match[1] && newLog[match[1]] !== undefined) {
+          delete newLog[match[1]];
+          const retry = await this.client.from('whatsapp_message_logs').insert(newLog).select().single();
+          error = retry.error;
+          data = retry.data;
+        } else {
+          break;
         }
       }
+
+      if (!error && data) return { ...log, ...data } as WhatsAppMessageLog;
     } catch {
       // Non-fatal if message logging table is not available
     }
     return newLog;
   }
 
-  public async updateWhatsAppMessageLogByMetaId(metaMessageId: string, data: Partial<WhatsAppMessageLog>): Promise<WhatsAppMessageLog | null> {
+  public async updateWhatsAppMessageLog(id: string, data: Partial<WhatsAppMessageLog>): Promise<WhatsAppMessageLog | null> {
     try {
-      const { data: updated, error } = await this.client
+      const updatePayload: any = { ...data, updated_at: new Date().toISOString() };
+      let { data: updated, error } = await this.client
         .from('whatsapp_message_logs')
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq('meta_message_id', metaMessageId)
+        .update(updatePayload)
+        .eq('id', id)
         .select()
         .maybeSingle();
+
+      while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+        const match = error.message.match(/Could not find the '([^']+)' column/);
+        if (match && match[1] && updatePayload[match[1]] !== undefined) {
+          delete updatePayload[match[1]];
+          const retry = await this.client
+            .from('whatsapp_message_logs')
+            .update(updatePayload)
+            .eq('id', id)
+            .select()
+            .maybeSingle();
+          error = retry.error;
+          updated = retry.data;
+        } else {
+          break;
+        }
+      }
+
       if (!error && updated) return updated as WhatsAppMessageLog;
     } catch {
       // Non-fatal if update fails
     }
     return null;
+  }
+
+  public async updateWhatsAppMessageLogByMetaId(metaMessageId: string, data: Partial<WhatsAppMessageLog>): Promise<WhatsAppMessageLog | null> {
+    try {
+      const updatePayload: any = { ...data, updated_at: new Date().toISOString() };
+      let { data: updated, error } = await this.client
+        .from('whatsapp_message_logs')
+        .update(updatePayload)
+        .eq('meta_message_id', metaMessageId)
+        .select()
+        .maybeSingle();
+
+      while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+        const match = error.message.match(/Could not find the '([^']+)' column/);
+        if (match && match[1] && updatePayload[match[1]] !== undefined) {
+          delete updatePayload[match[1]];
+          const retry = await this.client
+            .from('whatsapp_message_logs')
+            .update(updatePayload)
+            .eq('meta_message_id', metaMessageId)
+            .select()
+            .maybeSingle();
+          error = retry.error;
+          updated = retry.data;
+        } else {
+          break;
+        }
+      }
+
+      if (!error && updated) return updated as WhatsAppMessageLog;
+    } catch {
+      // Non-fatal if update fails
+    }
+    return null;
+  }
+
+  public async getDueWhatsAppMessageRetries(): Promise<WhatsAppMessageLog[]> {
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await this.client
+        .from('whatsapp_message_logs')
+        .select('*')
+        .eq('status', 'retrying')
+        .lte('next_retry_at', now)
+        .lt('retry_count', 3);
+      if (!error && data) return data as WhatsAppMessageLog[];
+    } catch {
+      // Column may not exist yet
+    }
+    return [];
   }
 
   // --- Customer Feedback ---
@@ -1700,6 +1823,19 @@ export class SupabaseSalonRepository implements ISalonRepository {
       .eq('appointment_id', appointmentId)
       .eq('status', 'pending');
     return !error;
+  }
+
+  public async cancelScheduledFeedbackJobByOrder(orderId: string): Promise<boolean> {
+    try {
+      const { error } = await this.client
+        .from('scheduled_feedback_jobs')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('order_id', orderId)
+        .eq('status', 'pending');
+      return !error;
+    } catch {
+      return false;
+    }
   }
 
   // --- Webhook Event Idempotency ---

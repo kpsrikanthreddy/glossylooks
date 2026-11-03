@@ -533,6 +533,33 @@ function phoneDigits(value?: string): string {
   return String(value || '').replace(/\D/g, '');
 }
 
+function normalizePhoneNumber(value?: string): {
+  e164: string;
+  metaRecipient: string;
+  clean10: string;
+  isValid: boolean;
+} {
+  const digits = String(value || '').replace(/\D/g, '');
+  let clean10 = '';
+  if (digits.length === 10) {
+    clean10 = digits;
+  } else if (digits.length === 11 && digits.startsWith('0')) {
+    clean10 = digits.slice(1);
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    clean10 = digits.slice(2);
+  } else if (digits.length > 10) {
+    clean10 = digits.slice(-10);
+  }
+
+  const isValid = /^[6-9]\d{9}$/.test(clean10);
+  return {
+    clean10,
+    e164: clean10 ? `+91${clean10}` : '',
+    metaRecipient: clean10 ? `91${clean10}` : '',
+    isValid
+  };
+}
+
 async function getWabaPhones(wabaId: string, accessToken: string): Promise<MetaPhoneCandidate[]> {
   const result = await graphGet(`/${wabaId}/phone_numbers`, accessToken, {
     fields: 'id,display_phone_number,verified_name'
@@ -1089,7 +1116,7 @@ interface SendWhatsAppTemplateOptions {
 
 async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions): Promise<{
   sent: boolean;
-  status: 'sent' | 'pending_approval' | 'failed';
+  status: 'sent' | 'pending_approval' | 'failed' | 'retrying';
   messageId?: string;
   error?: string;
   diagnostics?: string;
@@ -1097,15 +1124,17 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
 }> {
   const { branchId, recipientPhone, templateName, appointmentId, orderId, customData } = options;
   const integration = await salonRepository.getBranchWhatsAppIntegration(branchId);
-  const cleanRecipientDigits = phoneDigits(recipientPhone).slice(-10);
+  const normalized = normalizePhoneNumber(recipientPhone);
 
-  if (!cleanRecipientDigits || cleanRecipientDigits.length < 10) {
-    const errorMsg = 'Invalid recipient phone number. 10-digit mobile number required.';
+  if (!normalized.isValid) {
+    const errorMsg = 'Invalid recipient phone number. Valid 10-digit Indian mobile number required.';
     const log = await salonRepository.createWhatsAppMessageLog({
       appointment_id: appointmentId,
       order_id: orderId,
       branch_id: branchId,
+      customer_name: customData?.customerName,
       template_name: templateName,
+      job_type: templateName.includes('feedback') ? 'customer_feedback' : 'appointment_confirmation',
       recipient_number: recipientPhone || 'unknown',
       sender_phone_number_id: integration?.phone_number_id || 'unassigned',
       status: 'failed',
@@ -1115,7 +1144,8 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
     return { sent: false, status: 'failed', error: errorMsg, log };
   }
 
-  const recipient = `91${cleanRecipientDigits}`;
+  const recipientMeta = normalized.metaRecipient; // e.g. 918179620607
+  const recipientE164 = normalized.e164; // e.g. +918179620607
 
   if (!integration || integration.status !== 'connected' || !integration.phone_number_id) {
     const errorMsg = `Branch WhatsApp integration is ${integration?.status || 'disconnected'}. Please connect WhatsApp in Admin Settings.`;
@@ -1123,8 +1153,10 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
       appointment_id: appointmentId,
       order_id: orderId,
       branch_id: branchId,
+      customer_name: customData?.customerName,
       template_name: templateName,
-      recipient_number: recipient,
+      job_type: templateName.includes('feedback') ? 'customer_feedback' : 'appointment_confirmation',
+      recipient_number: recipientE164,
       sender_phone_number_id: integration?.phone_number_id || 'unassigned',
       status: 'failed',
       error_message: errorMsg,
@@ -1139,8 +1171,10 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
       appointment_id: appointmentId,
       order_id: orderId,
       branch_id: branchId,
+      customer_name: customData?.customerName,
       template_name: templateName,
-      recipient_number: recipient,
+      job_type: templateName.includes('feedback') ? 'customer_feedback' : 'appointment_confirmation',
+      recipient_number: recipientE164,
       sender_phone_number_id: integration.phone_number_id,
       status: 'failed',
       error_message: errorMsg,
@@ -1202,7 +1236,7 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to: recipient,
+        to: recipientMeta,
         type: 'template',
         template: {
           name: resolvedTemplateName,
@@ -1220,14 +1254,24 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
         appointment_id: appointmentId,
         order_id: orderId,
         branch_id: branchId,
-        template_name: templateName,
-        recipient_number: recipient,
+        customer_name: customData?.customerName,
+        template_name: resolvedTemplateName,
+        job_type: resolvedTemplateName.includes('feedback') ? 'customer_feedback' : 'appointment_confirmation',
+        recipient_number: recipientE164,
         sender_phone_number_id: integration.phone_number_id,
         meta_message_id: messageId,
         status: 'sent',
         sent_at: sentTime,
         diagnostics: `FINISH event received / WABA ID received / Phone Number ID received / Graph API message queued (Message ID: ${messageId})`
       });
+      if (orderId) {
+        await salonRepository.updateOrder(orderId, {
+          whatsapp_status: 'sent',
+          whatsapp_message_id: messageId,
+          whatsapp_error: undefined
+        });
+        await salonRepository.cancelScheduledFeedbackJobByOrder(orderId);
+      }
       return { sent: true, status: 'sent', messageId, log };
     }
 
@@ -1244,23 +1288,55 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
       errMsg.toLowerCase().includes('review') ||
       errMsg.toLowerCase().includes('development');
 
-    const status = isAppReviewOrSandbox ? 'pending_approval' : 'failed';
+    // Detect temporary/retryable errors: rate limits (Code 4, 17, 32, 613, 80007), temporary service error (Code 1, 2), or 5xx HTTP response
+    const isRetryable =
+      response.status >= 500 ||
+      errCode === 4 ||
+      errCode === 17 ||
+      errCode === 32 ||
+      errCode === 613 ||
+      errCode === 80007 ||
+      errMsg.toLowerCase().includes('rate limit') ||
+      errMsg.toLowerCase().includes('temporarily unavailable') ||
+      errMsg.toLowerCase().includes('try again');
+
+    const status: 'sent' | 'pending_approval' | 'failed' | 'retrying' = isAppReviewOrSandbox
+      ? 'pending_approval'
+      : isRetryable
+      ? 'retrying'
+      : 'failed';
+
     const friendlyError = isAppReviewOrSandbox
       ? 'Pending Meta approval: Live sending is currently restricted by Meta while App Review is in progress. Real messages can only be delivered to verified test/admin phone numbers in Meta App Settings.'
+      : isRetryable
+      ? `Meta API temporarily unavailable (Code ${errCode || response.status}): Enqueued for automatic retry.`
       : `Meta API delivery failed: ${errMsg}`;
+
     const diagnostic = `Meta Graph API error (Code ${errCode || 'N/A'}): ${errMsg}`;
+    const nextRetryAt = isRetryable ? new Date(Date.now() + 60 * 1000).toISOString() : undefined;
 
     const log = await salonRepository.createWhatsAppMessageLog({
       appointment_id: appointmentId,
       order_id: orderId,
       branch_id: branchId,
-      template_name: templateName,
-      recipient_number: recipient,
+      customer_name: customData?.customerName,
+      template_name: resolvedTemplateName,
+      job_type: resolvedTemplateName.includes('feedback') ? 'customer_feedback' : 'appointment_confirmation',
+      recipient_number: recipientE164,
       sender_phone_number_id: integration.phone_number_id,
       status: status,
       error_message: friendlyError,
-      diagnostics: diagnostic
+      diagnostics: diagnostic,
+      retry_count: isRetryable ? 1 : 0,
+      next_retry_at: nextRetryAt
     });
+
+    if (orderId) {
+      await salonRepository.updateOrder(orderId, {
+        whatsapp_status: status,
+        whatsapp_error: friendlyError
+      });
+    }
 
     return {
       sent: false,
@@ -1271,18 +1347,29 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
     };
   } catch (err: any) {
     const errorMsg = `Network error communicating with Meta Cloud API: ${err.message}`;
+    const nextRetryAt = new Date(Date.now() + 60 * 1000).toISOString();
     const log = await salonRepository.createWhatsAppMessageLog({
       appointment_id: appointmentId,
       order_id: orderId,
       branch_id: branchId,
+      customer_name: customData?.customerName,
       template_name: templateName,
-      recipient_number: recipient,
-      sender_phone_number_id: integration.phone_number_id,
-      status: 'failed',
+      job_type: templateName.includes('feedback') ? 'customer_feedback' : 'appointment_confirmation',
+      recipient_number: recipientE164,
+      sender_phone_number_id: integration?.phone_number_id || 'unassigned',
+      status: 'retrying',
       error_message: errorMsg,
-      diagnostics: `Network failure: ${err.message}`
+      diagnostics: `Network failure: ${err.message}`,
+      retry_count: 1,
+      next_retry_at: nextRetryAt
     });
-    return { sent: false, status: 'failed', error: errorMsg, log };
+    if (orderId) {
+      await salonRepository.updateOrder(orderId, {
+        whatsapp_status: 'retrying',
+        whatsapp_error: errorMsg
+      });
+    }
+    return { sent: false, status: 'retrying', error: `${errorMsg}. Enqueued for automatic retry.`, log };
   }
 }
 
@@ -1323,13 +1410,15 @@ async function checkAndRunScheduledFeedbackJobs() {
     if (!dueJobs || !dueJobs.length) return;
 
     for (const job of dueJobs) {
-      console.log(`[Scheduled Feedback] Executing due job ${job.id} for appointment ${job.appointment_id}...`);
+      console.log(`[Scheduled Feedback] Executing due job ${job.id} for appointment ${job.appointment_id || job.order_id}...`);
 
-      const apt = await salonRepository.getAppointmentById(job.appointment_id);
-      if (!apt || apt.status === 'Cancelled' || apt.status === 'No Show') {
-        console.log(`[Scheduled Feedback] Appointment ${job.appointment_id} is cancelled/no-show. Skipping feedback.`);
-        await salonRepository.updateScheduledFeedbackJob(job.id, { status: 'cancelled' });
-        continue;
+      if (job.appointment_id) {
+        const apt = await salonRepository.getAppointmentById(job.appointment_id);
+        if (!apt || apt.status === 'Cancelled' || apt.status === 'No Show') {
+          console.log(`[Scheduled Feedback] Appointment ${job.appointment_id} is cancelled/no-show. Skipping feedback.`);
+          await salonRepository.updateScheduledFeedbackJob(job.id, { status: 'cancelled' });
+          continue;
+        }
       }
 
       if (job.status !== 'pending') continue;
@@ -1337,8 +1426,9 @@ async function checkAndRunScheduledFeedbackJobs() {
       const result = await sendBranchWhatsAppTemplate({
         branchId: job.branch_id,
         recipientPhone: job.customer_phone,
-        templateName: 'the_glossylooks_customer_feedback',
+        templateName: 'glossylooks_customer_feedback',
         appointmentId: job.appointment_id,
+        orderId: job.order_id,
         customData: {
           customerName: job.customer_name
         }
@@ -1366,6 +1456,82 @@ async function checkAndRunScheduledFeedbackJobs() {
 // Durable interval runner: checks every 30 seconds
 setInterval(() => {
   checkAndRunScheduledFeedbackJobs().catch(() => {});
+}, 30000);
+
+// ----------------------------------------------------------------------------
+// Automatic Exponential Backoff WhatsApp Retry Runner
+// Retries temporary failed/rate-limited jobs (1 min, 5 min, 15 min, max 3)
+// ----------------------------------------------------------------------------
+async function checkAndRunWhatsAppRetries() {
+  try {
+    const dueRetries = await salonRepository.getDueWhatsAppMessageRetries();
+    if (!dueRetries || !dueRetries.length) return;
+
+    for (const log of dueRetries) {
+      const nextRetryCount = (log.retry_count || 0) + 1;
+      const result = await sendBranchWhatsAppTemplate({
+        branchId: log.branch_id || 'tgl-gachibowli-main',
+        recipientPhone: log.recipient_number,
+        templateName: log.template_name || 'glossylooks_customer_feedback',
+        orderId: log.order_id,
+        appointmentId: log.appointment_id,
+        customData: {
+          customerName: log.customer_name || 'Valued Customer'
+        }
+      });
+
+      if (result.sent) {
+        await salonRepository.updateWhatsAppMessageLog(log.id, {
+          status: 'sent',
+          meta_message_id: result.messageId,
+          sent_at: new Date().toISOString(),
+          error_message: undefined
+        });
+        if (log.order_id) {
+          await salonRepository.updateOrder(log.order_id, {
+            whatsapp_status: 'sent',
+            whatsapp_message_id: result.messageId,
+            whatsapp_error: undefined
+          });
+        }
+      } else {
+        if (nextRetryCount >= 3) {
+          await salonRepository.updateWhatsAppMessageLog(log.id, {
+            status: 'failed',
+            retry_count: nextRetryCount,
+            error_message: result.error || 'Exceeded maximum retry attempts (3)'
+          });
+          if (log.order_id) {
+            await salonRepository.updateOrder(log.order_id, {
+              whatsapp_status: 'failed',
+              whatsapp_error: result.error || 'Exceeded maximum retry attempts'
+            });
+          }
+        } else {
+          const delayMinutes = nextRetryCount === 1 ? 1 : nextRetryCount === 2 ? 5 : 15;
+          const nextRetryAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+          await salonRepository.updateWhatsAppMessageLog(log.id, {
+            status: 'retrying',
+            retry_count: nextRetryCount,
+            next_retry_at: nextRetryAt,
+            error_message: result.error
+          });
+          if (log.order_id) {
+            await salonRepository.updateOrder(log.order_id, {
+              whatsapp_status: 'retrying',
+              whatsapp_error: result.error
+            });
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('[WhatsApp Retries] Runner error:', err.message);
+  }
+}
+
+setInterval(() => {
+  checkAndRunWhatsAppRetries().catch(() => {});
 }, 30000);
 
 // ----------------------------------------------------------------------------
@@ -1442,21 +1608,37 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
             const timestamp = st.timestamp ? new Date(Number(st.timestamp) * 1000).toISOString() : new Date().toISOString();
 
             if (statusStr === 'delivered') {
-              await salonRepository.updateWhatsAppMessageLogByMetaId(metaId, {
+              const updatedLog = await salonRepository.updateWhatsAppMessageLogByMetaId(metaId, {
                 status: 'delivered',
                 delivered_at: timestamp
               });
+              if (updatedLog?.order_id) {
+                await salonRepository.updateOrder(updatedLog.order_id, {
+                  whatsapp_status: 'delivered'
+                });
+              }
             } else if (statusStr === 'read') {
-              await salonRepository.updateWhatsAppMessageLogByMetaId(metaId, {
+              const updatedLog = await salonRepository.updateWhatsAppMessageLogByMetaId(metaId, {
                 status: 'read',
                 read_at: timestamp
               });
+              if (updatedLog?.order_id) {
+                await salonRepository.updateOrder(updatedLog.order_id, {
+                  whatsapp_status: 'read'
+                });
+              }
             } else if (statusStr === 'failed') {
               const errDetail = Array.isArray(st.errors) && st.errors[0]?.message ? st.errors[0].message : 'Meta webhook reported failure';
-              await salonRepository.updateWhatsAppMessageLogByMetaId(metaId, {
+              const updatedLog = await salonRepository.updateWhatsAppMessageLogByMetaId(metaId, {
                 status: 'failed',
                 error_message: errDetail
               });
+              if (updatedLog?.order_id) {
+                await salonRepository.updateOrder(updatedLog.order_id, {
+                  whatsapp_status: 'failed',
+                  whatsapp_error: errDetail
+                });
+              }
             }
           }
         }
@@ -2654,18 +2836,41 @@ app.get('/api/orders', async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const actor = (req.headers['x-admin-name'] as string) || 'Cashier';
-    const { customer_name, customer_phone, items, subtotal, discount, tax_amount, tip_amount, grand_total, paid_amount, payment_status, primary_payment_mode, cashier_name, notes, appointment_id, branch_id } = req.body;
+    const {
+      customer_name,
+      customer_phone,
+      items,
+      subtotal,
+      discount,
+      tax_amount,
+      tip_amount,
+      grand_total,
+      paid_amount,
+      payment_status,
+      primary_payment_mode,
+      cashier_name,
+      notes,
+      appointment_id,
+      branch_id,
+      idempotency_key
+    } = req.body;
+
+    const key = idempotency_key || (req.headers['x-idempotency-key'] as string);
 
     if (!customer_name || !customer_phone || !items || !items.length) {
       return res.status(400).json({ error: 'Missing customer or order items' });
     }
 
     const effectiveBranchId = branch_id || 'tgl-gachibowli-main';
+    const normalized = normalizePhoneNumber(customer_phone);
+
+    // 1. Generate the bill and save the order first
     const order = await salonRepository.createOrder({
+      idempotency_key: key,
       appointment_id,
       branch_id: effectiveBranchId,
       customer_name,
-      customer_phone,
+      customer_phone: normalized.e164 || customer_phone,
       items,
       subtotal: subtotal || grand_total,
       discount: discount || 0,
@@ -2678,50 +2883,57 @@ app.post('/api/orders', async (req, res) => {
       payment_status: payment_status || 'Paid',
       primary_payment_mode: primary_payment_mode || 'UPI',
       cashier_name: cashier_name || actor,
-      notes: notes || ''
+      notes: notes || '',
+      whatsapp_status: 'queued'
     }, actor);
 
-    // If linked to an appointment, mark appointment as Completed and schedule feedback.
-    if (appointment_id) {
-      const apt = await salonRepository.getAppointmentById(appointment_id);
-      if (apt && apt.status !== 'Completed') {
-        const completedAt = new Date().toISOString();
-        await salonRepository.updateAppointment(appointment_id, {
-          status: 'Completed',
-          completed_at: completedAt
-        }, actor);
+    // 2. Immediately return the successful bill response to the UI so the POS operator is unblocked!
+    res.status(201).json(order);
 
-        const scheduledTime = getFeedbackScheduledTime();
+    // 3. Handle WhatsApp sending and secondary jobs asynchronously in the background
+    setImmediate(async () => {
+      try {
+        if (appointment_id) {
+          const apt = await salonRepository.getAppointmentById(appointment_id);
+          if (apt && apt.status !== 'Completed') {
+            await salonRepository.updateAppointment(appointment_id, {
+              status: 'Completed',
+              completed_at: new Date().toISOString()
+            }, actor);
+          }
+        }
+
+        // Schedule automatic feedback job for 30 minutes after completion
+        const scheduledTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
         await salonRepository.createScheduledFeedbackJob({
-          appointment_id: apt.id,
-          branch_id: apt.branch_id || effectiveBranchId,
-          customer_name: apt.customer_name,
-          customer_phone: apt.customer_phone,
+          order_id: order.id,
+          appointment_id: appointment_id || undefined,
+          branch_id: effectiveBranchId,
+          customer_name: order.customer_name,
+          customer_phone: order.customer_phone,
           scheduled_at: scheduledTime,
           status: 'pending'
         });
+
+        // Route WhatsApp digital receipt notice via branch connection
+        const branch = await salonRepository.getBranchById(effectiveBranchId);
+        const branchName = branch?.name || 'The Glossy Looks';
+        await sendBranchWhatsAppNotification(
+          effectiveBranchId,
+          order.customer_phone,
+          `Thank you for visiting ${branchName}, ${customer_name}! Your bill ${order.bill_number} for ₹${order.grand_total} has been settled (${order.primary_payment_mode}). We hope you loved your service!`
+        );
+      } catch (bgErr) {
+        console.warn('⚠️ Background post-billing error (non-fatal):', bgErr);
       }
-    }
-
-    // Route WhatsApp digital receipt via the branch's dedicated WhatsApp connection
-    salonRepository.getBranchById(effectiveBranchId).then(branch => {
-      const branchName = branch?.name || 'The Glossy Looks';
-      sendBranchWhatsAppNotification(
-        effectiveBranchId,
-        customer_phone,
-        `Thank you for visiting ${branchName}, ${customer_name}! Your bill ${order.bill_number} for ₹${order.grand_total} has been settled (${order.primary_payment_mode}). We hope you loved your service!`
-      ).catch(() => {});
-    }).catch(() => {});
-
-    res.status(201).json(order);
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Send the approved customer-feedback template manually after a POS bill.
-// Receptionists can use this for an immediate follow-up; owner and manager can
-// use it for their permitted branches. The automatic scheduled job remains active.
+// Cancels or marks scheduled job executed to avoid duplicate sending.
 app.post('/api/admin/orders/:id/whatsapp/feedback', async (req, res) => {
   try {
     const admin = await getAuthAdmin(req);
@@ -2729,31 +2941,137 @@ app.post('/api/admin/orders/:id/whatsapp/feedback', async (req, res) => {
       return res.status(403).json({ error: 'Access denied: only owner, manager, or reception staff can send feedback.' });
     }
 
-    const order = (await salonRepository.getOrders()).find(item => item.id === req.params.id);
+    const order = await salonRepository.getOrderById(req.params.id) || (await salonRepository.getOrders()).find(item => item.id === req.params.id);
     if (!order) return res.status(404).json({ error: 'Bill not found.' });
 
     if (admin.role !== 'owner' && admin.branch_id && order.branch_id && admin.branch_id !== order.branch_id) {
       return res.status(403).json({ error: 'Access denied for this salon branch.' });
     }
 
+    // Cancel pending scheduled feedback jobs for this order to prevent duplicate messages
+    await salonRepository.cancelScheduledFeedbackJobByOrder(order.id);
+    if (order.appointment_id) {
+      await salonRepository.cancelScheduledFeedbackJobByAppointment(order.appointment_id);
+    }
+
     const result = await sendBranchWhatsAppTemplate({
       branchId: order.branch_id || 'tgl-gachibowli-main',
       recipientPhone: order.customer_phone,
-      templateName: 'the_glossylooks_customer_feedback',
+      templateName: 'glossylooks_customer_feedback',
       orderId: order.id,
       customData: { customerName: order.customer_name }
     });
 
-    const statusCode = result.sent ? 200 : result.status === 'pending_approval' ? 409 : 502;
+    if (result.sent) {
+      await salonRepository.updateOrder(order.id, {
+        whatsapp_status: 'sent',
+        whatsapp_message_id: result.messageId,
+        whatsapp_error: undefined
+      });
+      return res.status(200).json({
+        success: true,
+        status: 'sent',
+        message: 'Feedback request sent',
+        message_id: result.messageId
+      });
+    }
+
+    if (result.status === 'retrying') {
+      await salonRepository.updateOrder(order.id, {
+        whatsapp_status: 'retrying',
+        whatsapp_error: result.error
+      });
+      return res.status(200).json({
+        success: true,
+        status: 'queued',
+        message: 'Feedback request queued and will retry automatically',
+        error: result.error
+      });
+    }
+
+    await salonRepository.updateOrder(order.id, {
+      whatsapp_status: result.status === 'pending_approval' ? 'pending_approval' : 'failed',
+      whatsapp_error: result.error
+    });
+
+    const statusCode = result.status === 'pending_approval' ? 409 : 502;
     return res.status(statusCode).json({
-      success: result.sent,
+      success: false,
       status: result.status,
-      message_id: result.messageId,
+      message: 'Feedback request failed — Retry',
       error: result.error,
       diagnostics: result.diagnostics
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Unable to send feedback message.' });
+  }
+});
+
+// Retry endpoint for manual retry of failed WhatsApp messages directly from the order ledger or POS bill receipt
+app.post('/api/admin/orders/:id/whatsapp/retry', async (req, res) => {
+  try {
+    const admin = await getAuthAdmin(req);
+    if (!admin || !['owner', 'manager', 'receptionist'].includes(admin.role)) {
+      return res.status(403).json({ error: 'Access denied: only owner, manager, or reception staff can retry feedback.' });
+    }
+
+    const order = await salonRepository.getOrderById(req.params.id) || (await salonRepository.getOrders()).find(item => item.id === req.params.id);
+    if (!order) return res.status(404).json({ error: 'Bill not found.' });
+
+    await salonRepository.cancelScheduledFeedbackJobByOrder(order.id);
+    if (order.appointment_id) {
+      await salonRepository.cancelScheduledFeedbackJobByAppointment(order.appointment_id);
+    }
+
+    const result = await sendBranchWhatsAppTemplate({
+      branchId: order.branch_id || 'tgl-gachibowli-main',
+      recipientPhone: order.customer_phone,
+      templateName: 'glossylooks_customer_feedback',
+      orderId: order.id,
+      customData: { customerName: order.customer_name }
+    });
+
+    if (result.sent) {
+      await salonRepository.updateOrder(order.id, {
+        whatsapp_status: 'sent',
+        whatsapp_message_id: result.messageId,
+        whatsapp_error: undefined
+      });
+      return res.status(200).json({
+        success: true,
+        status: 'sent',
+        message: 'Feedback request sent',
+        message_id: result.messageId
+      });
+    }
+
+    if (result.status === 'retrying') {
+      await salonRepository.updateOrder(order.id, {
+        whatsapp_status: 'retrying',
+        whatsapp_error: result.error
+      });
+      return res.status(200).json({
+        success: true,
+        status: 'queued',
+        message: 'Feedback request queued and will retry automatically',
+        error: result.error
+      });
+    }
+
+    await salonRepository.updateOrder(order.id, {
+      whatsapp_status: 'failed',
+      whatsapp_error: result.error
+    });
+
+    return res.status(502).json({
+      success: false,
+      status: result.status,
+      message: 'Feedback request failed — Retry',
+      error: result.error,
+      diagnostics: result.diagnostics
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Retry failed.' });
   }
 });
 

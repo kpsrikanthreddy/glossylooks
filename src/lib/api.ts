@@ -191,8 +191,13 @@ export const api = {
   createOrder: (data: any, adminName?: string) =>
     fetchJson<Order>(`${API_BASE}/orders`, { method: 'POST', body: JSON.stringify(data) }, adminName),
   sendOrderWhatsAppFeedback: (orderId: string) =>
-    fetchJson<{ success: boolean; status: string; message_id?: string; error?: string }>(
+    fetchJson<{ success: boolean; status: string; message_id?: string; error?: string; message?: string }>(
       `${API_BASE}/admin/orders/${orderId}/whatsapp/feedback`,
+      { method: 'POST' }
+    ),
+  retryOrderWhatsApp: (orderId: string) =>
+    fetchJson<{ success: boolean; status: string; message_id?: string; error?: string; message?: string }>(
+      `${API_BASE}/admin/orders/${orderId}/whatsapp/retry`,
       { method: 'POST' }
     ),
 

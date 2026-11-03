@@ -2734,6 +2734,14 @@ class SalonDatabase implements ISalonRepository {
     return newOrder;
   }
 
+  public async updateOrder(id: string, data: Partial<Order>): Promise<Order | null> {
+    const idx = this.data.orders.findIndex(o => o.id === id);
+    if (idx === -1) return null;
+    this.data.orders[idx] = { ...this.data.orders[idx], ...data };
+    this.save();
+    return this.data.orders[idx];
+  }
+
   public async updateOrderStatus(id: string, status: Order['payment_status'], performedBy: string): Promise<Order | null> {
     const idx = this.data.orders.findIndex(o => o.id === id);
     if (idx === -1) return null;
@@ -3330,6 +3338,23 @@ class SalonDatabase implements ISalonRepository {
     return log;
   }
 
+  public async updateWhatsAppMessageLog(id: string, data: Partial<WhatsAppMessageLog>): Promise<WhatsAppMessageLog | null> {
+    if (!this.data.whatsapp_message_logs) return null;
+    const log = this.data.whatsapp_message_logs.find(l => l.id === id);
+    if (!log) return null;
+    Object.assign(log, data, { updated_at: new Date().toISOString() });
+    this.save();
+    return log;
+  }
+
+  public async getDueWhatsAppMessageRetries(): Promise<WhatsAppMessageLog[]> {
+    if (!this.data.whatsapp_message_logs) return [];
+    const now = Date.now();
+    return this.data.whatsapp_message_logs.filter(
+      l => l.status === 'retrying' && l.next_retry_at && new Date(l.next_retry_at).getTime() <= now && (l.retry_count || 0) < 3
+    );
+  }
+
   // ==========================================================================
   // Customer Feedback
   // ==========================================================================
@@ -3426,6 +3451,20 @@ class SalonDatabase implements ISalonRepository {
     let found = false;
     this.data.scheduled_feedback_jobs.forEach(j => {
       if (j.appointment_id === appointmentId && j.status === 'pending') {
+        j.status = 'cancelled';
+        j.updated_at = new Date().toISOString();
+        found = true;
+      }
+    });
+    if (found) this.save();
+    return found;
+  }
+
+  public async cancelScheduledFeedbackJobByOrder(orderId: string): Promise<boolean> {
+    if (!this.data.scheduled_feedback_jobs) return false;
+    let found = false;
+    this.data.scheduled_feedback_jobs.forEach(j => {
+      if (j.order_id === orderId && j.status === 'pending') {
         j.status = 'cancelled';
         j.updated_at = new Date().toISOString();
         found = true;
