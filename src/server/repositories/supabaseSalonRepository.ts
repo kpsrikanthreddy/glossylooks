@@ -1797,11 +1797,45 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async createScheduledFeedbackJob(job: Omit<ScheduledFeedbackJob, 'id' | 'created_at' | 'updated_at'>): Promise<ScheduledFeedbackJob> {
+    if (job.order_id) {
+      try {
+        let query = this.client
+          .from('scheduled_feedback_jobs')
+          .select('*')
+          .eq('order_id', job.order_id);
+        if (job.job_type) {
+          query = query.eq('job_type', job.job_type);
+        }
+        const { data: existing } = await query.maybeSingle();
+        if (existing) {
+          return existing as ScheduledFeedbackJob;
+        }
+      } catch {
+        // Continue if column not present yet
+      }
+    }
+
     const id = `sfj-${Date.now()}`;
     const now = new Date().toISOString();
-    const newJob: ScheduledFeedbackJob = { ...job, id, created_at: now, updated_at: now };
-    const { data, error } = await this.client.from('scheduled_feedback_jobs').insert(newJob).select().single();
-    if (error) throw error;
+    const newJob: any = { ...job, id, created_at: now, updated_at: now };
+    let { data, error } = await this.client.from('scheduled_feedback_jobs').insert(newJob).select().single();
+
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && newJob[match[1]] !== undefined) {
+        delete newJob[match[1]];
+        const retry = await this.client.from('scheduled_feedback_jobs').insert(newJob).select().single();
+        error = retry.error;
+        data = retry.data;
+      } else {
+        break;
+      }
+    }
+
+    if (error) {
+      console.warn('⚠️ Could not insert into scheduled_feedback_jobs, falling back:', error.message);
+      return newJob as ScheduledFeedbackJob;
+    }
     return data as ScheduledFeedbackJob;
   }
 

@@ -3419,7 +3419,10 @@ class SalonDatabase implements ISalonRepository {
     if (!this.data.scheduled_feedback_jobs) this.data.scheduled_feedback_jobs = [];
 
     const existing = this.data.scheduled_feedback_jobs.find(
-      j => j.appointment_id === job.appointment_id && (j.status === 'pending' || j.status === 'completed')
+      j => (
+        (job.appointment_id && j.appointment_id === job.appointment_id) ||
+        (job.order_id && j.order_id === job.order_id && (!job.job_type || j.job_type === job.job_type))
+      ) && (j.status === 'pending' || j.status === 'completed' || j.status === 'processing')
     );
     if (existing) {
       return existing;

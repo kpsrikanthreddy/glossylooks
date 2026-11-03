@@ -218,6 +218,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [posFeedbackSending, setPosFeedbackSending] = useState(false);
   const [posFeedbackStatus, setPosFeedbackStatus] = useState<'sent' | 'queued' | 'failed' | null>(null);
   const [posFeedbackMessage, setPosFeedbackMessage] = useState<string | null>(null);
+  const [posRetryingReceipt, setPosRetryingReceipt] = useState(false);
+  const [posRetryingFeedback, setPosRetryingFeedback] = useState(false);
   const [posIdempotencyKey, setPosIdempotencyKey] = useState<string>(() => `pos-idem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [posSearch, setPosSearch] = useState('');
   const [posCategoryFilter, setPosCategoryFilter] = useState('all');
@@ -592,9 +594,62 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
     setIsPosCartOpen(false);
   };
 
+  // Live polling for WhatsApp delivery status updates while bill dialog is displayed
+  useEffect(() => {
+    if (!posSuccessOrder?.id) return;
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const statusRes = await api.getOrderWhatsAppStatus(posSuccessOrder.id);
+        if (isMounted && statusRes && statusRes.order_id === posSuccessOrder.id) {
+          setPosSuccessOrder(prev => {
+            if (!prev || prev.id !== statusRes.order_id) return prev;
+            if (
+              prev.receipt_whatsapp_status === statusRes.receipt_status &&
+              prev.feedback_whatsapp_status === statusRes.feedback_status
+            ) {
+              return prev;
+            }
+            return {
+              ...prev,
+              receipt_whatsapp_status: statusRes.receipt_status as any,
+              receipt_whatsapp_message_id: statusRes.receipt_message_id,
+              receipt_whatsapp_error: statusRes.receipt_error,
+              receipt_whatsapp_sent_at: statusRes.receipt_sent_at,
+              feedback_whatsapp_status: statusRes.feedback_status as any,
+              feedback_whatsapp_message_id: statusRes.feedback_message_id,
+              feedback_whatsapp_error: statusRes.feedback_error,
+              feedback_whatsapp_scheduled_at: statusRes.feedback_scheduled_at,
+              feedback_whatsapp_sent_at: statusRes.feedback_sent_at,
+              whatsapp_status: statusRes.receipt_status as any
+            };
+          });
+        }
+      } catch {
+        // Background poll quiet fail
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [posSuccessOrder?.id]);
+
   const handleSendPosFeedback = async () => {
     if (!posSuccessOrder) {
       setPosFeedbackMessage('Generate the bill first, then send customer feedback.');
+      return;
+    }
+
+    // Check if feedback is already sent/delivered to avoid duplicate messages
+    if (
+      posSuccessOrder.feedback_whatsapp_status === 'sent' ||
+      posSuccessOrder.feedback_whatsapp_status === 'delivered' ||
+      posSuccessOrder.feedback_whatsapp_status === 'read'
+    ) {
+      setPosFeedbackMessage('Customer feedback WhatsApp has already been sent to this customer.');
+      setPosFeedbackStatus('sent');
       return;
     }
 
@@ -607,13 +662,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         if (result.status === 'sent') {
           setPosFeedbackMessage('Feedback request sent');
           setPosFeedbackStatus('sent');
+          setPosSuccessOrder(prev => prev ? { ...prev, feedback_whatsapp_status: 'sent' } : prev);
         } else {
-          setPosFeedbackMessage('Feedback request queued and will retry automatically');
+          setPosFeedbackMessage(result.message || 'Feedback request queued and will retry automatically');
           setPosFeedbackStatus('queued');
+          setPosSuccessOrder(prev => prev ? { ...prev, feedback_whatsapp_status: 'retrying' } : prev);
         }
       } else {
         setPosFeedbackMessage(result.error || 'Feedback request failed — Retry');
         setPosFeedbackStatus('failed');
+        setPosSuccessOrder(prev => prev ? { ...prev, feedback_whatsapp_status: 'failed' } : prev);
       }
       loadAllData();
     } catch (err: any) {
@@ -624,17 +682,46 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
     }
   };
 
-  const handleRetryOrderWhatsApp = async (orderId: string) => {
+  const handleRetryPosReceipt = async (orderId: string) => {
+    setPosRetryingReceipt(true);
     try {
-      const res = await api.retryOrderWhatsApp(orderId);
+      const res = await api.retryOrderWhatsApp(orderId, 'bill_receipt');
       if (res.success) {
-        alert(res.status === 'sent' ? 'WhatsApp feedback sent!' : 'WhatsApp feedback queued and will retry automatically.');
+        setPosSuccessOrder(prev => prev && prev.id === orderId ? { ...prev, receipt_whatsapp_status: 'sent', receipt_whatsapp_error: undefined } : prev);
       } else {
-        alert(res.error || 'Feedback retry failed.');
+        setPosSuccessOrder(prev => prev && prev.id === orderId ? { ...prev, receipt_whatsapp_status: 'failed', receipt_whatsapp_error: res.error } : prev);
       }
       loadAllData();
     } catch (err: any) {
-      alert(err.message || 'Error retrying WhatsApp message.');
+      console.warn('Error retrying receipt WhatsApp:', err);
+    } finally {
+      setPosRetryingReceipt(false);
+    }
+  };
+
+  const handleRetryPosFeedback = async (orderId: string) => {
+    setPosRetryingFeedback(true);
+    try {
+      const res = await api.retryOrderWhatsApp(orderId, 'customer_feedback');
+      if (res.success) {
+        setPosSuccessOrder(prev => prev && prev.id === orderId ? { ...prev, feedback_whatsapp_status: 'sent', feedback_whatsapp_error: undefined } : prev);
+      } else {
+        setPosSuccessOrder(prev => prev && prev.id === orderId ? { ...prev, feedback_whatsapp_status: 'failed', feedback_whatsapp_error: res.error } : prev);
+      }
+      loadAllData();
+    } catch (err: any) {
+      console.warn('Error retrying feedback WhatsApp:', err);
+    } finally {
+      setPosRetryingFeedback(false);
+    }
+  };
+
+  const handleRetryOrderWhatsApp = async (orderId: string) => {
+    try {
+      const res = await api.retryOrderWhatsApp(orderId);
+      loadAllData();
+    } catch (err: any) {
+      console.warn('Error retrying WhatsApp message:', err);
     }
   };
 
@@ -2498,25 +2585,45 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                           )}
 
                           {/* 2. Manual Send Customer Feedback on WhatsApp */}
-                          <button
-                            type="button"
-                            onClick={handleSendPosFeedback}
-                            disabled={!posSuccessOrder || posFeedbackSending}
-                            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-[#087443] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                            title={posSuccessOrder ? 'Send the approved customer feedback template on WhatsApp' : 'Generate the bill first'}
-                          >
-                            {posFeedbackSending ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                                <span>Sending feedback…</span>
-                              </>
-                            ) : (
-                              <>
-                                <MessageCircle className="w-4 h-4" />
-                                <span>Send Customer Feedback on WhatsApp</span>
-                              </>
-                            )}
-                          </button>
+                          {(() => {
+                            const isFeedbackSent = posSuccessOrder?.feedback_whatsapp_status === 'sent' || posSuccessOrder?.feedback_whatsapp_status === 'delivered' || posSuccessOrder?.feedback_whatsapp_status === 'read';
+                            return (
+                              <button
+                                type="button"
+                                onClick={handleSendPosFeedback}
+                                disabled={!posSuccessOrder || posFeedbackSending || isFeedbackSent}
+                                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
+                                  isFeedbackSent
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default'
+                                    : 'text-[#087443] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+                                }`}
+                                title={
+                                  isFeedbackSent
+                                    ? 'Feedback template already delivered to customer'
+                                    : posSuccessOrder
+                                    ? 'Send approved feedback template immediately without waiting 2 minutes'
+                                    : 'Generate the bill first'
+                                }
+                              >
+                                {posFeedbackSending ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                                    <span>Sending feedback…</span>
+                                  </>
+                                ) : isFeedbackSent ? (
+                                  <>
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                    <span>Feedback Sent on WhatsApp</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <MessageCircle className="w-4 h-4" />
+                                    <span>Send Customer Feedback on WhatsApp</span>
+                                  </>
+                                )}
+                              </button>
+                            );
+                          })()}
 
                           {/* Clear Results Banner for Feedback */}
                           {posFeedbackMessage && (
@@ -2546,32 +2653,105 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                           )}
                         </form>
 
-                        {/* Bill Generated Success Banner & Actions */}
+                        {/* Bill Generated Success Banner & Actions with Two-Track WhatsApp Live Status */}
                         {posSuccessOrder && (
                           <div className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 space-y-3">
                             <div className="flex items-center justify-between">
-                              <div className="font-bold flex items-center gap-1.5">
+                              <div className="font-bold flex items-center gap-1.5 text-sm text-emerald-950">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                 <span>Bill {posSuccessOrder.bill_number} Created!</span>
                               </div>
-                              {/* WhatsApp Delivery Status Badge */}
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-slate-500 font-medium">WhatsApp:</span>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
-                                  posSuccessOrder.whatsapp_status === 'delivered' || posSuccessOrder.whatsapp_status === 'read'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : posSuccessOrder.whatsapp_status === 'sent'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : posSuccessOrder.whatsapp_status === 'failed'
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {posSuccessOrder.whatsapp_status === 'delivered' || posSuccessOrder.whatsapp_status === 'read' ? 'Delivered' :
-                                   posSuccessOrder.whatsapp_status === 'sent' ? 'Sent' :
-                                   posSuccessOrder.whatsapp_status === 'failed' ? 'Failed' : 'Queued'}
-                                </span>
-                              </div>
                             </div>
+
+                            {/* Two Separate Live Status Badges */}
+                            <div className="bg-white/90 p-2.5 rounded-xl border border-emerald-200/80 space-y-2.5">
+                              {/* Track 1: Bill Receipt WhatsApp */}
+                              {(() => {
+                                const receiptStatus = posSuccessOrder.receipt_whatsapp_status || posSuccessOrder.whatsapp_status || 'sending';
+                                return (
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="text-slate-700 font-semibold flex items-center gap-1.5">
+                                      <Receipt className="w-3.5 h-3.5 text-[#5B132B]" />
+                                      <span>Bill Receipt WhatsApp:</span>
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                                        receiptStatus === 'delivered' || receiptStatus === 'read'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : receiptStatus === 'sent'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : receiptStatus === 'sending'
+                                          ? 'bg-indigo-100 text-indigo-800'
+                                          : receiptStatus === 'failed'
+                                          ? 'bg-rose-100 text-rose-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {receiptStatus === 'sending' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                        {receiptStatus === 'delivered' || receiptStatus === 'read' ? 'Delivered' :
+                                         receiptStatus === 'sent' ? 'Sent' :
+                                         receiptStatus === 'sending' ? 'Sending…' :
+                                         receiptStatus === 'failed' ? 'Failed' : 'Queued'}
+                                      </span>
+                                      {receiptStatus === 'failed' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRetryPosReceipt(posSuccessOrder.id)}
+                                          disabled={posRetryingReceipt}
+                                          className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold cursor-pointer transition-colors"
+                                          title="Retry sending bill receipt template"
+                                        >
+                                          {posRetryingReceipt ? 'Retrying…' : 'Retry'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Track 2: Feedback WhatsApp */}
+                              {(() => {
+                                const feedbackStatus = posSuccessOrder.feedback_whatsapp_status || 'scheduled';
+                                return (
+                                  <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-100">
+                                    <span className="text-slate-700 font-semibold flex items-center gap-1.5">
+                                      <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
+                                      <span>Feedback WhatsApp:</span>
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                                        feedbackStatus === 'delivered' || feedbackStatus === 'read'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : feedbackStatus === 'sent'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : feedbackStatus === 'sending'
+                                          ? 'bg-indigo-100 text-indigo-800'
+                                          : feedbackStatus === 'failed'
+                                          ? 'bg-rose-100 text-rose-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {feedbackStatus === 'sending' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                                        {feedbackStatus === 'delivered' || feedbackStatus === 'read' ? 'Delivered' :
+                                         feedbackStatus === 'sent' ? 'Sent' :
+                                         feedbackStatus === 'sending' ? 'Sending…' :
+                                         feedbackStatus === 'failed' ? 'Failed' : 'Scheduled for 2 minutes'}
+                                      </span>
+                                      {feedbackStatus === 'failed' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRetryPosFeedback(posSuccessOrder.id)}
+                                          disabled={posRetryingFeedback}
+                                          className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold cursor-pointer transition-colors"
+                                          title="Retry sending customer feedback template"
+                                        >
+                                          {posRetryingFeedback ? 'Retrying…' : 'Retry'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
                             <p className="text-[11px] text-emerald-700">Auto-queued to Salon Desktop Print Agent.</p>
                             <div className="flex items-center gap-2 pt-1">
                               <button
@@ -2633,7 +2813,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                     <tbody className="divide-y divide-slate-100">
                       {payments.map(p => {
                         const matchingOrder = orders.find(o => o.id === p.order_id || o.bill_number === p.bill_number);
-                        const waStatus = matchingOrder?.whatsapp_status || 'queued';
+                        const receiptStatus = matchingOrder?.receipt_whatsapp_status || matchingOrder?.whatsapp_status || 'queued';
+                        const feedbackStatus = matchingOrder?.feedback_whatsapp_status || 'scheduled';
                         return (
                           <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                             <td className="p-3.5 font-mono font-bold text-[#5B132B]">{p.bill_number}</td>
@@ -2652,30 +2833,51 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                               </span>
                             </td>
                             <td className="p-3.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
-                                  waStatus === 'delivered' || waStatus === 'read'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : waStatus === 'sent'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : waStatus === 'failed'
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {waStatus === 'delivered' || waStatus === 'read' ? 'Delivered' :
-                                   waStatus === 'sent' ? 'Sent' :
-                                   waStatus === 'failed' ? 'Failed' : 'Queued'}
-                                </span>
-                                {waStatus === 'failed' && matchingOrder && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRetryOrderWhatsApp(matchingOrder.id)}
-                                    className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
-                                    title="Retry WhatsApp message delivery"
-                                  >
-                                    Retry
-                                  </button>
-                                )}
+                              <div className="flex flex-col gap-1 text-[10px]">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-slate-400 font-medium">Receipt:</span>
+                                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                                    receiptStatus === 'delivered' || receiptStatus === 'read' ? 'bg-emerald-100 text-emerald-800' :
+                                    receiptStatus === 'sent' ? 'bg-blue-100 text-blue-800' :
+                                    receiptStatus === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {receiptStatus === 'delivered' || receiptStatus === 'read' ? 'Delivered' :
+                                     receiptStatus === 'sent' ? 'Sent' :
+                                     receiptStatus === 'failed' ? 'Failed' : 'Queued'}
+                                  </span>
+                                  {receiptStatus === 'failed' && matchingOrder && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRetryPosReceipt(matchingOrder.id)}
+                                      className="text-[9px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                                      title="Retry sending receipt"
+                                    >
+                                      Retry
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-slate-400 font-medium">Feedback:</span>
+                                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                                    feedbackStatus === 'delivered' || feedbackStatus === 'read' ? 'bg-emerald-100 text-emerald-800' :
+                                    feedbackStatus === 'sent' ? 'bg-blue-100 text-blue-800' :
+                                    feedbackStatus === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {feedbackStatus === 'delivered' || feedbackStatus === 'read' ? 'Delivered' :
+                                     feedbackStatus === 'sent' ? 'Sent' :
+                                     feedbackStatus === 'failed' ? 'Failed' : '2m Sched'}
+                                  </span>
+                                  {feedbackStatus === 'failed' && matchingOrder && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRetryPosFeedback(matchingOrder.id)}
+                                      className="text-[9px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                                      title="Retry sending feedback"
+                                    >
+                                      Retry
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             <td className="p-3.5 text-slate-700">{p.recorded_by || 'Cashier'}</td>

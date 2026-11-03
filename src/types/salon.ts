@@ -291,6 +291,15 @@ export interface Order {
   whatsapp_status?: WhatsAppMessageStatus;
   whatsapp_message_id?: string;
   whatsapp_error?: string;
+  receipt_whatsapp_status?: WhatsAppMessageStatus;
+  receipt_whatsapp_message_id?: string;
+  receipt_whatsapp_error?: string;
+  receipt_whatsapp_sent_at?: string;
+  feedback_whatsapp_status?: WhatsAppMessageStatus;
+  feedback_whatsapp_message_id?: string;
+  feedback_whatsapp_error?: string;
+  feedback_whatsapp_scheduled_at?: string;
+  feedback_whatsapp_sent_at?: string;
   created_at: string;
 }
 
@@ -563,7 +572,17 @@ export interface BranchWhatsAppStatusResponse {
 // WhatsApp Automated Messaging, Feedback & Webhook Types
 // ============================================================================
 
-export type WhatsAppMessageStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'retrying' | 'pending_approval';
+export type WhatsAppMessageStatus =
+  | 'queued'
+  | 'scheduled'
+  | 'sending'
+  | 'sent'
+  | 'delivered'
+  | 'read'
+  | 'failed'
+  | 'retrying'
+  | 'cancelled'
+  | 'pending_approval';
 
 export interface WhatsAppMessageLog {
   id: string;
@@ -573,7 +592,7 @@ export interface WhatsAppMessageLog {
   template_name: string;
   recipient_number: string;
   customer_name?: string;
-  job_type?: 'appointment_confirmation' | 'customer_feedback' | 'pos_bill' | 'custom' | string;
+  job_type?: 'appointment_confirmation' | 'customer_feedback' | 'bill_receipt' | 'pos_bill' | 'custom' | string;
   sender_phone_number_id?: string;
   meta_message_id?: string;
   status: WhatsAppMessageStatus;
@@ -581,6 +600,7 @@ export interface WhatsAppMessageLog {
   diagnostics?: string;
   retry_count?: number;
   next_retry_at?: string;
+  scheduled_at?: string;
   sent_at?: string;
   delivered_at?: string;
   read_at?: string;
@@ -616,6 +636,8 @@ export interface ScheduledFeedbackJob {
   customer_phone: string;
   scheduled_at: string; // ISO string
   status: ScheduledJobStatus;
+  job_type?: 'customer_feedback' | 'bill_receipt' | string;
+  template_name?: string;
   attempts?: number;
   meta_message_id?: string;
   error_message?: string;

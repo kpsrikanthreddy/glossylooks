@@ -188,17 +188,31 @@ export const api = {
 
   // Orders & POS
   getOrders: () => fetchJson<Order[]>(`${API_BASE}/orders`),
+  getOrderById: (orderId: string) => fetchJson<Order>(`${API_BASE}/orders/${orderId}`),
   createOrder: (data: any, adminName?: string) =>
     fetchJson<Order>(`${API_BASE}/orders`, { method: 'POST', body: JSON.stringify(data) }, adminName),
+  getOrderWhatsAppStatus: (orderId: string) =>
+    fetchJson<{
+      order_id: string;
+      receipt_status: string;
+      receipt_message_id?: string;
+      receipt_error?: string;
+      receipt_sent_at?: string;
+      feedback_status: string;
+      feedback_message_id?: string;
+      feedback_error?: string;
+      feedback_scheduled_at?: string;
+      feedback_sent_at?: string;
+    }>(`${API_BASE}/admin/orders/${orderId}/whatsapp/status`),
   sendOrderWhatsAppFeedback: (orderId: string) =>
-    fetchJson<{ success: boolean; status: string; message_id?: string; error?: string; message?: string }>(
+    fetchJson<{ success: boolean; status: string; message_id?: string; error?: string; message?: string; already_sent?: boolean }>(
       `${API_BASE}/admin/orders/${orderId}/whatsapp/feedback`,
       { method: 'POST' }
     ),
-  retryOrderWhatsApp: (orderId: string) =>
+  retryOrderWhatsApp: (orderId: string, jobType?: 'bill_receipt' | 'customer_feedback') =>
     fetchJson<{ success: boolean; status: string; message_id?: string; error?: string; message?: string }>(
       `${API_BASE}/admin/orders/${orderId}/whatsapp/retry`,
-      { method: 'POST' }
+      { method: 'POST', body: JSON.stringify({ job_type: jobType }) }
     ),
 
   // Payments & Refunds
