@@ -52,7 +52,12 @@ import type {
   WhatsAppMessageLog,
   AppointmentFeedback,
   ScheduledFeedbackJob,
-  ProcessedWebhookEvent
+  ProcessedWebhookEvent,
+  DailySalesReportLog,
+  WhatsAppConversation,
+  WhatsAppMessage,
+  WhatsAppInboxFilter,
+  CustomerServiceWindowInfo
 } from '../../types/salon.ts';
 import type { ISalonRepository } from './salonRepository.ts';
 
@@ -2033,17 +2038,43 @@ export class SupabaseSalonRepository implements ISalonRepository {
     return [];
   }
 
-  // --- Customer Feedback ---
+  private inMemoryFeedbacks: AppointmentFeedback[] = [];
+
   public async getAppointmentFeedback(branchId?: string): Promise<AppointmentFeedback[]> {
-    let query = this.client.from('appointment_feedback').select('*').order('received_at', { ascending: false });
-    if (branchId) query = query.eq('branch_id', branchId);
-    const { data } = await query;
-    return (data || []) as AppointmentFeedback[];
+    let dbItems: any[] = [];
+    try {
+      let query = this.client.from('appointment_feedback').select('*');
+      if (branchId) query = query.eq('branch_id', branchId);
+      const { data, error } = await query;
+      if (!error && Array.isArray(data)) {
+        dbItems = data;
+      }
+    } catch {}
+
+    const map = new Map<string, AppointmentFeedback>();
+    // First add in-memory items
+    for (const item of this.inMemoryFeedbacks) {
+      if (!branchId || item.branch_id === branchId) {
+        map.set(item.id, item);
+      }
+    }
+    // Then add/overwrite with DB items
+    for (const item of dbItems) {
+      map.set(item.id, item as AppointmentFeedback);
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      const timeA = new Date(a.received_at || (a as any).created_at || 0).getTime();
+      const timeB = new Date(b.received_at || (b as any).created_at || 0).getTime();
+      return timeB - timeA;
+    });
   }
 
   public async createAppointmentFeedback(feedback: Omit<AppointmentFeedback, 'id' | 'received_at'>): Promise<AppointmentFeedback> {
     const id = `afb-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
     const newFb: any = { ...feedback, id, received_at: new Date().toISOString() };
+    this.inMemoryFeedbacks.unshift(newFb as AppointmentFeedback);
+
     let { data, error } = await this.client.from('appointment_feedback').insert(newFb).select().single();
     while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
       const match = error.message.match(/Could not find the '([^']+)' column/);
@@ -2064,6 +2095,11 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async updateAppointmentFeedback(id: string, data: Partial<AppointmentFeedback>): Promise<AppointmentFeedback | null> {
+    const memIndex = this.inMemoryFeedbacks.findIndex(f => f.id === id);
+    if (memIndex !== -1) {
+      this.inMemoryFeedbacks[memIndex] = { ...this.inMemoryFeedbacks[memIndex], ...data };
+    }
+
     const updatePayload: any = { ...data };
     let { data: updated, error } = await this.client
       .from('appointment_feedback')
@@ -2087,6 +2123,9 @@ export class SupabaseSalonRepository implements ISalonRepository {
       } else {
         break;
       }
+    }
+    if (error && memIndex !== -1) {
+      return this.inMemoryFeedbacks[memIndex];
     }
     return (updated || null) as AppointmentFeedback | null;
   }
@@ -2158,14 +2197,41 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async updateScheduledFeedbackJob(id: string, data: Partial<ScheduledFeedbackJob>): Promise<ScheduledFeedbackJob | null> {
-    const { data: updated, error } = await this.client
-      .from('scheduled_feedback_jobs')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-    if (error) throw error;
-    return (updated || null) as ScheduledFeedbackJob | null;
+    try {
+      const updatePayload: any = { ...data, updated_at: new Date().toISOString() };
+      let { data: updated, error } = await this.client
+        .from('scheduled_feedback_jobs')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+        const match = error.message.match(/Could not find the '([^']+)' column/);
+        if (match && match[1] && updatePayload[match[1]] !== undefined) {
+          delete updatePayload[match[1]];
+          const retry = await this.client
+            .from('scheduled_feedback_jobs')
+            .update(updatePayload)
+            .eq('id', id)
+            .select()
+            .maybeSingle();
+          error = retry.error;
+          updated = retry.data;
+        } else {
+          break;
+        }
+      }
+
+      if (error) {
+        console.warn('⚠️ Could not update scheduled_feedback_jobs:', error.message);
+        return null;
+      }
+      return (updated || null) as ScheduledFeedbackJob | null;
+    } catch (err: any) {
+      console.warn('⚠️ Exception in updateScheduledFeedbackJob:', err.message);
+      return null;
+    }
   }
 
   public async cancelScheduledFeedbackJobByAppointment(appointmentId: string): Promise<boolean> {
@@ -2191,16 +2257,28 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   // --- Webhook Event Idempotency ---
+  private inMemoryProcessedWebhookEvents = new Set<string>();
+
   public async isWebhookEventProcessed(eventId: string): Promise<boolean> {
-    const { data } = await this.client
-      .from('processed_webhook_events')
-      .select('id')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    return !!data;
+    if (this.inMemoryProcessedWebhookEvents.has(eventId)) return true;
+    try {
+      const { data, error } = await this.client
+        .from('processed_webhook_events')
+        .select('id')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (!error && data) {
+        this.inMemoryProcessedWebhookEvents.add(eventId);
+        return true;
+      }
+    } catch {
+      // In-memory fallback
+    }
+    return false;
   }
 
   public async recordProcessedWebhookEvent(eventId: string, eventType: string): Promise<ProcessedWebhookEvent> {
+    this.inMemoryProcessedWebhookEvents.add(eventId);
     const id = `pwe-${Date.now()}`;
     const evt: ProcessedWebhookEvent = {
       id,
@@ -2208,7 +2286,707 @@ export class SupabaseSalonRepository implements ISalonRepository {
       event_type: eventType,
       processed_at: new Date().toISOString()
     };
-    await this.client.from('processed_webhook_events').insert(evt);
+    try {
+      await this.client.from('processed_webhook_events').insert(evt);
+    } catch {
+      // Non-fatal fallback
+    }
     return evt;
   }
+
+  // --- Automated Daily Stylist Sales Reporting ---
+  private inMemoryDailySalesReports: DailySalesReportLog[] = [];
+
+  public async getDailySalesReports(date?: string): Promise<DailySalesReportLog[]> {
+    try {
+      let query = this.client
+        .from('daily_sales_reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (date) {
+        query = query.eq('report_date', date);
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        return data as DailySalesReportLog[];
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception querying daily_sales_reports:', err.message);
+    }
+
+    if (date) {
+      return this.inMemoryDailySalesReports.filter(r => r.report_date === date);
+    }
+    return [...this.inMemoryDailySalesReports];
+  }
+
+  public async getDailySalesReportByRecipient(date: string, recipientPhone: string, reportType: string): Promise<DailySalesReportLog | null> {
+    const cleanPhone = recipientPhone.replace(/\D/g, '').slice(-10);
+    try {
+      const { data, error } = await this.client
+        .from('daily_sales_reports')
+        .select('*')
+        .eq('report_date', date)
+        .eq('report_type', reportType)
+        .ilike('recipient_phone', `%${cleanPhone}`)
+        .maybeSingle();
+      if (!error && data) {
+        return data as DailySalesReportLog;
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception querying daily_sales_reports by recipient:', err.message);
+    }
+
+    const match = this.inMemoryDailySalesReports.find(r => 
+      r.report_date === date && 
+      r.report_type === reportType && 
+      r.recipient_phone.replace(/\D/g, '').slice(-10) === cleanPhone
+    );
+    return match || null;
+  }
+
+  public async createDailySalesReport(report: Omit<DailySalesReportLog, 'id' | 'created_at' | 'updated_at'>): Promise<DailySalesReportLog> {
+    const newRecord: DailySalesReportLog = {
+      id: `dsr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      ...report,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      // Omit temporary client id so database UUID default handles id generation if table has UUID primary key
+      const { id: _omitId, ...insertPayload } = newRecord;
+      const { data, error } = await this.client
+        .from('daily_sales_reports')
+        .insert(insertPayload)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        const saved = data as DailySalesReportLog;
+        this.inMemoryDailySalesReports.push(saved);
+        return saved;
+      }
+      if (error) {
+        console.warn('⚠️ Supabase error creating daily_sales_report, using in-memory store:', error.message);
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception in createDailySalesReport:', err.message);
+    }
+
+    this.inMemoryDailySalesReports.push(newRecord);
+    return newRecord;
+  }
+
+  public async updateDailySalesReport(id: string, data: Partial<DailySalesReportLog>): Promise<DailySalesReportLog | null> {
+    const updatePayload = {
+      ...data,
+      updated_at: new Date().toISOString()
+    };
+    try {
+      const { data: updated, error } = await this.client
+        .from('daily_sales_reports')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+      if (!error && updated) {
+        const idx = this.inMemoryDailySalesReports.findIndex(r => r.id === id);
+        if (idx !== -1) this.inMemoryDailySalesReports[idx] = updated as DailySalesReportLog;
+        return updated as DailySalesReportLog;
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception in updateDailySalesReport:', err.message);
+    }
+
+    const idx = this.inMemoryDailySalesReports.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      this.inMemoryDailySalesReports[idx] = {
+        ...this.inMemoryDailySalesReports[idx],
+        ...data,
+        updated_at: new Date().toISOString()
+      };
+      return this.inMemoryDailySalesReports[idx];
+    }
+    return null;
+  }
+
+  // =========================================================================
+  // WhatsApp Inbox & Customer Chat Methods
+  // =========================================================================
+  private inMemoryConversations: WhatsAppConversation[] = [];
+  private inMemoryMessages: WhatsAppMessage[] = [];
+
+  private calculateWindowStatus(lastInboundAt?: string): CustomerServiceWindowInfo {
+    const now = Date.now();
+    const lastInbound = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
+    const windowDuration = 24 * 60 * 60 * 1000;
+    const isOpen = lastInbound > 0 && (now - lastInbound) < windowDuration;
+    const expiresAt = lastInbound > 0 ? new Date(lastInbound + windowDuration).toISOString() : undefined;
+    const msRemaining = isOpen ? (lastInbound + windowDuration - now) : 0;
+    const hoursRemaining = Math.floor(msRemaining / (1000 * 60 * 60));
+    const minutesRemaining = Math.floor((msRemaining % (1000 * 60 * 60)) / (1000 * 60));
+    const formattedRemaining = isOpen ? `${hoursRemaining}h ${minutesRemaining}m remaining` : undefined;
+
+    return {
+      isOpen,
+      expiresAt,
+      hoursRemaining: isOpen ? hoursRemaining : 0,
+      minutesRemaining: isOpen ? minutesRemaining : 0,
+      formattedRemaining
+    };
+  }
+
+  public async getWhatsAppConversations(
+    salonIdOrOpts?: string | { salonId?: string; salon_id?: string; branchId?: string; branch_id?: string; filter?: WhatsAppInboxFilter; status?: any; search?: string },
+    branchId?: string,
+    filter?: WhatsAppInboxFilter,
+    search?: string
+  ): Promise<WhatsAppConversation[]> {
+    let targetSalonId = 'tgl-gachibowli-main';
+    let targetBranchId = branchId;
+    let targetFilter = filter;
+    let targetSearch = search;
+
+    if (typeof salonIdOrOpts === 'object' && salonIdOrOpts !== null) {
+      targetSalonId = salonIdOrOpts.salonId || salonIdOrOpts.salon_id || 'tgl-gachibowli-main';
+      targetBranchId = salonIdOrOpts.branchId || salonIdOrOpts.branch_id;
+      targetFilter = (salonIdOrOpts.filter || salonIdOrOpts.status) as WhatsAppInboxFilter;
+      targetSearch = salonIdOrOpts.search;
+    } else if (typeof salonIdOrOpts === 'string') {
+      targetSalonId = salonIdOrOpts;
+    }
+
+    let dbConversations: WhatsAppConversation[] = [];
+
+    try {
+      let query = this.client
+        .from('whatsapp_conversations')
+        .select('*')
+        .eq('salon_id', targetSalonId);
+
+      if (targetBranchId) {
+        query = query.eq('branch_id', targetBranchId);
+      }
+      if (targetFilter === 'unread') {
+        query = query.gt('unread_count', 0);
+      } else if (targetFilter === 'open') {
+        query = query.eq('status', 'OPEN');
+      } else if (targetFilter === 'closed') {
+        query = query.eq('status', 'CLOSED');
+      }
+
+      if (targetSearch && targetSearch.trim()) {
+        const s = targetSearch.trim();
+        query = query.or(`customer_name.ilike.%${s}%,customer_phone.ilike.%${s}%`);
+      }
+
+      const { data, error } = await query.order('last_message_at', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        dbConversations = data as WhatsAppConversation[];
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Error fetching whatsapp_conversations from Supabase:', err.message);
+    }
+
+    // Merge in-memory cache
+    const convMap = new Map<string, WhatsAppConversation>();
+    for (const mem of this.inMemoryConversations) {
+      if (mem.salon_id === targetSalonId && (!targetBranchId || mem.branch_id === targetBranchId)) {
+        convMap.set(mem.id, mem);
+      }
+    }
+    for (const db of dbConversations) {
+      convMap.set(db.id, db);
+    }
+
+    let result = Array.from(convMap.values());
+
+    if (targetFilter === 'unread') {
+      result = result.filter(c => c.unread_count > 0);
+    } else if (targetFilter === 'open') {
+      result = result.filter(c => c.status === 'OPEN');
+    } else if (targetFilter === 'closed') {
+      result = result.filter(c => c.status === 'CLOSED');
+    }
+
+    if (targetSearch && targetSearch.trim()) {
+      const s = targetSearch.trim().toLowerCase();
+      result = result.filter(c => 
+        (c.customer_name && c.customer_name.toLowerCase().includes(s)) ||
+        (c.customer_phone && c.customer_phone.includes(s))
+      );
+    }
+
+    return result
+      .map(c => ({
+        ...c,
+        window_status: this.calculateWindowStatus(c.last_inbound_at)
+      }))
+      .sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime());
+  }
+
+  public async getWhatsAppConversationById(id: string): Promise<WhatsAppConversation | null> {
+    try {
+      const { data, error } = await this.client
+        .from('whatsapp_conversations')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (!error && data) {
+        const conv = data as WhatsAppConversation;
+        return {
+          ...conv,
+          window_status: this.calculateWindowStatus(conv.last_inbound_at)
+        };
+      }
+    } catch {}
+
+    const mem = this.inMemoryConversations.find(c => c.id === id);
+    if (mem) {
+      return {
+        ...mem,
+        window_status: this.calculateWindowStatus(mem.last_inbound_at)
+      };
+    }
+    return null;
+  }
+
+  public async getOrCreateWhatsAppConversation(data: {
+    salonId?: string;
+    salon_id?: string;
+    branchId?: string;
+    branch_id?: string;
+    customerPhone?: string;
+    customer_phone?: string;
+    customerName?: string;
+    customer_name?: string;
+    waPhoneNumberId?: string;
+    wa_phone_number_id?: string;
+    customerWaId?: string;
+    customer_wa_id?: string;
+    customerId?: string;
+    customer_id?: string;
+    sourceChannel?: 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
+    source_channel?: 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
+  }): Promise<WhatsAppConversation> {
+    const salonId = data.salonId || data.salon_id || 'tgl-gachibowli-main';
+    const branchId = data.branchId || data.branch_id || 'tgl-gachibowli-main';
+    const rawPhone = data.customerPhone || data.customer_phone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
+    const formattedPhone = cleanPhone.length === 10 ? `+91${cleanPhone}` : rawPhone;
+    const customerName = data.customerName || data.customer_name;
+    const waPhoneNumberId = data.waPhoneNumberId || data.wa_phone_number_id;
+    const customerWaId = data.customerWaId || data.customer_wa_id;
+    const customerId = data.customerId || data.customer_id;
+    const incomingSource = data.sourceChannel || data.source_channel || 'WHATSAPP';
+
+    try {
+      const { data: existing, error } = await this.client
+        .from('whatsapp_conversations')
+        .select('*')
+        .eq('salon_id', salonId)
+        .eq('customer_phone', formattedPhone)
+        .maybeSingle();
+
+      if (!error && existing) {
+        let needsUpdate = false;
+        const patch: Partial<WhatsAppConversation> = {};
+        if (customerName && (!existing.customer_name || existing.customer_name === 'Valued Customer' || existing.customer_name === 'WhatsApp Customer' || existing.customer_name === 'Website Visitor')) {
+          patch.customer_name = customerName;
+          needsUpdate = true;
+        }
+        if (data.customerId && !existing.customer_id) {
+          patch.customer_id = data.customerId;
+          needsUpdate = true;
+        }
+        if (data.waPhoneNumberId && !existing.wa_phone_number_id) {
+          patch.wa_phone_number_id = data.waPhoneNumberId;
+          needsUpdate = true;
+        }
+        if (existing.source_channel && existing.source_channel !== incomingSource && existing.source_channel !== 'MIXED') {
+          patch.source_channel = 'MIXED';
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          return (await this.updateWhatsAppConversation(existing.id, patch)) || (existing as WhatsAppConversation);
+        }
+        return {
+          ...(existing as WhatsAppConversation),
+          source_channel: existing.source_channel || incomingSource,
+          window_status: this.calculateWindowStatus(existing.last_inbound_at)
+        };
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Supabase error checking existing conversation:', err.message);
+    }
+
+    const memExisting = this.inMemoryConversations.find(
+      c => c.salon_id === salonId && c.customer_phone === formattedPhone
+    );
+    if (memExisting) {
+      if (data.customerName) memExisting.customer_name = data.customerName;
+      if (data.customerId) memExisting.customer_id = data.customerId;
+      if (memExisting.source_channel && memExisting.source_channel !== incomingSource && memExisting.source_channel !== 'MIXED') {
+        memExisting.source_channel = 'MIXED';
+      }
+      return {
+        ...memExisting,
+        window_status: this.calculateWindowStatus(memExisting.last_inbound_at)
+      };
+    }
+
+    const now = new Date().toISOString();
+    const newConv: WhatsAppConversation = {
+      id: `wac-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      salon_id: salonId,
+      branch_id: branchId,
+      customer_id: data.customerId,
+      wa_phone_number_id: data.waPhoneNumberId,
+      customer_wa_id: data.customerWaId,
+      customer_phone: formattedPhone,
+      customer_name: data.customerName || (incomingSource === 'WEBSITE_ENQUIRY' ? 'Website Visitor' : 'WhatsApp Customer'),
+      status: 'OPEN',
+      unread_count: 0,
+      source_channel: incomingSource,
+      last_message_at: now,
+      created_at: now,
+      updated_at: now
+    };
+
+    try {
+      const { id: _omitId, ...insertPayload } = newConv;
+      const { data: inserted, error } = await this.client
+        .from('whatsapp_conversations')
+        .insert(insertPayload)
+        .select()
+        .maybeSingle();
+
+      if (!error && inserted) {
+        const saved = inserted as WhatsAppConversation;
+        this.inMemoryConversations.unshift(saved);
+        return {
+          ...saved,
+          window_status: this.calculateWindowStatus(saved.last_inbound_at)
+        };
+      }
+      if (error) {
+        console.warn('⚠️ Supabase insert conversation error:', error.message);
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception in create WhatsApp conversation:', err.message);
+    }
+
+    this.inMemoryConversations.unshift(newConv);
+    return {
+      ...newConv,
+      window_status: this.calculateWindowStatus(newConv.last_inbound_at)
+    };
+  }
+
+  public async updateWhatsAppConversation(id: string, data: Partial<WhatsAppConversation>): Promise<WhatsAppConversation | null> {
+    const { window_status: _omitWin, id: _omitId, ...cleanData } = data as any;
+    const updatePayload: Record<string, any> = {
+      ...cleanData,
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      const { data: updated, error } = await this.client
+        .from('whatsapp_conversations')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (!error && updated) {
+        const conv = updated as WhatsAppConversation;
+        const idx = this.inMemoryConversations.findIndex(c => c.id === id || c.customer_phone === conv.customer_phone);
+        if (idx !== -1) {
+          this.inMemoryConversations[idx] = { ...this.inMemoryConversations[idx], ...conv };
+        } else {
+          this.inMemoryConversations.unshift(conv);
+        }
+        return {
+          ...conv,
+          window_status: this.calculateWindowStatus(conv.last_inbound_at)
+        };
+      }
+      if (error) {
+        console.warn('⚠️ Supabase updateWhatsAppConversation error:', error.message, error.details);
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception in updateWhatsAppConversation:', err.message);
+    }
+
+    const idx = this.inMemoryConversations.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      this.inMemoryConversations[idx] = {
+        ...this.inMemoryConversations[idx],
+        ...cleanData,
+        updated_at: new Date().toISOString()
+      };
+      return {
+        ...this.inMemoryConversations[idx],
+        window_status: this.calculateWindowStatus(this.inMemoryConversations[idx].last_inbound_at)
+      };
+    }
+    return null;
+  }
+
+  public async markWhatsAppConversationRead(id: string): Promise<boolean> {
+    await this.updateWhatsAppConversation(id, { unread_count: 0 });
+    return true;
+  }
+
+  public async getWhatsAppInboxUnreadCount(salonId?: string, branchId?: string): Promise<number> {
+    const targetSalonId = salonId || 'tgl-gachibowli-main';
+    try {
+      let query = this.client
+        .from('whatsapp_conversations')
+        .select('unread_count')
+        .eq('salon_id', targetSalonId)
+        .eq('status', 'OPEN')
+        .gt('unread_count', 0);
+
+      if (branchId) query = query.eq('branch_id', branchId);
+      const { data, error } = await query;
+      if (!error && Array.isArray(data)) {
+        return data.reduce((acc, curr) => acc + (curr.unread_count || 0), 0);
+      }
+    } catch {}
+
+    return this.inMemoryConversations
+      .filter(c => c.salon_id === targetSalonId && c.status === 'OPEN' && (!branchId || c.branch_id === branchId))
+      .reduce((acc, curr) => acc + (curr.unread_count || 0), 0);
+  }
+
+  public async getWhatsAppMessages(conversationId: string, limit: number = 100, before?: string): Promise<WhatsAppMessage[]> {
+    let dbMessages: WhatsAppMessage[] = [];
+    try {
+      let query = this.client
+        .from('whatsapp_messages')
+        .select('*')
+        .eq('conversation_id', conversationId);
+
+      if (before) {
+        query = query.lt('created_at', before);
+      }
+
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (!error && Array.isArray(data)) {
+        dbMessages = data.map((d: any) => ({
+          ...d,
+          direction: (d.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
+          message_type: d.message_type || d.type || 'text',
+          type: d.message_type || d.type || 'text',
+          text_body: d.text_body || d.body || '',
+          body: d.text_body || d.body || '',
+          status: d.status || d.delivery_status || 'sent',
+          delivery_status: d.status || d.delivery_status || 'sent',
+          source_badge: d.source_badge || d.source || (d.direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN'),
+          source: d.source_badge || d.source || (d.direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN')
+        })) as WhatsAppMessage[];
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Supabase error loading WhatsApp messages:', err.message);
+    }
+
+    const map = new Map<string, WhatsAppMessage>();
+    let memList = this.inMemoryMessages.filter(m => m.conversation_id === conversationId);
+    if (before) {
+      memList = memList.filter(m => new Date(m.created_at || 0).getTime() < new Date(before).getTime());
+    }
+    for (const mem of memList.slice(-limit)) {
+      map.set(mem.id, {
+        ...mem,
+        direction: (mem.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
+        message_type: mem.message_type || (mem as any).type || 'text',
+        type: mem.message_type || (mem as any).type || 'text',
+        text_body: mem.text_body || (mem as any).body || '',
+        body: mem.text_body || (mem as any).body || '',
+        status: mem.status || (mem as any).delivery_status || 'sent',
+        delivery_status: mem.status || (mem as any).delivery_status || 'sent',
+        source_badge: mem.source_badge || mem.source || ((mem.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN'),
+        source: mem.source_badge || mem.source || ((mem.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN')
+      });
+    }
+    for (const db of dbMessages) {
+      map.set(db.id, db);
+    }
+
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+    );
+  }
+
+  public async createWhatsAppMessage(message: Omit<WhatsAppMessage, 'id' | 'created_at'>): Promise<WhatsAppMessage> {
+    const now = new Date().toISOString();
+    const direction = (message.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND';
+    const messageType = message.message_type || (message as any).type || 'text';
+    const textBody = message.text_body || (message as any).body || '';
+    const status = message.status || (message as any).delivery_status || 'sent';
+    const sourceBadge = message.source_badge || (message as any).source || (message as any).source_channel || (direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN');
+    const sentByUserId = message.sent_by_user_id || (message as any).sender_admin_id || null;
+    const sentByUserName = message.sent_by_user_name || (message as any).sender_admin_name || null;
+
+    const newMsg: WhatsAppMessage = {
+      ...message,
+      id: `wam-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      salon_id: message.salon_id || 'tgl-gachibowli-main',
+      branch_id: message.branch_id || 'tgl-gachibowli-main',
+      conversation_id: message.conversation_id,
+      direction,
+      message_type: messageType,
+      type: messageType,
+      text_body: textBody,
+      body: textBody,
+      status,
+      delivery_status: status,
+      source_badge: sourceBadge,
+      source: sourceBadge,
+      sent_by_user_id: sentByUserId,
+      sent_by_user_name: sentByUserName,
+      created_at: now
+    };
+
+    // Clean payload strictly adhering to postgres public.whatsapp_messages schema
+    const insertPayload: Record<string, any> = {
+      salon_id: newMsg.salon_id,
+      branch_id: newMsg.branch_id,
+      conversation_id: newMsg.conversation_id,
+      direction: newMsg.direction,
+      message_type: newMsg.message_type,
+      text_body: newMsg.text_body,
+      status: newMsg.status,
+      created_at: now
+    };
+
+    if (newMsg.source_badge) {
+      insertPayload.source_badge = newMsg.source_badge;
+      insertPayload.source = newMsg.source_badge;
+    }
+    if (newMsg.meta_message_id) insertPayload.meta_message_id = newMsg.meta_message_id;
+    if (newMsg.template_name) insertPayload.template_name = newMsg.template_name;
+    if (newMsg.template_params) insertPayload.template_params = newMsg.template_params;
+    if (newMsg.error_code) insertPayload.error_code = newMsg.error_code;
+    if (newMsg.error_message) insertPayload.error_message = newMsg.error_message;
+    if (newMsg.sent_by_user_id) insertPayload.sent_by_user_id = newMsg.sent_by_user_id;
+    if (newMsg.sent_by_user_name) insertPayload.sent_by_user_name = newMsg.sent_by_user_name;
+    if (newMsg.reply_to_message_id) insertPayload.reply_to_message_id = newMsg.reply_to_message_id;
+    if (newMsg.sent_at) insertPayload.sent_at = newMsg.sent_at;
+    if (newMsg.delivered_at) insertPayload.delivered_at = newMsg.delivered_at;
+    if (newMsg.read_at) insertPayload.read_at = newMsg.read_at;
+    if (newMsg.failed_at) insertPayload.failed_at = newMsg.failed_at;
+    if ((newMsg as any).received_at) insertPayload.received_at = (newMsg as any).received_at;
+
+    try {
+      const { data, error } = await this.client
+        .from('whatsapp_messages')
+        .insert(insertPayload)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        const saved: WhatsAppMessage = {
+          ...data,
+          direction: (data.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
+          message_type: data.message_type || data.type || 'text',
+          type: data.message_type || data.type || 'text',
+          text_body: data.text_body || data.body || '',
+          body: data.text_body || data.body || '',
+          status: data.status || data.delivery_status || 'sent',
+          delivery_status: data.status || data.delivery_status || 'sent',
+          source_badge: data.source_badge || sourceBadge
+        };
+        this.inMemoryMessages.push(saved);
+        return saved;
+      }
+      if (error && error.code === '23505' && message.meta_message_id) {
+        const existing = await this.client
+          .from('whatsapp_messages')
+          .select('*')
+          .eq('meta_message_id', message.meta_message_id)
+          .maybeSingle();
+        if (existing.data) {
+          const row = existing.data;
+          return {
+            ...row,
+            direction: (row.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
+            message_type: row.message_type || row.type || 'text',
+            type: row.message_type || row.type || 'text',
+            text_body: row.text_body || row.body || '',
+            body: row.text_body || row.body || '',
+            status: row.status || row.delivery_status || 'sent',
+            delivery_status: row.status || row.delivery_status || 'sent',
+            source_badge: row.source_badge || sourceBadge
+          };
+        }
+      }
+      if (error) {
+        console.warn('⚠️ Supabase error in createWhatsAppMessage:', error.message, error.details);
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception in createWhatsAppMessage:', err.message);
+    }
+
+    this.inMemoryMessages.push(newMsg);
+    return newMsg;
+  }
+
+  public async updateWhatsAppMessageByMetaId(metaMessageId: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null> {
+    try {
+      const { data: updated, error } = await this.client
+        .from('whatsapp_messages')
+        .update(data)
+        .eq('meta_message_id', metaMessageId)
+        .select()
+        .maybeSingle();
+
+      if (!error && updated) {
+        const msg = updated as WhatsAppMessage;
+        const idx = this.inMemoryMessages.findIndex(m => m.meta_message_id === metaMessageId);
+        if (idx !== -1) this.inMemoryMessages[idx] = msg;
+        return msg;
+      }
+    } catch {}
+
+    const idx = this.inMemoryMessages.findIndex(m => m.meta_message_id === metaMessageId);
+    if (idx !== -1) {
+      this.inMemoryMessages[idx] = { ...this.inMemoryMessages[idx], ...data };
+      return this.inMemoryMessages[idx];
+    }
+    return null;
+  }
+
+  public async updateWhatsAppMessage(id: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null> {
+    try {
+      const { data: updated, error } = await this.client
+        .from('whatsapp_messages')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (!error && updated) {
+        const msg = updated as WhatsAppMessage;
+        const idx = this.inMemoryMessages.findIndex(m => m.id === id);
+        if (idx !== -1) this.inMemoryMessages[idx] = msg;
+        return msg;
+      }
+    } catch {}
+
+    const idx = this.inMemoryMessages.findIndex(m => m.id === id);
+    if (idx !== -1) {
+      this.inMemoryMessages[idx] = { ...this.inMemoryMessages[idx], ...data };
+      return this.inMemoryMessages[idx];
+    }
+    return null;
+  }
 }
+

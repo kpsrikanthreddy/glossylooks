@@ -35,7 +35,11 @@ import {
   BranchWhatsAppStatusResponse,
   WhatsAppMessageLog,
   AppointmentFeedback,
-  ScheduledFeedbackJob
+  ScheduledFeedbackJob,
+  DailySalesReportLog,
+  WhatsAppConversation,
+  WhatsAppMessage,
+  WhatsAppInboxFilter
 } from '../types/salon';
 
 const API_BASE = '/api';
@@ -391,5 +395,107 @@ export const api = {
     }>(`${API_BASE}/admin/appointments/${appointmentId}/whatsapp/confirm`, {
       method: 'POST',
       body: JSON.stringify({ force: !!force })
-    })
+    }),
+
+  // Daily Stylist Sales Reporting via WhatsApp
+  sendDailyStylistSalesReport: (options?: { date?: string; force?: boolean }) =>
+    fetchJson<{
+      success: boolean;
+      message?: string;
+      reportDate?: string;
+      totalBills?: number;
+      totalServices?: number;
+      totalSales?: number;
+      cashTotal?: number;
+      upiTotal?: number;
+      otherTotal?: number;
+      stylistReportsCount?: number;
+      ownerSummarySent?: boolean;
+      sent?: any[];
+      skipped?: any[];
+      failed?: any[];
+      error?: string;
+    }>(`${API_BASE}/admin/reports/send-daily-stylist-sales`, {
+      method: 'POST',
+      body: JSON.stringify(options || {})
+    }),
+
+  getDailyStylistSalesHistory: (date?: string) => {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+    return fetchJson<{
+      todayDate: string;
+      alreadySentToday: boolean;
+      todayReportsCount: number;
+      reports: DailySalesReportLog[];
+    }>(`${API_BASE}/admin/reports/daily-stylist-sales-history${qs}`);
+  },
+
+  // WhatsApp Inbox & Customer Chat
+  getWhatsAppConversations: (filter?: WhatsAppInboxFilter, search?: string, branchId?: string) => {
+    const params = new URLSearchParams();
+    if (filter && filter !== 'all') params.append('filter', filter);
+    if (search && search.trim()) params.append('search', search.trim());
+    if (branchId) params.append('branch_id', branchId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchJson<WhatsAppConversation[]>(`${API_BASE}/admin/whatsapp/inbox/conversations${qs}`);
+  },
+
+  getWhatsAppConversation: (conversationId: string) =>
+    fetchJson<WhatsAppConversation>(`${API_BASE}/admin/whatsapp/inbox/conversations/${encodeURIComponent(conversationId)}`),
+
+  getWhatsAppMessages: (conversationId: string, limit: number = 50, before?: string) => {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', String(limit));
+    if (before) params.set('before', before);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchJson<{ conversation?: WhatsAppConversation; messages: WhatsAppMessage[]; has_more?: boolean }>(
+      `${API_BASE}/admin/whatsapp/inbox/conversations/${encodeURIComponent(conversationId)}/messages${qs}`
+    );
+  },
+
+  sendWhatsAppManualMessage: (conversationId: string, text: string) =>
+    fetchJson<{
+      success: boolean;
+      message: WhatsAppMessage;
+      conversation: WhatsAppConversation;
+      messageId?: string;
+    }>(`${API_BASE}/admin/whatsapp/inbox/conversations/${encodeURIComponent(conversationId)}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text })
+    }),
+
+  sendWhatsAppTemplateMessage: (
+    conversationId: string,
+    payload: { template_name: string; components?: any[]; parameters?: Record<string, string>; custom_body_text?: string }
+  ) =>
+    fetchJson<{
+      success: boolean;
+      message: WhatsAppMessage;
+      conversation: WhatsAppConversation;
+      messageId?: string;
+    }>(`${API_BASE}/admin/whatsapp/inbox/conversations/${encodeURIComponent(conversationId)}/send-template`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+
+  updateWhatsAppConversationStatus: (
+    conversationId: string,
+    data: { status?: 'OPEN' | 'CLOSED'; mark_read?: boolean }
+  ) =>
+    fetchJson<{ success: boolean; conversation: WhatsAppConversation }>(
+      `${API_BASE}/admin/whatsapp/inbox/conversations/${encodeURIComponent(conversationId)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data)
+      }
+    ),
+
+  getWhatsAppInboxUnreadCount: (branchId?: string) => {
+    const qs = branchId ? `?branch_id=${encodeURIComponent(branchId)}` : '';
+    return fetchJson<{ unread_count: number }>(`${API_BASE}/admin/whatsapp/inbox/unread-count${qs}`);
+  },
+
+  getWhatsAppTemplatesList: () =>
+    fetchJson<{ data: any[] }>(`${API_BASE}/admin/whatsapp/templates`)
 };
+

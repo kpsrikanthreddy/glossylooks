@@ -635,6 +635,7 @@ export interface AppointmentFeedback {
   rating: FeedbackRating;
   reply_text?: string;
   meta_message_id?: string;
+  incoming_meta_message_id?: string;
   is_read: boolean;
   notification_read?: boolean;
   reply_status?: 'pending' | 'sending' | 'sent' | 'failed';
@@ -669,4 +670,139 @@ export interface ProcessedWebhookEvent {
   event_type: string;
   processed_at: string;
 }
+
+// ============================================================================
+// Automated Daily Stylist Sales Reporting Types
+// ============================================================================
+
+export type DailySalesReportStatus = 'sent' | 'failed' | 'retrying' | 'skipped_duplicate' | 'pending';
+
+export interface DailySalesReportLog {
+  id: string;
+  report_date: string; // YYYY-MM-DD (Asia/Kolkata)
+  report_type: 'stylist_report' | 'owner_summary';
+  recipient_type: 'stylist' | 'owner';
+  recipient_phone: string;
+  recipient_name?: string;
+  stylist_id?: string;
+  stylist_name?: string;
+  branch_id?: string;
+  bills_count: number;
+  services_count: number;
+  total_sales: number;
+  cash_amount: number;
+  upi_amount: number;
+  other_amount: number;
+  breakdown_text?: string;
+  breakdown_json?: any;
+  template_name: string;
+  meta_message_id?: string;
+  status: DailySalesReportStatus;
+  error_message?: string;
+  sent_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StylistSalesCalculation {
+  stylistId?: string;
+  stylistName: string;
+  phone: string;
+  billsCount: number;
+  servicesCount: number;
+  totalSales: number;
+  cashAmount: number;
+  upiAmount: number;
+  otherAmount: number;
+}
+
+export interface DailySalesSummaryData {
+  reportDate: string;
+  totalBills: number;
+  totalServices: number;
+  totalSales: number;
+  cashTotal: number;
+  upiTotal: number;
+  otherTotal: number;
+  stylists: StylistSalesCalculation[];
+  stylistBreakdownText: string;
+}
+
+// ============================================================================
+// WhatsApp Inbox / Customer Chat Module Types
+// ============================================================================
+
+export type WhatsAppConversationStatus = 'OPEN' | 'CLOSED';
+export type WhatsAppMessageDirection = 'INBOUND' | 'OUTBOUND' | 'inbound' | 'outbound';
+export type WhatsAppMessageType = 'text' | 'interactive' | 'button' | 'template' | 'image' | 'document' | 'system';
+export type WhatsAppDeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type WhatsAppSourceBadge = 'WEBSITE_ENQUIRY' | 'WHATSAPP' | 'AUTOMATIC' | 'TEMPLATE' | 'ADMIN';
+export type WhatsAppConversationSource = 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
+
+export interface WhatsAppConversation {
+  id: string;
+  salon_id: string;
+  branch_id?: string;
+  customer_id?: string;
+  wa_phone_number_id?: string;
+  customer_wa_id?: string;
+  customer_phone: string;
+  customer_name?: string;
+  status: WhatsAppConversationStatus;
+  unread_count: number;
+  last_message_text?: string;
+  last_message_at: string;
+  last_inbound_at?: string;
+  source_channel?: WhatsAppConversationSource;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+  // Augmented client fields
+  customer_avatar?: string;
+  window_status?: CustomerServiceWindowInfo;
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  salon_id?: string;
+  branch_id?: string;
+  conversation_id: string;
+  meta_message_id?: string; // wamid
+  direction: WhatsAppMessageDirection;
+  message_type?: WhatsAppMessageType;
+  type?: WhatsAppMessageType;
+  text_body?: string;
+  body?: string;
+  template_name?: string;
+  template_params?: any;
+  status?: WhatsAppDeliveryStatus;
+  delivery_status?: WhatsAppDeliveryStatus;
+  source_badge?: WhatsAppSourceBadge;
+  source?: WhatsAppSourceBadge;
+  metadata?: any;
+  error_code?: string;
+  error_message?: string;
+  sent_by_user_id?: string;
+  sent_by_user_name?: string;
+  sender_admin_id?: string;
+  sender_admin_name?: string;
+  reply_to_message_id?: string;
+  created_at?: string;
+  sent_at?: string;
+  delivered_at?: string;
+  read_at?: string;
+  received_at?: string;
+  failed_at?: string;
+}
+
+export interface CustomerServiceWindowInfo {
+  isOpen: boolean;
+  expiresAt?: string;
+  hoursRemaining?: number;
+  minutesRemaining?: number;
+  formattedRemaining?: string;
+}
+
+export type WhatsAppInboxFilter = 'all' | 'unread' | 'open' | 'closed';
+
 

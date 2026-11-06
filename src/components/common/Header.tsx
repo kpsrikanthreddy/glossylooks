@@ -26,7 +26,6 @@ interface HeaderProps {
   onOpenCustomerAuth: () => void;
   onOpenCustomerPortal: () => void;
   onOpenEnquiry: () => void;
-  onSwitchToAdmin: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,8 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBookings,
   onOpenCustomerAuth,
   onOpenCustomerPortal,
-  onOpenEnquiry,
-  onSwitchToAdmin
+  onOpenEnquiry
 }) => {
   const [showLocationModal, setShowLocationModal] = useState(false);
 
@@ -125,15 +123,6 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </button>
 
-              {/* Protected Salon Admin Switcher */}
-              <button
-                onClick={onSwitchToAdmin}
-                className="p-2 sm:px-3 sm:py-2 text-xs font-semibold text-white/70 hover:text-[#D4AF37] hover:bg-white/5 rounded-xl transition-colors flex items-center gap-1.5 border border-white/10"
-                title="Salon Operations Portal"
-              >
-                <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
-                <span className="hidden xl:inline">Salon Portal</span>
-              </button>
             </div>
           </div>
         </div>

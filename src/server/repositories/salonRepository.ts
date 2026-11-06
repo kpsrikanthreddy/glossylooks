@@ -41,7 +41,11 @@ import type {
   WhatsAppMessageLog,
   AppointmentFeedback,
   ScheduledFeedbackJob,
-  ProcessedWebhookEvent
+  ProcessedWebhookEvent,
+  DailySalesReportLog,
+  WhatsAppConversation,
+  WhatsAppMessage,
+  WhatsAppInboxFilter
 } from '../../types/salon.ts';
 
 export interface ISalonRepository {
@@ -193,4 +197,48 @@ export interface ISalonRepository {
   // Webhook Event Idempotency
   isWebhookEventProcessed(eventId: string): Promise<boolean>;
   recordProcessedWebhookEvent(eventId: string, eventType: string): Promise<ProcessedWebhookEvent>;
+
+  // Automated Daily Stylist Sales Reporting
+  getDailySalesReports(date?: string): Promise<DailySalesReportLog[]>;
+  getDailySalesReportByRecipient(date: string, recipientPhone: string, reportType: string): Promise<DailySalesReportLog | null>;
+  createDailySalesReport(report: Omit<DailySalesReportLog, 'id' | 'created_at' | 'updated_at'>): Promise<DailySalesReportLog>;
+  updateDailySalesReport(id: string, data: Partial<DailySalesReportLog>): Promise<DailySalesReportLog | null>;
+
+  // WhatsApp Inbox & Conversations
+  getWhatsAppConversations(
+    salonIdOrOpts?: string | { salonId?: string; salon_id?: string; branchId?: string; branch_id?: string; filter?: WhatsAppInboxFilter; status?: any; search?: string },
+    branchId?: string,
+    filter?: WhatsAppInboxFilter,
+    search?: string
+  ): Promise<WhatsAppConversation[]>;
+  getWhatsAppConversationById(id: string): Promise<WhatsAppConversation | null>;
+  getOrCreateWhatsAppConversation(data: {
+    salonId?: string;
+    salon_id?: string;
+    branchId?: string;
+    branch_id?: string;
+    customerPhone?: string;
+    customer_phone?: string;
+    customerName?: string;
+    customer_name?: string;
+    waPhoneNumberId?: string;
+    wa_phone_number_id?: string;
+    customerWaId?: string;
+    customer_wa_id?: string;
+    customerId?: string;
+    customer_id?: string;
+    sourceChannel?: 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
+    source_channel?: 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
+  }): Promise<WhatsAppConversation>;
+  updateWhatsAppConversation(id: string, data: Partial<WhatsAppConversation>): Promise<WhatsAppConversation | null>;
+  markWhatsAppConversationRead(id: string): Promise<boolean>;
+  getWhatsAppInboxUnreadCount(salonId?: string, branchId?: string): Promise<number>;
+
+  // WhatsApp Messages
+  getWhatsAppMessages(conversationId: string, limit?: number, before?: string): Promise<WhatsAppMessage[]>;
+  createWhatsAppMessage(message: Omit<WhatsAppMessage, 'id' | 'created_at'>): Promise<WhatsAppMessage>;
+  updateWhatsAppMessageByMetaId(metaMessageId: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null>;
+  updateWhatsAppMessage(id: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null>;
 }
+
+

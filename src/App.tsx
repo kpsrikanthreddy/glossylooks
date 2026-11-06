@@ -221,7 +221,6 @@ export default function App() {
         onOpenCustomerAuth={() => setIsCustomerAuthOpen(true)}
         onOpenCustomerPortal={() => setIsCustomerPortalOpen(true)}
         onOpenEnquiry={() => setIsEnquiryOpen(true)}
-        onSwitchToAdmin={navigateToAdmin}
       />
 
       {/* Main Content Area */}
@@ -351,12 +350,6 @@ export default function App() {
                 WhatsApp Us ({settings.whatsapp})
               </a>
             ) : null}
-            <button
-              onClick={navigateToAdmin}
-              className="text-[#D4AF37] hover:underline font-semibold"
-            >
-              Salon Operations Login
-            </button>
           </div>
 
           <p className="text-[11px] text-white/40">

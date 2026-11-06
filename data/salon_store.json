@@ -4034,7 +4034,88 @@
     }
   ],
   "whatsapp_message_logs": [],
-  "appointment_feedback": [],
+  "appointment_feedback": [
+    {
+      "branch_id": "tgl-gachibowli-main",
+      "customer_name": "Srireddy Test",
+      "customer_phone": "8179620607",
+      "rating": "good",
+      "reply_text": "Good",
+      "meta_message_id": "test-123",
+      "is_read": false,
+      "id": "fbk-1793699751872-991",
+      "received_at": "2026-11-03T09:55:51.872Z",
+      "notification_read": false
+    }
+  ],
   "scheduled_feedback_jobs": [],
-  "processed_webhook_events": []
+  "processed_webhook_events": [],
+  "whatsapp_conversations": [
+    {
+      "id": "wac-1793956880297-556",
+      "salon_id": "tgl-gachibowli-main",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_phone": "+919988776655",
+      "customer_name": "Website Visitor",
+      "status": "OPEN",
+      "unread_count": 1,
+      "source_channel": "WEBSITE_ENQUIRY",
+      "last_message_at": "2026-11-06T09:21:20.300Z",
+      "created_at": "2026-11-06T09:21:20.297Z",
+      "updated_at": "2026-11-06T09:21:20.300Z",
+      "last_message_text": "[Website Enquiry] Bridal Makeup: Wedding on Dec 12"
+    },
+    {
+      "id": "wac-1793956880293-710",
+      "salon_id": "tgl-gachibowli-main",
+      "branch_id": "tgl-gachibowli-main",
+      "customer_phone": "+918179620607",
+      "customer_name": "WhatsApp Customer",
+      "status": "OPEN",
+      "unread_count": 1,
+      "source_channel": "WHATSAPP",
+      "last_message_at": "2026-11-06T09:24:29.082Z",
+      "created_at": "2026-11-06T09:21:20.293Z",
+      "updated_at": "2026-11-06T09:24:29.082Z",
+      "last_inbound_at": "2026-11-06T09:24:29.082Z",
+      "last_message_text": "Hi, can i come today?"
+    }
+  ],
+  "whatsapp_messages": [
+    {
+      "conversation_id": "wac-1793956880293-710",
+      "direction": "INBOUND",
+      "message_type": "text",
+      "text_body": "Hi, can i come today?",
+      "meta_message_id": "wamid.test.1793956880295",
+      "status": "delivered",
+      "source_badge": "WHATSAPP",
+      "id": "wam-1793956880295-417",
+      "salon_id": "tgl-gachibowli-main",
+      "branch_id": "tgl-gachibowli-main",
+      "type": "text",
+      "body": "Hi, can i come today?",
+      "delivery_status": "delivered",
+      "sent_by_user_id": null,
+      "sent_by_user_name": null,
+      "created_at": "2026-11-06T09:21:20.295Z"
+    },
+    {
+      "conversation_id": "wac-1793956880297-556",
+      "direction": "INBOUND",
+      "message_type": "text",
+      "text_body": "Website Enquiry\nService: Bridal Makeup\nNotes: Wedding on Dec 12\nEmail: pooja@example.com",
+      "status": "delivered",
+      "source_badge": "WEBSITE_ENQUIRY",
+      "id": "wam-1793956880299-319",
+      "salon_id": "tgl-gachibowli-main",
+      "branch_id": "tgl-gachibowli-main",
+      "type": "text",
+      "body": "Website Enquiry\nService: Bridal Makeup\nNotes: Wedding on Dec 12\nEmail: pooja@example.com",
+      "delivery_status": "delivered",
+      "sent_by_user_id": null,
+      "sent_by_user_name": null,
+      "created_at": "2026-11-06T09:21:20.299Z"
+    }
+  ]
 }

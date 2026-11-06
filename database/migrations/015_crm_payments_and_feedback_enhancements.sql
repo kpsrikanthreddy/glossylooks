@@ -41,7 +41,7 @@ DO $$
 DECLARE
     r RECORD;
     v_clean_mobile TEXT;
-    v_existing_id TEXT;
+    v_existing_id_text TEXT;
 BEGIN
     FOR r IN (
         SELECT 
@@ -58,12 +58,12 @@ BEGIN
         -- Normalize phone to last 10 digits for matching
         v_clean_mobile := RIGHT(REGEXP_REPLACE(r.customer_phone, '\D', '', 'g'), 10);
         IF LENGTH(v_clean_mobile) = 10 THEN
-            SELECT id INTO v_existing_id 
+            SELECT id::text INTO v_existing_id_text 
             FROM public.customers 
             WHERE RIGHT(REGEXP_REPLACE(mobile, '\D', '', 'g'), 10) = v_clean_mobile
             LIMIT 1;
 
-            IF v_existing_id IS NOT NULL THEN
+            IF v_existing_id_text IS NOT NULL THEN
                 UPDATE public.customers
                 SET 
                     name = COALESCE(NULLIF(r.customer_name, ''), name),
@@ -73,10 +73,9 @@ BEGIN
                     latest_bill_number = COALESCE(r.bill_number, latest_bill_number),
                     branch_id = COALESCE(r.branch_id, branch_id),
                     updated_at = NOW()
-                WHERE id = v_existing_id;
+                WHERE id::text = v_existing_id_text;
             ELSE
                 INSERT INTO public.customers (
-                    id,
                     name,
                     mobile,
                     branch_id,
@@ -89,7 +88,6 @@ BEGIN
                     created_at,
                     updated_at
                 ) VALUES (
-                    'cust_' || gen_random_uuid()::text,
                     COALESCE(NULLIF(r.customer_name, ''), 'Salon Guest'),
                     v_clean_mobile,
                     r.branch_id,
@@ -109,8 +107,8 @@ END $$;
 
 -- 3. Enhance public.payments and backfill from orders
 CREATE TABLE IF NOT EXISTS public.payments (
-    id TEXT PRIMARY KEY,
-    order_id TEXT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID,
     bill_number TEXT NOT NULL,
     customer_name TEXT NOT NULL,
     customer_phone TEXT NOT NULL,
@@ -129,6 +127,9 @@ CREATE TABLE IF NOT EXISTS public.payments (
 );
 
 ALTER TABLE IF EXISTS public.payments
+ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+ALTER TABLE IF EXISTS public.payments
 ADD COLUMN IF NOT EXISTS subtotal NUMERIC DEFAULT 0;
 
 ALTER TABLE IF EXISTS public.payments
@@ -142,7 +143,6 @@ ADD COLUMN IF NOT EXISTS branch_id TEXT;
 
 -- Backfill missing payments from orders so Ledger is 100% complete
 INSERT INTO public.payments (
-    id,
     order_id,
     bill_number,
     customer_name,
@@ -157,7 +157,6 @@ INSERT INTO public.payments (
     created_at
 )
 SELECT 
-    'pay_' || o.id,
     o.id,
     o.bill_number,
     o.customer_name,
@@ -174,7 +173,7 @@ SELECT
     o.created_at
 FROM public.orders o
 WHERE NOT EXISTS (
-    SELECT 1 FROM public.payments p WHERE p.order_id = o.id
+    SELECT 1 FROM public.payments p WHERE p.order_id::text = o.id::text
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_order_id ON public.payments (order_id);
@@ -211,6 +210,21 @@ ALTER TABLE IF EXISTS public.appointment_feedback
 ADD COLUMN IF NOT EXISTS incoming_meta_message_id TEXT;
 
 ALTER TABLE IF EXISTS public.appointment_feedback
+ADD COLUMN IF NOT EXISTS meta_message_id TEXT;
+
+ALTER TABLE IF EXISTS public.appointment_feedback
+ADD COLUMN IF NOT EXISTS reply_text TEXT;
+
+ALTER TABLE IF EXISTS public.appointment_feedback
+ADD COLUMN IF NOT EXISTS branch_id TEXT;
+
+ALTER TABLE IF EXISTS public.appointment_feedback
+ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
+
+ALTER TABLE IF EXISTS public.appointment_feedback
+ADD COLUMN IF NOT EXISTS received_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE IF EXISTS public.appointment_feedback
 ADD COLUMN IF NOT EXISTS reply_sent_at TIMESTAMP WITH TIME ZONE;
 
 CREATE INDEX IF NOT EXISTS idx_feedback_order_id ON public.appointment_feedback (order_id);
@@ -237,5 +251,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_pwe_event_id_unique
 ON public.processed_webhook_events (event_id)
 WHERE event_id IS NOT NULL;
 
--- 6. Reload schema cache for PostgREST / Supabase
+-- 6. Ensure scheduled_feedback_jobs columns exist defensively
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs
+ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs
+ADD COLUMN IF NOT EXISTS meta_message_id TEXT;
+
+ALTER TABLE IF EXISTS public.scheduled_feedback_jobs
+ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+-- 7. Reload schema cache for PostgREST / Supabase
 NOTIFY pgrst, 'reload schema';

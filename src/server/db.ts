@@ -42,7 +42,12 @@ import type {
   WhatsAppMessageLog,
   AppointmentFeedback,
   ScheduledFeedbackJob,
-  ProcessedWebhookEvent
+  ProcessedWebhookEvent,
+  DailySalesReportLog,
+  WhatsAppConversation,
+  WhatsAppMessage,
+  WhatsAppInboxFilter,
+  CustomerServiceWindowInfo
 } from '../types/salon.ts';
 import type { ISalonRepository } from './repositories/salonRepository.ts';
 
@@ -78,6 +83,9 @@ export interface DatabaseData {
   appointment_feedback?: AppointmentFeedback[];
   scheduled_feedback_jobs?: ScheduledFeedbackJob[];
   processed_webhook_events?: ProcessedWebhookEvent[];
+  daily_sales_reports?: DailySalesReportLog[];
+  whatsapp_conversations?: WhatsAppConversation[];
+  whatsapp_messages?: WhatsAppMessage[];
 }
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'salon_store.json');
@@ -1061,7 +1069,8 @@ function getInitialData(): DatabaseData {
     whatsapp_message_logs: [],
     appointment_feedback: [],
     scheduled_feedback_jobs: [],
-    processed_webhook_events: []
+    processed_webhook_events: [],
+    daily_sales_reports: []
   };
 }
 
@@ -1320,6 +1329,14 @@ class SalonDatabase implements ISalonRepository {
     }
     if (!data.processed_webhook_events) {
       data.processed_webhook_events = [];
+      changed = true;
+    }
+    if (!data.whatsapp_conversations) {
+      data.whatsapp_conversations = [];
+      changed = true;
+    }
+    if (!data.whatsapp_messages) {
+      data.whatsapp_messages = [];
       changed = true;
     }
 
@@ -3559,6 +3576,345 @@ class SalonDatabase implements ISalonRepository {
     this.data.processed_webhook_events.push(event);
     this.save();
     return event;
+  }
+
+  // ==========================================================================
+  // Automated Daily Stylist Sales Reporting
+  // ==========================================================================
+
+  public async getDailySalesReports(date?: string): Promise<DailySalesReportLog[]> {
+    if (!this.data.daily_sales_reports) this.data.daily_sales_reports = [];
+    if (!date) return [...this.data.daily_sales_reports].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return this.data.daily_sales_reports
+      .filter(r => r.report_date === date)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  public async getDailySalesReportByRecipient(date: string, recipientPhone: string, reportType: string): Promise<DailySalesReportLog | null> {
+    if (!this.data.daily_sales_reports) this.data.daily_sales_reports = [];
+    const cleanPhone = recipientPhone.replace(/\D/g, '').slice(-10);
+    const match = this.data.daily_sales_reports.find(r => 
+      r.report_date === date && 
+      r.report_type === reportType && 
+      r.recipient_phone.replace(/\D/g, '').slice(-10) === cleanPhone
+    );
+    return match || null;
+  }
+
+  public async createDailySalesReport(report: Omit<DailySalesReportLog, 'id' | 'created_at' | 'updated_at'>): Promise<DailySalesReportLog> {
+    if (!this.data.daily_sales_reports) this.data.daily_sales_reports = [];
+    const id = `dsr-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const now = new Date().toISOString();
+    const newRecord: DailySalesReportLog = {
+      ...report,
+      id,
+      created_at: now,
+      updated_at: now
+    };
+    this.data.daily_sales_reports.push(newRecord);
+    this.save();
+    return newRecord;
+  }
+
+  public async updateDailySalesReport(id: string, data: Partial<DailySalesReportLog>): Promise<DailySalesReportLog | null> {
+    if (!this.data.daily_sales_reports) this.data.daily_sales_reports = [];
+    const idx = this.data.daily_sales_reports.findIndex(r => r.id === id);
+    if (idx === -1) return null;
+    this.data.daily_sales_reports[idx] = {
+      ...this.data.daily_sales_reports[idx],
+      ...data,
+      updated_at: new Date().toISOString()
+    };
+    this.save();
+    return this.data.daily_sales_reports[idx];
+  }
+
+  // =========================================================================
+  // WhatsApp Inbox & Customer Chat Methods
+  // =========================================================================
+  private calculateWindowStatus(lastInboundAt?: string): CustomerServiceWindowInfo {
+    const now = Date.now();
+    const lastInbound = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
+    const windowDuration = 24 * 60 * 60 * 1000;
+    const isOpen = lastInbound > 0 && (now - lastInbound) < windowDuration;
+    const expiresAt = lastInbound > 0 ? new Date(lastInbound + windowDuration).toISOString() : undefined;
+    const msRemaining = isOpen ? (lastInbound + windowDuration - now) : 0;
+    const hoursRemaining = Math.floor(msRemaining / (1000 * 60 * 60));
+    const minutesRemaining = Math.floor((msRemaining % (1000 * 60 * 60)) / (1000 * 60));
+    const formattedRemaining = isOpen ? `${hoursRemaining}h ${minutesRemaining}m remaining` : undefined;
+
+    return {
+      isOpen,
+      expiresAt,
+      hoursRemaining: isOpen ? hoursRemaining : 0,
+      minutesRemaining: isOpen ? minutesRemaining : 0,
+      formattedRemaining
+    };
+  }
+
+  public async getWhatsAppConversations(
+    salonIdOrOpts?: string | { salonId?: string; salon_id?: string; branchId?: string; branch_id?: string; filter?: WhatsAppInboxFilter; status?: any; search?: string },
+    branchId?: string,
+    filter?: WhatsAppInboxFilter,
+    search?: string
+  ): Promise<WhatsAppConversation[]> {
+    if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
+    let targetSalonId = 'tgl-gachibowli-main';
+    let targetBranchId = branchId;
+    let targetFilter = filter;
+    let targetSearch = search;
+
+    if (typeof salonIdOrOpts === 'object' && salonIdOrOpts !== null) {
+      targetSalonId = salonIdOrOpts.salonId || salonIdOrOpts.salon_id || 'tgl-gachibowli-main';
+      targetBranchId = salonIdOrOpts.branchId || salonIdOrOpts.branch_id;
+      targetFilter = (salonIdOrOpts.filter || salonIdOrOpts.status) as WhatsAppInboxFilter;
+      targetSearch = salonIdOrOpts.search;
+    } else if (typeof salonIdOrOpts === 'string') {
+      targetSalonId = salonIdOrOpts;
+    }
+
+    let list = this.data.whatsapp_conversations.filter(c => c.salon_id === targetSalonId);
+
+    if (targetBranchId) {
+      list = list.filter(c => !c.branch_id || c.branch_id === targetBranchId);
+    }
+    if (targetFilter === 'unread') {
+      list = list.filter(c => c.unread_count > 0);
+    } else if (targetFilter === 'open') {
+      list = list.filter(c => c.status === 'OPEN');
+    } else if (targetFilter === 'closed') {
+      list = list.filter(c => c.status === 'CLOSED');
+    }
+
+    if (targetSearch && targetSearch.trim()) {
+      const s = targetSearch.trim().toLowerCase();
+      list = list.filter(c => 
+        (c.customer_name && c.customer_name.toLowerCase().includes(s)) ||
+        (c.customer_phone && c.customer_phone.includes(s))
+      );
+    }
+
+    return list
+      .map(c => ({
+        ...c,
+        window_status: this.calculateWindowStatus(c.last_inbound_at)
+      }))
+      .sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime());
+  }
+
+  public async getWhatsAppConversationById(id: string): Promise<WhatsAppConversation | null> {
+    if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
+    const c = this.data.whatsapp_conversations.find(x => x.id === id);
+    if (!c) return null;
+    return {
+      ...c,
+      window_status: this.calculateWindowStatus(c.last_inbound_at)
+    };
+  }
+
+  public async getOrCreateWhatsAppConversation(data: {
+    salonId?: string;
+    salon_id?: string;
+    branchId?: string;
+    branch_id?: string;
+    customerPhone?: string;
+    customer_phone?: string;
+    customerName?: string;
+    customer_name?: string;
+    waPhoneNumberId?: string;
+    wa_phone_number_id?: string;
+    customerWaId?: string;
+    customer_wa_id?: string;
+    customerId?: string;
+    customer_id?: string;
+    sourceChannel?: 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
+    source_channel?: 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
+  }): Promise<WhatsAppConversation> {
+    if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
+    const salonId = data.salonId || data.salon_id || 'tgl-gachibowli-main';
+    const branchId = data.branchId || data.branch_id || 'tgl-gachibowli-main';
+    const rawPhone = data.customerPhone || data.customer_phone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
+    const formattedPhone = cleanPhone.length === 10 ? `+91${cleanPhone}` : rawPhone;
+    const customerName = data.customerName || data.customer_name;
+    const waPhoneNumberId = data.waPhoneNumberId || data.wa_phone_number_id;
+    const customerWaId = data.customerWaId || data.customer_wa_id;
+    const customerId = data.customerId || data.customer_id;
+    const incomingSource = data.sourceChannel || data.source_channel || 'WHATSAPP';
+
+    const existing = this.data.whatsapp_conversations.find(
+      c => c.salon_id === salonId && c.customer_phone === formattedPhone
+    );
+
+    if (existing) {
+      let needsSave = false;
+      if (customerName && (!existing.customer_name || existing.customer_name === 'Valued Customer' || existing.customer_name === 'WhatsApp Customer' || existing.customer_name === 'Website Visitor')) {
+        existing.customer_name = customerName;
+        needsSave = true;
+      }
+      if (customerId && !existing.customer_id) {
+        existing.customer_id = customerId;
+        needsSave = true;
+      }
+      if (waPhoneNumberId && !existing.wa_phone_number_id) {
+        existing.wa_phone_number_id = waPhoneNumberId;
+        needsSave = true;
+      }
+      if (existing.source_channel && existing.source_channel !== incomingSource && existing.source_channel !== 'MIXED') {
+        existing.source_channel = 'MIXED';
+        needsSave = true;
+      }
+      if (needsSave) this.save();
+      return {
+        ...existing,
+        source_channel: existing.source_channel || incomingSource,
+        window_status: this.calculateWindowStatus(existing.last_inbound_at)
+      };
+    }
+
+    const now = new Date().toISOString();
+    const newConv: WhatsAppConversation = {
+      id: `wac-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      salon_id: salonId,
+      branch_id: branchId,
+      customer_id: data.customerId,
+      wa_phone_number_id: data.waPhoneNumberId,
+      customer_wa_id: data.customerWaId,
+      customer_phone: formattedPhone,
+      customer_name: data.customerName || (incomingSource === 'WEBSITE_ENQUIRY' ? 'Website Visitor' : 'WhatsApp Customer'),
+      status: 'OPEN',
+      unread_count: 0,
+      source_channel: incomingSource,
+      last_message_at: now,
+      created_at: now,
+      updated_at: now
+    };
+
+    this.data.whatsapp_conversations.unshift(newConv);
+    this.save();
+    return {
+      ...newConv,
+      window_status: this.calculateWindowStatus(newConv.last_inbound_at)
+    };
+  }
+
+  public async updateWhatsAppConversation(id: string, data: Partial<WhatsAppConversation>): Promise<WhatsAppConversation | null> {
+    if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
+    const { window_status: _omitWin, id: _omitId, ...cleanData } = data as any;
+    let idx = this.data.whatsapp_conversations.findIndex(c => c.id === id);
+    if (idx === -1 && cleanData.customer_phone) {
+      idx = this.data.whatsapp_conversations.findIndex(c => c.customer_phone === cleanData.customer_phone);
+    }
+    if (idx === -1) return null;
+    this.data.whatsapp_conversations[idx] = {
+      ...this.data.whatsapp_conversations[idx],
+      ...cleanData,
+      updated_at: new Date().toISOString()
+    };
+    this.save();
+    return {
+      ...this.data.whatsapp_conversations[idx],
+      window_status: this.calculateWindowStatus(this.data.whatsapp_conversations[idx].last_inbound_at)
+    };
+  }
+
+  public async markWhatsAppConversationRead(id: string): Promise<boolean> {
+    await this.updateWhatsAppConversation(id, { unread_count: 0 });
+    return true;
+  }
+
+  public async getWhatsAppInboxUnreadCount(salonId?: string, branchId?: string): Promise<number> {
+    if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
+    const targetSalonId = salonId || 'tgl-gachibowli-main';
+    return this.data.whatsapp_conversations
+      .filter(c => c.salon_id === targetSalonId && c.status === 'OPEN' && (!branchId || c.branch_id === branchId))
+      .reduce((acc, curr) => acc + (curr.unread_count || 0), 0);
+  }
+
+  public async getWhatsAppMessages(conversationId: string, limit: number = 100, before?: string): Promise<WhatsAppMessage[]> {
+    if (!this.data.whatsapp_messages) this.data.whatsapp_messages = [];
+    let list = this.data.whatsapp_messages.filter(m => m.conversation_id === conversationId);
+    if (before) {
+      list = list.filter(m => new Date(m.created_at || 0).getTime() < new Date(before).getTime());
+    }
+    return list
+      .map(m => ({
+        ...m,
+        direction: (m.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
+        message_type: m.message_type || (m as any).type || 'text',
+        type: m.message_type || (m as any).type || 'text',
+        text_body: m.text_body || (m as any).body || '',
+        body: m.text_body || (m as any).body || '',
+        status: m.status || (m as any).delivery_status || 'sent',
+        delivery_status: m.status || (m as any).delivery_status || 'sent',
+        source_badge: m.source_badge || (m as any).source || ((m.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN'),
+        source: m.source_badge || (m as any).source || ((m.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN')
+      }))
+      .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
+      .slice(-limit);
+  }
+
+  public async createWhatsAppMessage(message: Omit<WhatsAppMessage, 'id' | 'created_at'>): Promise<WhatsAppMessage> {
+    if (!this.data.whatsapp_messages) this.data.whatsapp_messages = [];
+    if (message.meta_message_id) {
+      const existing = this.data.whatsapp_messages.find(m => m.meta_message_id === message.meta_message_id);
+      if (existing) return existing;
+    }
+
+    const now = new Date().toISOString();
+    const direction = (message.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND';
+    const messageType = message.message_type || (message as any).type || 'text';
+    const textBody = message.text_body || (message as any).body || '';
+    const status = message.status || (message as any).delivery_status || 'sent';
+    const sourceBadge = message.source_badge || (message as any).source_channel || (direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN');
+    const sentByUserId = message.sent_by_user_id || (message as any).sender_admin_id || null;
+    const sentByUserName = message.sent_by_user_name || (message as any).sender_admin_name || null;
+
+    const newMsg: WhatsAppMessage = {
+      ...message,
+      id: `wam-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      salon_id: message.salon_id || 'tgl-gachibowli-main',
+      branch_id: message.branch_id || 'tgl-gachibowli-main',
+      conversation_id: message.conversation_id,
+      direction,
+      message_type: messageType,
+      type: messageType,
+      text_body: textBody,
+      body: textBody,
+      status,
+      delivery_status: status,
+      source_badge: sourceBadge,
+      sent_by_user_id: sentByUserId,
+      sent_by_user_name: sentByUserName,
+      created_at: now
+    };
+    this.data.whatsapp_messages.push(newMsg);
+    this.save();
+    return newMsg;
+  }
+
+  public async updateWhatsAppMessageByMetaId(metaMessageId: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null> {
+    if (!this.data.whatsapp_messages) this.data.whatsapp_messages = [];
+    const idx = this.data.whatsapp_messages.findIndex(m => m.meta_message_id === metaMessageId);
+    if (idx === -1) return null;
+    this.data.whatsapp_messages[idx] = {
+      ...this.data.whatsapp_messages[idx],
+      ...data
+    };
+    this.save();
+    return this.data.whatsapp_messages[idx];
+  }
+
+  public async updateWhatsAppMessage(id: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null> {
+    if (!this.data.whatsapp_messages) this.data.whatsapp_messages = [];
+    const idx = this.data.whatsapp_messages.findIndex(m => m.id === id);
+    if (idx === -1) return null;
+    this.data.whatsapp_messages[idx] = {
+      ...this.data.whatsapp_messages[idx],
+      ...data
+    };
+    this.save();
+    return this.data.whatsapp_messages[idx];
   }
 }
 

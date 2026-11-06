@@ -59,6 +59,7 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { WhatsAppIntegrationSection } from './WhatsAppIntegrationSection';
+import { WhatsAppInbox } from './whatsapp/WhatsAppInbox';
 import { 
   AdminUser, 
   AdminRole, 
@@ -83,7 +84,8 @@ import {
   SalesReportFilter,
   WhatsAppMessageLog,
   AppointmentFeedback,
-  SalonBranch
+  SalonBranch,
+  DailySalesReportLog
 } from '../../types/salon';
 import { api } from '../../lib/api';
 
@@ -91,10 +93,6 @@ interface AdminPortalProps {
   onBackToWebsite: () => void;
   onViewReceipt: (order?: Order, apt?: Appointment, type?: 'bill' | 'service_ticket') => void;
 }
-
-const PRESET_ACCOUNTS = [
-  { identifier: 'TGL-OWN01', email: 'owner@theglossylooks.com', mobile: '8985799459', password: 'admin123', role: 'owner', name: 'Madu Mounika' }
-];
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onViewReceipt }) => {
   // Authentication & Session - Read strictly from local session storage; null by default when unauthenticated
@@ -124,16 +122,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
     return null;
   });
 
-  const [loginIdentifier, setLoginIdentifier] = useState('TGL-OWN01');
-  const [loginPassword, setLoginPassword] = useState('admin123');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Active module navigation
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'customers' | 'appointments' | 'services' | 'gallery' | 'inventory' | 'pos' | 'payments' | 'staff' | 'reports' | 'printers' | 'settings'
-  >('dashboard');
+    'dashboard' | 'customers' | 'appointments' | 'services' | 'gallery' | 'inventory' | 'pos' | 'payments' | 'staff' | 'reports' | 'printers' | 'settings' | 'whatsapp_inbox'
+  >(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/whatsapp/inbox')) {
+      return 'whatsapp_inbox';
+    }
+    return 'dashboard';
+  });
+
+  const [inboxUnreadCount, setInboxUnreadCount] = useState<number>(0);
 
   // Sub-navigation for Settings module (Owner only)
   const [settingsSubTab, setSettingsSubTab] = useState<'whatsapp' | 'users' | 'audit'>('whatsapp');
@@ -190,6 +195,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [customStartDate, setCustomStartDate] = useState('2026-10-01');
   const [customEndDate, setCustomEndDate] = useState('2026-10-27');
   const [loadingReports, setLoadingReports] = useState(false);
+
+  // Daily Stylist Sales Reporting via WhatsApp
+  const [dailySalesHistory, setDailySalesHistory] = useState<DailySalesReportLog[]>([]);
+  const [alreadySentToday, setAlreadySentToday] = useState(false);
+  const [todayKolkataDate, setTodayKolkataDate] = useState('');
+  const [sendingDailyStylistReports, setSendingDailyStylistReports] = useState(false);
+  const [dailyReportsStatusMsg, setDailyReportsStatusMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [resendConfirmModalOpen, setResendConfirmModalOpen] = useState(false);
+  const [showDailySalesHistorySection, setShowDailySalesHistorySection] = useState(true);
 
   // Owner RBAC Modals
   const [userModal, setUserModal] = useState<{ isOpen: boolean; data?: User | null }>({ isOpen: false });
@@ -337,10 +351,60 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         endDate: period === 'custom' ? end : undefined
       });
       setDetailedReports(res);
+      // Also refresh daily stylist sales report history
+      loadDailySalesHistory().catch(() => {});
     } catch (err) {
       console.error('Failed to load detailed reports:', err);
     } finally {
       setLoadingReports(false);
+    }
+  };
+
+  const loadDailySalesHistory = async () => {
+    try {
+      const res = await api.getDailyStylistSalesHistory();
+      setDailySalesHistory(res.reports || []);
+      setAlreadySentToday(res.alreadySentToday);
+      setTodayKolkataDate(res.todayDate);
+    } catch (err) {
+      console.warn('Could not load daily sales history:', err);
+    }
+  };
+
+  const handleTriggerDailyStylistReport = async (force: boolean = false) => {
+    if (!force && alreadySentToday) {
+      setResendConfirmModalOpen(true);
+      return;
+    }
+
+    setResendConfirmModalOpen(false);
+    setSendingDailyStylistReports(true);
+    setDailyReportsStatusMsg(null);
+
+    try {
+      const res = await api.sendDailyStylistSalesReport({ force });
+      if (res.success) {
+        const sentCount = res.sent?.length || 0;
+        const skippedCount = res.skipped?.length || 0;
+        const failedCount = res.failed?.length || 0;
+        setDailyReportsStatusMsg({
+          type: 'success',
+          text: `Daily sales WhatsApp reports processed: ${sentCount} delivered${skippedCount > 0 ? `, ${skippedCount} skipped (already sent)` : ''}${failedCount > 0 ? `, ${failedCount} delivery errors` : ''}.`
+        });
+        await loadDailySalesHistory();
+      } else {
+        setDailyReportsStatusMsg({
+          type: 'error',
+          text: res.error || 'Failed to dispatch daily sales WhatsApp reports.'
+        });
+      }
+    } catch (err: any) {
+      setDailyReportsStatusMsg({
+        type: 'error',
+        text: err.message || 'Error triggering daily stylist sales reports.'
+      });
+    } finally {
+      setSendingDailyStylistReports(false);
     }
   };
 
@@ -464,6 +528,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   useEffect(() => {
     if (currentUser) {
       loadAllData();
+      const isPrivileged = currentUser.role === 'owner' || currentUser.role === 'manager';
+      if (isPrivileged) {
+        api.getWhatsAppInboxUnreadCount()
+          .then(res => setInboxUnreadCount(res.unread_count))
+          .catch(() => {});
+        const interval = setInterval(() => {
+          api.getWhatsAppInboxUnreadCount()
+            .then(res => setInboxUnreadCount(res.unread_count))
+            .catch(() => {});
+        }, 20000);
+        return () => clearInterval(interval);
+      }
     }
   }, [currentUser]);
 
@@ -976,40 +1052,56 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
     return (
       <div className="min-h-screen bg-[#120B0F] flex items-center justify-center p-4">
         <div className="bg-[#1A0F16] border border-[#D4AF37]/30 text-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative">
-          <button
-            onClick={onBackToWebsite}
-            className="absolute left-6 top-6 text-white/50 hover:text-white flex items-center gap-1 text-xs"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Storefront</span>
-          </button>
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={onBackToWebsite}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs border border-white/10 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Customer Website</span>
+            </button>
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/20">
+              <ShieldCheck className="w-3 h-3" />
+              Restricted Portal
+            </span>
+          </div>
 
-          <div className="text-center mt-6 mb-6">
+          <div className="text-center mb-5">
             <img
               src="/assets/brand/glossy-looks-logo.png"
               alt="The Glossy Looks logo"
-              className="w-14 h-14 rounded-full object-cover mx-auto shadow-xl mb-3"
+              className="w-14 h-14 rounded-full object-cover mx-auto shadow-xl mb-3 border border-[#D4AF37]/40"
             />
             <h2 className="font-serif font-bold text-2xl text-white">The Glossy Looks</h2>
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#D4AF37]">
-              Staff & Operations Portal Login
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#D4AF37] block mt-0.5">
+              Operations & Management System
             </span>
             <p className="text-[11px] text-white/60 mt-1">
-              Access restricted to authorized salon staff and owners only.
+              Authorized salon personnel only. Customers and unauthorized visitors are strictly prohibited.
             </p>
+          </div>
+
+          {/* Security Banner */}
+          <div className="p-3 bg-rose-950/40 border border-rose-500/30 rounded-xl text-rose-200 text-[11px] leading-relaxed mb-5 flex items-start gap-2.5">
+            <Lock className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-white block font-semibold">Strict Access Control</strong>
+              <span>Only staff with verified Salon Management credentials can access this console. All login events, IP addresses, and session timestamps are audited.</span>
+            </div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4 text-xs">
             <div>
               <label className="block text-white/80 font-semibold mb-1">
-                User ID / Email / Mobile Number
+                Staff ID / Work Email / Registered Mobile
               </label>
               <input
                 type="text"
                 required
+                autoComplete="username"
                 value={loginIdentifier}
                 onChange={e => setLoginIdentifier(e.target.value)}
-                placeholder="e.g. TGL-OWN01, owner@theglossylooks.com, or registered mobile"
+                placeholder="Enter authorized staff ID or registered email"
                 className="w-full p-2.5 bg-white/5 border border-white/20 rounded-xl text-white outline-none focus:border-[#D4AF37] placeholder:text-white/30"
               />
             </div>
@@ -1028,6 +1120,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
+                autoComplete="current-password"
                 value={loginPassword}
                 onChange={e => setLoginPassword(e.target.value)}
                 placeholder="Enter password assigned by Salon Owner"
@@ -1045,47 +1138,34 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3 bg-gradient-to-r from-[#D4AF37] to-[#F3D7D7] text-[#120B0F] font-bold rounded-xl shadow-lg hover:opacity-95 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-[#D4AF37] to-[#F3D7D7] text-[#120B0F] font-bold rounded-xl shadow-lg hover:opacity-95 transition-all flex items-center justify-center gap-2 mt-2"
             >
               {isLoggingIn ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Verifying Credentials...</span>
+                  <span>Verifying Authorization...</span>
                 </>
               ) : (
                 <>
                   <Lock className="w-4 h-4" />
-                  <span>Sign In to Staff Portal</span>
+                  <span>Secure Sign In</span>
                 </>
               )}
             </button>
           </form>
 
-          {/* Quick preset credentials for testing */}
-          <div className="mt-6 pt-4 border-t border-white/10 text-xs">
-            <span className="text-[10px] text-white/50 uppercase tracking-wider block mb-2 font-semibold">
-              Quick Fill Role Credentials:
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {PRESET_ACCOUNTS.map((acc, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setLoginIdentifier(acc.identifier);
-                    setLoginPassword(acc.password);
-                    setLoginError('');
-                  }}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-left text-[11px] border border-white/10 transition-colors"
-                >
-                  <strong className="text-[#D4AF37] block text-[10px] uppercase font-bold">{acc.role.replace('_', ' ')}</strong>
-                  <span className="text-white/80 block font-mono text-[10px]">{acc.identifier}</span>
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] text-white/40 mt-2 text-center">
-              Customer OTP login cannot access the staff portal. Passwords are encrypted.
+          {/* Customer Redirection */}
+          <div className="mt-6 pt-4 border-t border-white/10 text-center text-xs">
+            <p className="text-white/50 text-[11px] mb-2">
+              Looking for client services, booking, or bridal consultations?
             </p>
+            <button
+              type="button"
+              onClick={onBackToWebsite}
+              className="text-[#D4AF37] hover:underline font-semibold text-xs inline-flex items-center gap-1"
+            >
+              <span>← Return to Public Customer Website</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1321,7 +1401,41 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           </button>
 
-          {/* 12. Settings & WhatsApp (Owner and Branch Manager) */}
+          {/* 12. WhatsApp Inbox (Owner & Manager) */}
+          {(isOwner || isManager) && (
+            <button
+              onClick={() => {
+                setActiveTab('whatsapp_inbox');
+                if (typeof window !== 'undefined' && window.location.pathname !== '/admin/whatsapp/inbox') {
+                  window.history.pushState(null, '', '/admin/whatsapp/inbox');
+                }
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors ${
+                activeTab === 'whatsapp_inbox' ? 'bg-[#5B132B] text-white font-bold shadow-md shadow-[#5B132B]/30' : 'text-white/70 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
+                  <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                  {inboxUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  )}
+                </div>
+                <span>WhatsApp Inbox</span>
+              </div>
+              {inboxUnreadCount > 0 ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#25D366] text-black font-extrabold shadow-sm">
+                  {inboxUnreadCount}
+                </span>
+              ) : (
+                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                  {isOwner ? 'Owner' : 'Manager'}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* 13. Settings & WhatsApp (Owner and Branch Manager) */}
           {(isOwner || isManager) && (
             <div className="space-y-1">
               <button
@@ -1380,6 +1494,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
             <h1 className="font-serif font-bold text-xl text-slate-900 capitalize">
               {activeTab === 'pos'
                 ? 'Reception POS Billing'
+                : activeTab === 'whatsapp_inbox'
+                ? 'WhatsApp Inbox & Customer Chat'
                 : activeTab === 'settings'
                 ? settingsSubTab === 'whatsapp'
                   ? 'Settings · WhatsApp Business Integration'
@@ -3805,6 +3921,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button
+                    type="button"
+                    onClick={() => handleTriggerDailyStylistReport(false)}
+                    disabled={sendingDailyStylistReports}
+                    className={`py-2 px-3.5 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors ${
+                      sendingDailyStylistReports
+                        ? 'bg-[#25D366]/80 cursor-wait'
+                        : 'bg-[#25D366] hover:bg-[#1EBE5D]'
+                    }`}
+                    title="Send today's stylist sales report via WhatsApp"
+                  >
+                    {sendingDailyStylistReports ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    ) : (
+                      <MessageSquare className="w-4 h-4 text-white" />
+                    )}
+                    <span>Send Today’s Stylist Sales Report Now</span>
+                  </button>
+                  <button
                     onClick={handleExportCSV}
                     className="py-2 px-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
                     title="Export report to CSV spreadsheet"
@@ -3822,6 +3956,265 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                   </button>
                 </div>
               </div>
+
+              {/* Daily Sales Reporting Notification Banner */}
+              {dailyReportsStatusMsg && (
+                <div className={`p-4 rounded-2xl text-xs font-medium flex items-center justify-between border shadow-xs transition-all ${
+                  dailyReportsStatusMsg.type === 'success'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : dailyReportsStatusMsg.type === 'error'
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : 'bg-blue-50 border-blue-200 text-blue-800'
+                }`}>
+                  <div className="flex items-center gap-2.5">
+                    {dailyReportsStatusMsg.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{dailyReportsStatusMsg.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDailyReportsStatusMsg(null)}
+                    className="text-slate-400 hover:text-slate-600 p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Automated WhatsApp Daily Stylist Sales Reporting Dashboard Card */}
+              <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl border border-slate-200 p-5 shadow-xs">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200/70">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#25D366]/15 flex items-center justify-center text-[#25D366] shrink-0">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-serif font-bold text-sm text-slate-900">
+                          Automated WhatsApp Daily Stylist Sales Reporting
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                          Active (10:15 PM IST)
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Every day at 10:15 PM Asia/Kolkata, generates stylist sales breakdown and delivers WhatsApp templates <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[10px]">gl_stylist_daily_sales_report</code> and <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[10px]">gl_owner_daily_sales_summary</code>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowDailySalesHistorySection(!showDailySalesHistorySection)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{showDailySalesHistorySection ? 'Hide History' : `View History (${dailySalesHistory.length})`}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTriggerDailyStylistReport(false)}
+                      disabled={sendingDailyStylistReports}
+                      className={`px-3.5 py-1.5 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors ${
+                        sendingDailyStylistReports
+                          ? 'bg-[#25D366]/80 cursor-wait'
+                          : 'bg-[#25D366] hover:bg-[#1EBE5D]'
+                      }`}
+                    >
+                      {sendingDailyStylistReports ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      )}
+                      <span>Send Today’s Stylist Sales Report Now</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Today's Schedule & Idempotency Status Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 text-xs">
+                  <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider block">Today's Dispatch Status</span>
+                    <div className="flex items-center gap-1.5 mt-1 font-semibold">
+                      {alreadySentToday ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="text-emerald-700 font-bold">Dispatched for {todayKolkataDate || 'Today'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span className="text-amber-700 font-bold">Scheduled for 10:15 PM IST</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider block">Idempotency & Anti-Duplicate</span>
+                    <div className="flex items-center gap-1.5 mt-1 text-slate-700 font-medium">
+                      <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>1 report / recipient / date strictly enforced</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider block">Connected WhatsApp Line</span>
+                    <div className="flex items-center gap-1.5 mt-1 text-slate-700 font-medium font-mono text-[11px]">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                      <span>+91 89857 99459 (Phone ID: 1379025201957313)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sent Daily Sales Reports History Table */}
+                {showDailySalesHistorySection && (
+                  <div className="mt-4 pt-4 border-t border-slate-200/70">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="font-serif font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Daily WhatsApp Reports Log ({dailySalesHistory.length} entries)</span>
+                      </h5>
+                      <button
+                        type="button"
+                        onClick={loadDailySalesHistory}
+                        className="text-[11px] text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Refresh History</span>
+                      </button>
+                    </div>
+
+                    {dailySalesHistory.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-400 bg-white rounded-xl border border-dashed border-slate-200">
+                        No daily sales WhatsApp reports logged yet. Click &quot;Send Today’s Stylist Sales Report Now&quot; to test or wait for the 10:15 PM automated run.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-2xs">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase tracking-wider text-[10px]">
+                            <tr>
+                              <th className="py-2.5 px-3 font-semibold">Report Date</th>
+                              <th className="py-2.5 px-3 font-semibold">Recipient</th>
+                              <th className="py-2.5 px-3 font-semibold">Type</th>
+                              <th className="py-2.5 px-3 font-semibold">Mobile (E.164)</th>
+                              <th className="py-2.5 px-3 font-semibold">Bills / Services</th>
+                              <th className="py-2.5 px-3 font-semibold">Total Sales (₹)</th>
+                              <th className="py-2.5 px-3 font-semibold">Payment Modes</th>
+                              <th className="py-2.5 px-3 font-semibold">Status</th>
+                              <th className="py-2.5 px-3 font-semibold text-right">Meta Message ID / Sent</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {dailySalesHistory.map((rep) => (
+                              <tr key={rep.id} className="hover:bg-slate-50/70">
+                                <td className="py-2.5 px-3 font-mono text-[11px] font-bold text-slate-800 whitespace-nowrap">
+                                  {rep.report_date}
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                                  {rep.recipient_name || rep.stylist_name || 'N/A'}
+                                </td>
+                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                    rep.report_type === 'owner_summary'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}>
+                                    {rep.report_type === 'owner_summary' ? 'Owner Summary' : 'Stylist Report'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600 whitespace-nowrap">
+                                  {rep.recipient_phone}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                                  {rep.bills_count} bills · {rep.services_count} services
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-[#5B132B] whitespace-nowrap">
+                                  ₹{Number(rep.total_sales || 0).toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-[11px] text-slate-500 whitespace-nowrap">
+                                  {Number(rep.cash_amount || 0) > 0 && <span className="mr-1 text-amber-700">Cash: ₹{rep.cash_amount}</span>}
+                                  {Number(rep.upi_amount || 0) > 0 && <span className="mr-1 text-emerald-700">UPI: ₹{rep.upi_amount}</span>}
+                                  {Number(rep.other_amount || 0) > 0 && <span className="text-purple-700">Other: ₹{rep.other_amount}</span>}
+                                  {Number(rep.total_sales || 0) === 0 && <span className="text-slate-400">None</span>}
+                                </td>
+                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    rep.status === 'sent'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : rep.status === 'skipped_duplicate'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-rose-100 text-rose-800'
+                                  }`}>
+                                    {rep.status}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-[10px] text-slate-500 whitespace-nowrap">
+                                  {rep.meta_message_id ? (
+                                    <span title={rep.meta_message_id} className="text-emerald-700 font-semibold">
+                                      {rep.meta_message_id.slice(-12)}
+                                    </span>
+                                  ) : (
+                                    rep.error_message ? <span className="text-rose-600 truncate max-w-[120px] inline-block" title={rep.error_message}>{rep.error_message}</span> : 'Pending'
+                                  )}
+                                  {rep.sent_at && (
+                                    <span className="block text-[9px] text-slate-400">
+                                      {new Date(rep.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Idempotent Resend Confirmation Modal */}
+              {resendConfirmModalOpen && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 max-w-md w-full shadow-2xl space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-serif font-bold text-base text-slate-900">Reports Already Sent Today</h4>
+                        <p className="text-xs text-slate-500">Idempotency Protection Active</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Daily sales WhatsApp reports for today (<strong>{todayKolkataDate || 'today'}</strong>) have already been sent to active stylists and the salon owner.
+                      <br /><br />
+                      Do you want to re-send today’s reports anyway?
+                    </p>
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setResendConfirmModalOpen(false)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerDailyStylistReport(true)}
+                        className="px-4 py-2 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-xl text-xs font-bold transition-colors shadow-xs flex items-center gap-1.5"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Yes, Re-send WhatsApp Reports</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Date Filters Controls */}
               <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -4436,6 +4829,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                 </div>
               )}
             </div>
+          )}
+
+          {/* ================================================================= */}
+          {/* 13. WHATSAPP INBOX & CUSTOMER CHAT (Owner & Manager) */}
+          {/* ================================================================= */}
+          {activeTab === 'whatsapp_inbox' && (isOwner || isManager) && (
+            <WhatsAppInbox
+              currentUser={currentUser}
+              onNavigateToCustomer={(customerMobile) => {
+                setActiveTab('customers');
+                setCustomerSearch(customerMobile);
+              }}
+              onNavigateToBooking={(_customerMobile) => {
+                setActiveTab('appointments');
+              }}
+            />
           )}
         </div>
       </main>
