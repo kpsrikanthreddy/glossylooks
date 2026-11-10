@@ -2740,79 +2740,167 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
               } catch {}
             }
 
-            let rating: 'good' | 'average' | 'bad' | null = null;
-            if (
-              cleanText === 'good' ||
-              cleanId === 'good' ||
-              cleanText.includes('good') ||
-              cleanId.includes('good') ||
-              cleanText === 'great' ||
-              cleanText === 'excellent' ||
-              cleanText === 'super' ||
-              cleanText === 'awesome' ||
-              cleanText === '👍' ||
-              cleanId === '1' ||
-              cleanId === 'btn_good' ||
-              cleanId === 'button_1' ||
-              cleanId === 'rating_good' ||
-              cleanText === '5'
-            ) {
-              rating = 'good';
-            } else if (
-              cleanText === 'average' ||
-              cleanId === 'average' ||
-              cleanText.includes('average') ||
-              cleanId.includes('average') ||
-              cleanText === 'ok' ||
-              cleanText === 'okay' ||
-              cleanId === '2' ||
-              cleanId === 'btn_average' ||
-              cleanId === 'button_2' ||
-              cleanId === 'rating_average' ||
-              cleanText === '3'
-            ) {
-              rating = 'average';
-            } else if (
-              cleanText === 'bad' ||
-              cleanId === 'bad' ||
-              cleanText.includes('bad') ||
-              cleanId.includes('bad') ||
-              cleanText === 'poor' ||
-              cleanText === 'unhappy' ||
-              cleanText === 'worst' ||
-              cleanText === '👎' ||
-              cleanId === '3' ||
-              cleanId === 'btn_bad' ||
-              cleanId === 'button_3' ||
-              cleanId === 'rating_bad'
-            ) {
-              rating = 'bad';
+            // =========================================================================
+            // ACTIVE FEEDBACK CONTEXT & STRICT CLASSIFICATION (SEPARATE FROM NORMAL CHAT)
+            // =========================================================================
+            const cleanFromPhone10 = fromPhone;
+            const allOrders = await salonRepository.getOrders();
+            const customerOrders = (allOrders || [])
+              .filter(o => phoneDigits(o.customer_phone).slice(-10) === cleanFromPhone10)
+              .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+            const existingFeedbacks = await salonRepository.getAppointmentFeedback().catch(() => []);
+            const nowMs = Date.now();
+            const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+
+            // An order has an active pending feedback request if:
+            // 1. Feedback was sent (feedback_whatsapp_status is 'sent', 'delivered', or 'read')
+            // 2. Sent within the last 48 hours
+            // 3. Not already marked 'completed' and not already rated
+            // 4. No response already recorded in appointment_feedback for this order_id or appointment_id
+            const pendingOrder = customerOrders.find(o => {
+              const isSent = o.feedback_whatsapp_status === 'sent' || o.feedback_whatsapp_status === 'delivered' || o.feedback_whatsapp_status === 'read';
+              if (!isSent) return false;
+              if (o.feedback_whatsapp_status === 'completed' || o.feedback_rating) return false;
+
+              const sentTime = o.feedback_whatsapp_sent_at ? new Date(o.feedback_whatsapp_sent_at).getTime() : new Date(o.created_at || 0).getTime();
+              if (nowMs - sentTime > FORTY_EIGHT_HOURS_MS) return false;
+
+              const alreadyAnswered = existingFeedbacks.some(f => 
+                (o.id && f.order_id === o.id) || 
+                (o.appointment_id && f.appointment_id === o.appointment_id)
+              );
+              return !alreadyAnswered;
+            });
+
+            // Also check message logs if feedback was dispatched via template without direct order link
+            let pendingFeedbackLog: any = null;
+            if (!pendingOrder) {
+              try {
+                const messageLogs = await salonRepository.getWhatsAppMessageLogs(undefined, undefined);
+                const recentFeedbackLogs = (messageLogs || []).filter(l => {
+                  const isRecipient = phoneDigits(l.recipient_number).slice(-10) === cleanFromPhone10;
+                  const isFeedback = l.job_type === 'customer_feedback' || l.template_name === 'glossylooks_customer_feedback' || l.template_name === 'the_glossylooks_customer_feedback';
+                  const isSent = l.status === 'sent' || l.status === 'delivered' || l.status === 'read';
+                  const sentTime = new Date(l.sent_at || l.created_at).getTime();
+                  return isRecipient && isFeedback && isSent && (nowMs - sentTime <= FORTY_EIGHT_HOURS_MS);
+                });
+
+                for (const log of recentFeedbackLogs) {
+                  const alreadyAnswered = existingFeedbacks.some(f => 
+                    (log.order_id && f.order_id === log.order_id) || 
+                    (log.appointment_id && f.appointment_id === log.appointment_id) ||
+                    (log.meta_message_id && f.meta_message_id === log.meta_message_id)
+                  );
+                  if (!alreadyAnswered) {
+                    pendingFeedbackLog = log;
+                    break;
+                  }
+                }
+              } catch {}
             }
 
-            if (!rating) {
-              console.log(`[WhatsApp Webhook] Message from ${fromPhone} stored in WhatsApp Inbox. Not a feedback rating keyword.`);
+            const hasPendingFeedbackRequest = Boolean(pendingOrder || pendingFeedbackLog);
+
+            // If there is NO active pending feedback request, THIS IS NORMAL CHAT!
+            // It has already been saved into whatsapp_messages and whatsapp_conversations above.
+            // Do NOT run any feedback automation!
+            if (!hasPendingFeedbackRequest) {
+              console.log(`[WhatsApp Webhook] Message from ${fromPhone} ("${text}") treated as NORMAL_CHAT (No active pending feedback request).`);
+              try {
+                await salonRepository.createWhatsAppWebhookEvent({
+                  event_id: `${msg.id || Date.now()}_normal_chat`,
+                  event_type: 'normal_chat',
+                  sender_phone: fromPhone,
+                  recipient_phone_number_id: receiverPhoneNumberId,
+                  payload: { text, classification: 'NORMAL_CHAT' },
+                  status: 'processed'
+                });
+              } catch {}
               continue;
             }
 
-            console.log(`[WhatsApp Webhook] Customer ${fromPhone} selected rating: ${rating.toUpperCase()}`);
+            // An active feedback request is pending. Now strictly evaluate if this message is a feedback response.
+            let feedbackChoice: 'good' | 'average' | 'bad' | null = null;
+            let matchedMethod: 'INTERACTIVE_BUTTON' | 'TEXT_FALLBACK' | null = null;
 
-            // Match latest order or appointment for this customer mobile (newest first)
-            const allOrders = await salonRepository.getOrders();
-            const customerOrders = (allOrders || [])
-              .filter(o => phoneDigits(o.customer_phone).slice(-10) === fromPhone)
-              .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-            const matchedOrder = customerOrders[0];
+            // 1. Primary: Match by Interactive Button / Quick Reply ID
+            if (cleanId) {
+              if (
+                cleanId === 'feedback_good' ||
+                cleanId.startsWith('feedback_good') ||
+                cleanId === 'btn_good' ||
+                cleanId === 'rating_good' ||
+                cleanId === 'good' ||
+                cleanId === 'button_1' ||
+                cleanId === '1'
+              ) {
+                feedbackChoice = 'good';
+                matchedMethod = 'INTERACTIVE_BUTTON';
+              } else if (
+                cleanId === 'feedback_average' ||
+                cleanId.startsWith('feedback_average') ||
+                cleanId === 'btn_average' ||
+                cleanId === 'rating_average' ||
+                cleanId === 'average' ||
+                cleanId === 'button_2' ||
+                cleanId === '2'
+              ) {
+                feedbackChoice = 'average';
+                matchedMethod = 'INTERACTIVE_BUTTON';
+              } else if (
+                cleanId === 'feedback_bad' ||
+                cleanId.startsWith('feedback_bad') ||
+                cleanId === 'btn_bad' ||
+                cleanId === 'rating_bad' ||
+                cleanId === 'bad' ||
+                cleanId === 'button_3' ||
+                cleanId === '3'
+              ) {
+                feedbackChoice = 'bad';
+                matchedMethod = 'INTERACTIVE_BUTTON';
+              }
+            }
 
-            const allApts = await salonRepository.getAppointments({ customerMobile: fromPhone });
-            const matchedApt = (allApts || []).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0];
+            // 2. Secondary: Exact Text Fallback ONLY (NO substring, NO 'ok', NO loose words)
+            if (!feedbackChoice && cleanText) {
+              if (cleanText === 'good' || cleanText === '👍') {
+                feedbackChoice = 'good';
+                matchedMethod = 'TEXT_FALLBACK';
+              } else if (cleanText === 'average') {
+                feedbackChoice = 'average';
+                matchedMethod = 'TEXT_FALLBACK';
+              } else if (cleanText === 'bad' || cleanText === '👎') {
+                feedbackChoice = 'bad';
+                matchedMethod = 'TEXT_FALLBACK';
+              }
+            }
 
-            const orderId = matchedOrder?.id;
-            const appointmentId = matchedApt?.id || matchedOrder?.appointment_id;
-            const branchId = matchedOrder?.branch_id || matchedApt?.branch_id || 'tgl-gachibowli-main';
-            const customerName = matchedOrder?.customer_name || matchedApt?.customer_name || 'Valued Customer';
+            // If incoming message does NOT match explicit feedback choice (e.g. "Ok", "Thanks", "Hi", "7pm"):
+            // It is NORMAL CHAT! Do not process feedback. Leave feedback as PENDING.
+            if (!feedbackChoice) {
+              console.log(`[WhatsApp Webhook] Message from ${fromPhone} ("${text}") is NORMAL_CHAT during pending feedback window. Not a feedback category selection.`);
+              try {
+                await salonRepository.createWhatsAppWebhookEvent({
+                  event_id: `${msg.id || Date.now()}_normal_chat_pending_window`,
+                  event_type: 'normal_chat',
+                  sender_phone: fromPhone,
+                  recipient_phone_number_id: receiverPhoneNumberId,
+                  payload: { text, classification: 'NORMAL_CHAT' },
+                  status: 'processed'
+                });
+              } catch {}
+              continue;
+            }
+
+            console.log(`[WhatsApp Webhook] Verified feedback response from ${fromPhone}: ${feedbackChoice.toUpperCase()} (Matched via ${matchedMethod})`);
+
+            const targetOrderId = pendingOrder?.id || pendingFeedbackLog?.order_id;
+            const targetAptId = pendingOrder?.appointment_id || pendingFeedbackLog?.appointment_id;
+            const branchId = pendingOrder?.branch_id || pendingFeedbackLog?.branch_id || 'tgl-gachibowli-main';
+            const customerName = pendingOrder?.customer_name || pendingFeedbackLog?.customer_name || 'Valued Customer';
 
             // Idempotency: verify this specific message ID has not already been replied to
-            const existingFeedbacks = await salonRepository.getAppointmentFeedback();
             const alreadyRecorded = msg.id && existingFeedbacks.some(f => 
               (f.meta_message_id && f.meta_message_id === msg.id) ||
               (f.incoming_meta_message_id && f.incoming_meta_message_id === msg.id)
@@ -2823,14 +2911,22 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
               continue;
             }
 
+            // Mark the pending feedback request as COMPLETED on the order
+            if (targetOrderId) {
+              await salonRepository.updateOrder(targetOrderId, {
+                feedback_whatsapp_status: 'completed',
+                feedback_rating: feedbackChoice
+              }).catch(() => null);
+            }
+
             const feedbackRecord = await salonRepository.createAppointmentFeedback({
-              appointment_id: appointmentId,
-              order_id: orderId,
+              appointment_id: targetAptId,
+              order_id: targetOrderId,
               branch_id: branchId,
               customer_name: customerName,
               customer_phone: fromPhone,
-              rating: rating,
-              reply_text: text || buttonId || rating.toUpperCase(),
+              rating: feedbackChoice,
+              reply_text: text || buttonId || feedbackChoice.toUpperCase(),
               meta_message_id: msg.id,
               incoming_meta_message_id: msg.id,
               reply_status: 'sending',
@@ -2841,20 +2937,26 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
             try {
               const cust = await salonRepository.getCustomerByMobile(fromPhone);
               if (cust) {
-                await salonRepository.updateCustomer(cust.id, { feedback_rating: rating }, 'System');
+                await salonRepository.updateCustomer(cust.id, { feedback_rating: feedbackChoice }, 'System');
               }
             } catch (custErr: any) {
               console.warn('[WhatsApp Webhook] Customer CRM rating update error:', custErr.message);
             }
 
+            // Formulate distinct automated responses based on explicit rating:
             let autoReplyText = '';
-            if (rating === 'good') {
+            if (feedbackChoice === 'good') {
+              // 8. GOOD FLOW: Google Review thank-you & review link
               autoReplyText = "Thank you for your wonderful feedback! We are delighted you enjoyed your experience with The Glossy Looks. Your Google review would mean a lot to us: https://g.page/r/CTx5NddxkeKaEAE/review";
-            } else if (rating === 'average' || rating === 'bad') {
+            } else if (feedbackChoice === 'average') {
+              // 9. AVERAGE FLOW: Constructive improvement response (distinct from Bad!)
+              autoReplyText = "Thank you for your valuable feedback. We always strive to provide a wonderful experience at The Glossy Looks. We have noted your response and our team will work to make your next visit even better!";
+            } else if (feedbackChoice === 'bad') {
+              // 10. BAD FLOW: Sincere apology and manager follow-up
               autoReplyText = "Thank you for your valuable feedback. We sincerely apologize that your experience did not meet expectations. Our salon manager will get in touch with you shortly to make it right.";
             }
 
-            console.log(`[WhatsApp Webhook] Dispatching automated response to ${fromPhone} (Rating: ${rating})...`);
+            console.log(`[WhatsApp Webhook] Dispatching automated feedback response to ${fromPhone} (Rating: ${feedbackChoice.toUpperCase()})...`);
             if (autoReplyText) {
               const replyResult = await sendWhatsAppFreeformReply(branchId, fromPhone, autoReplyText, receiverPhoneNumberId);
               console.log(`[WhatsApp Webhook] Automated response result for ${fromPhone}:`, replyResult);
@@ -2896,15 +2998,34 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
               }
             }
 
-            if (rating === 'average' || rating === 'bad') {
+            // Only for BAD feedback, trigger manager alert audit log
+            if (feedbackChoice === 'bad') {
               await salonRepository.logAudit(
                 'CUSTOMER_FEEDBACK_ALERT',
                 'AppointmentFeedback',
-                orderId || appointmentId || fromPhone,
+                targetOrderId || targetAptId || fromPhone,
                 'WhatsApp Webhook',
-                `⚠️ Customer ${customerName} (${fromPhone}) rated visit as ${rating.toUpperCase()}. Manager follow-up recommended.`
+                `⚠️ Customer ${customerName} (${fromPhone}) rated visit as BAD. Immediate manager follow-up required.`
               );
             }
+
+            // Record audit log for feedback processing in whatsapp_webhook_events
+            try {
+              await salonRepository.createWhatsAppWebhookEvent({
+                event_id: `${msg.id || Date.now()}_feedback_processed`,
+                event_type: 'feedback_processed',
+                sender_phone: fromPhone,
+                recipient_phone_number_id: receiverPhoneNumberId,
+                payload: {
+                  feedback_choice: feedbackChoice,
+                  matched_method: matchedMethod,
+                  order_id: targetOrderId,
+                  appointment_id: targetAptId,
+                  classification: 'FEEDBACK_RESPONSE'
+                },
+                status: 'processed'
+              });
+            } catch {}
           }
         }
       }

@@ -306,6 +306,7 @@ export interface Order {
   feedback_whatsapp_error?: string;
   feedback_whatsapp_scheduled_at?: string;
   feedback_whatsapp_sent_at?: string;
+  feedback_rating?: FeedbackRating;
   created_at: string;
 }
 
@@ -594,6 +595,7 @@ export type WhatsAppMessageStatus =
   | 'sent'
   | 'delivered'
   | 'read'
+  | 'completed'
   | 'failed'
   | 'retrying'
   | 'cancelled'
