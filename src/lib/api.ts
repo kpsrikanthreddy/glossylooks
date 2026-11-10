@@ -500,6 +500,12 @@ export const api = {
     fetchJson<{ data: any[] }>(`${API_BASE}/admin/whatsapp/templates`),
 
   getWhatsAppInboxDiagnostics: () =>
-    fetchJson<WhatsAppInboxDiagnostics>(`${API_BASE}/admin/whatsapp/inbox/diagnostics`)
+    fetchJson<WhatsAppInboxDiagnostics>(`${API_BASE}/admin/whatsapp/inbox/diagnostics`),
+
+  deleteWhatsAppConversation: (conversationId: string) =>
+    fetchJson<{ success: boolean; message: string }>(
+      `${API_BASE}/admin/whatsapp/inbox/conversations/${encodeURIComponent(conversationId)}`,
+      { method: 'DELETE' }
+    )
 };
 

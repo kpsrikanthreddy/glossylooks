@@ -8,6 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 function getFallbackStore() {
@@ -2488,20 +2489,32 @@ export class SupabaseSalonRepository implements ISalonRepository {
       const { data, error } = await query.order('last_message_at', { ascending: false });
       if (!error && Array.isArray(data)) {
         dbConversations = data as WhatsAppConversation[];
+      } else if (error) {
+        console.warn('⚠️ Supabase error ordering whatsapp_conversations, attempting unconstrained query:', error.message);
+        const { data: fallbackData, error: fallbackError } = await this.client
+          .from('whatsapp_conversations')
+          .select('*')
+          .limit(100);
+        if (!fallbackError && Array.isArray(fallbackData)) {
+          dbConversations = fallbackData as WhatsAppConversation[];
+        }
       }
     } catch (err: any) {
       console.warn('⚠️ Error fetching whatsapp_conversations from Supabase:', err.message);
     }
 
-    // Merge in-memory cache
+    // Merge in-memory cache, keyed by clean 10-digit phone (or ID fallback) so we never duplicate or drop conversations
     const convMap = new Map<string, WhatsAppConversation>();
     for (const mem of this.inMemoryConversations) {
       if ((!targetSalonId || targetSalonId === 'all' || mem.salon_id === targetSalonId) && (!targetBranchId || targetBranchId === 'all' || mem.branch_id === targetBranchId)) {
-        convMap.set(mem.id, mem);
+        const key = (mem.customer_phone || '').replace(/\D/g, '').slice(-10) || mem.id;
+        convMap.set(key, mem);
       }
     }
     for (const db of dbConversations) {
-      convMap.set(db.id, db);
+      const key = (db.customer_phone || '').replace(/\D/g, '').slice(-10) || db.id;
+      const existingMem = convMap.get(key);
+      convMap.set(key, existingMem ? { ...existingMem, ...db } : db);
     }
 
     let result = Array.from(convMap.values());
@@ -2533,23 +2546,51 @@ export class SupabaseSalonRepository implements ISalonRepository {
   }
 
   public async getWhatsAppConversationById(id: string): Promise<WhatsAppConversation | null> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     try {
-      const { data, error } = await this.client
-        .from('whatsapp_conversations')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+      if (isUuid) {
+        const { data, error } = await this.client
+          .from('whatsapp_conversations')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
 
-      if (!error && data) {
-        const conv = data as WhatsAppConversation;
-        return {
-          ...conv,
-          window_status: this.calculateWindowStatus(conv.last_inbound_at)
-        };
+        if (!error && data) {
+          const conv = data as WhatsAppConversation;
+          return {
+            ...conv,
+            window_status: this.calculateWindowStatus(conv.last_inbound_at)
+          };
+        }
+      } else {
+        // ID is not a UUID (could be in-memory ID like conv_918179620607 or phone digits)
+        const clean10 = id.replace(/\D/g, '').slice(-10);
+        if (clean10.length === 10) {
+          const { data, error } = await this.client
+            .from('whatsapp_conversations')
+            .select('*')
+            .or(`customer_phone.eq.+91${clean10},customer_phone.eq.91${clean10},customer_phone.eq.${clean10},customer_phone.ilike.%${clean10}%`)
+            .order('last_message_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!error && data) {
+            const conv = data as WhatsAppConversation;
+            return {
+              ...conv,
+              window_status: this.calculateWindowStatus(conv.last_inbound_at)
+            };
+          }
+        }
       }
-    } catch {}
+    } catch (err: any) {
+      console.warn('⚠️ Error in getWhatsAppConversationById:', err.message);
+    }
 
-    const mem = this.inMemoryConversations.find(c => c.id === id);
+    const cleanId10 = id.replace(/\D/g, '').slice(-10);
+    const mem = this.inMemoryConversations.find(
+      c => c.id === id || (cleanId10.length === 10 && c.customer_phone?.replace(/\D/g, '').slice(-10) === cleanId10)
+    );
     if (mem) {
       return {
         ...mem,
@@ -2589,13 +2630,19 @@ export class SupabaseSalonRepository implements ISalonRepository {
     const incomingSource = data.sourceChannel || data.source_channel || 'WHATSAPP';
 
     try {
-      const { data: existing, error } = await this.client
+      const orFilter = cleanPhone.length === 10
+        ? `customer_phone.eq.+91${cleanPhone},customer_phone.eq.91${cleanPhone},customer_phone.eq.${cleanPhone},customer_phone.ilike.%${cleanPhone}%`
+        : `customer_phone.eq.${formattedPhone}`;
+
+      const { data: matches, error } = await this.client
         .from('whatsapp_conversations')
         .select('*')
-        .eq('customer_phone', formattedPhone)
-        .maybeSingle();
+        .or(orFilter)
+        .order('last_message_at', { ascending: false })
+        .limit(1);
 
-      if (!error && existing) {
+      if (!error && Array.isArray(matches) && matches.length > 0) {
+        const existing = matches[0] as WhatsAppConversation;
         let needsUpdate = false;
         const patch: Partial<WhatsAppConversation> = {};
         if (customerName && (!existing.customer_name || existing.customer_name === 'Valued Customer' || existing.customer_name === 'WhatsApp Customer' || existing.customer_name === 'Website Visitor')) {
@@ -2614,12 +2661,18 @@ export class SupabaseSalonRepository implements ISalonRepository {
           patch.source_channel = 'MIXED';
           needsUpdate = true;
         }
+        // Normalize stored phone if non-standard
+        if (cleanPhone.length === 10 && existing.customer_phone !== formattedPhone) {
+          patch.customer_phone = formattedPhone;
+          needsUpdate = true;
+        }
 
         if (needsUpdate) {
-          return (await this.updateWhatsAppConversation(existing.id, patch)) || (existing as WhatsAppConversation);
+          const updated = await this.updateWhatsAppConversation(existing.id, patch);
+          if (updated) return updated;
         }
         return {
-          ...(existing as WhatsAppConversation),
+          ...existing,
           source_channel: existing.source_channel || incomingSource,
           window_status: this.calculateWindowStatus(existing.last_inbound_at)
         };
@@ -2629,7 +2682,7 @@ export class SupabaseSalonRepository implements ISalonRepository {
     }
 
     const memExisting = this.inMemoryConversations.find(
-      c => c.salon_id === salonId && c.customer_phone === formattedPhone
+      c => c.customer_phone.replace(/\D/g, '').slice(-10) === cleanPhone
     );
     if (memExisting) {
       if (data.customerName) memExisting.customer_name = data.customerName;
@@ -2643,9 +2696,10 @@ export class SupabaseSalonRepository implements ISalonRepository {
       };
     }
 
+    const newUuid = crypto.randomUUID();
     const now = new Date().toISOString();
     const newConv: WhatsAppConversation = {
-      id: `wac-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      id: newUuid,
       salon_id: salonId,
       branch_id: branchId,
       customer_id: data.customerId,
@@ -2662,7 +2716,24 @@ export class SupabaseSalonRepository implements ISalonRepository {
     };
 
     try {
-      const { id: _omitId, ...insertPayload } = newConv;
+      const insertPayload: Record<string, any> = {
+        id: newUuid,
+        business_id: 'tgl-gachibowli-main',
+        salon_id: salonId,
+        branch_id: branchId,
+        customer_phone: formattedPhone,
+        customer_name: newConv.customer_name,
+        status: 'OPEN',
+        unread_count: 0,
+        source_channel: incomingSource,
+        last_message_at: now,
+        created_at: now,
+        updated_at: now
+      };
+      if (data.customerId) insertPayload.customer_id = data.customerId;
+      if (data.waPhoneNumberId) insertPayload.wa_phone_number_id = data.waPhoneNumberId;
+      if (data.customerWaId) insertPayload.customer_wa_id = data.customerWaId;
+
       const { data: inserted, error } = await this.client
         .from('whatsapp_conversations')
         .insert(insertPayload)
@@ -2679,6 +2750,25 @@ export class SupabaseSalonRepository implements ISalonRepository {
       }
       if (error) {
         console.warn('⚠️ Supabase insert conversation error:', error.message);
+        // Recovery in case unique constraint violated or already created concurrently:
+        const orFilter = cleanPhone.length === 10
+          ? `customer_phone.eq.+91${cleanPhone},customer_phone.eq.91${cleanPhone},customer_phone.eq.${cleanPhone},customer_phone.ilike.%${cleanPhone}%`
+          : `customer_phone.eq.${formattedPhone}`;
+
+        const { data: recovered } = await this.client
+          .from('whatsapp_conversations')
+          .select('*')
+          .or(orFilter)
+          .order('last_message_at', { ascending: false })
+          .limit(1);
+
+        if (recovered && recovered.length > 0) {
+          const rec = recovered[0] as WhatsAppConversation;
+          return {
+            ...rec,
+            window_status: this.calculateWindowStatus(rec.last_inbound_at)
+          };
+        }
       }
     } catch (err: any) {
       console.warn('⚠️ Exception in create WhatsApp conversation:', err.message);
@@ -2698,29 +2788,50 @@ export class SupabaseSalonRepository implements ISalonRepository {
       updated_at: new Date().toISOString()
     };
 
-    try {
-      const { data: updated, error } = await this.client
-        .from('whatsapp_conversations')
-        .update(updatePayload)
-        .eq('id', id)
-        .select()
-        .maybeSingle();
+    const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-      if (!error && updated) {
-        const conv = updated as WhatsAppConversation;
-        const idx = this.inMemoryConversations.findIndex(c => c.id === id || c.customer_phone === conv.customer_phone);
-        if (idx !== -1) {
-          this.inMemoryConversations[idx] = { ...this.inMemoryConversations[idx], ...conv };
-        } else {
-          this.inMemoryConversations.unshift(conv);
+    try {
+      let queryTargetId = id;
+      if (!isUuid(id)) {
+        // If id is not a standard UUID, attempt recovery via customer phone
+        const mem = this.inMemoryConversations.find(c => c.id === id);
+        if (mem?.customer_phone) {
+          const clean10 = mem.customer_phone.replace(/\D/g, '').slice(-10);
+          const { data: found } = await this.client
+            .from('whatsapp_conversations')
+            .select('id')
+            .or(`customer_phone.eq.+91${clean10},customer_phone.eq.91${clean10},customer_phone.eq.${clean10},customer_phone.ilike.%${clean10}%`)
+            .order('last_message_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (found?.id) queryTargetId = found.id;
         }
-        return {
-          ...conv,
-          window_status: this.calculateWindowStatus(conv.last_inbound_at)
-        };
       }
-      if (error) {
-        console.warn('⚠️ Supabase updateWhatsAppConversation error:', error.message, error.details);
+
+      if (isUuid(queryTargetId)) {
+        const { data: updated, error } = await this.client
+          .from('whatsapp_conversations')
+          .update(updatePayload)
+          .eq('id', queryTargetId)
+          .select()
+          .maybeSingle();
+
+        if (!error && updated) {
+          const conv = updated as WhatsAppConversation;
+          const idx = this.inMemoryConversations.findIndex(c => c.id === id || c.id === queryTargetId || c.customer_phone === conv.customer_phone);
+          if (idx !== -1) {
+            this.inMemoryConversations[idx] = { ...this.inMemoryConversations[idx], ...conv };
+          } else {
+            this.inMemoryConversations.unshift(conv);
+          }
+          return {
+            ...conv,
+            window_status: this.calculateWindowStatus(conv.last_inbound_at)
+          };
+        }
+        if (error) {
+          console.warn('⚠️ Supabase updateWhatsAppConversation error:', error.message, error.details);
+        }
       }
     } catch (err: any) {
       console.warn('⚠️ Exception in updateWhatsAppConversation:', err.message);
@@ -2844,12 +2955,37 @@ export class SupabaseSalonRepository implements ISalonRepository {
     const sentByUserId = message.sent_by_user_id || (message as any).sender_admin_id || null;
     const sentByUserName = message.sent_by_user_name || (message as any).sender_admin_name || null;
 
+    const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    let targetConversationId = message.conversation_id;
+
+    if (!isUuid(targetConversationId)) {
+      // Find the corresponding conversation in memory or database to get its real UUID
+      const memConv = this.inMemoryConversations.find(c => c.id === targetConversationId);
+      if (memConv?.customer_phone) {
+        const clean10 = memConv.customer_phone.replace(/\D/g, '').slice(-10);
+        try {
+          const { data: dbConv } = await this.client
+            .from('whatsapp_conversations')
+            .select('id')
+            .or(`customer_phone.eq.+91${clean10},customer_phone.eq.91${clean10},customer_phone.eq.${clean10},customer_phone.ilike.%${clean10}%`)
+            .order('last_message_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (dbConv?.id) {
+            targetConversationId = dbConv.id;
+            if (memConv) memConv.id = dbConv.id;
+          }
+        } catch {}
+      }
+    }
+
+    const msgUuid = crypto.randomUUID();
     const newMsg: WhatsAppMessage = {
       ...message,
-      id: `wam-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      id: msgUuid,
       salon_id: message.salon_id || 'tgl-gachibowli-main',
       branch_id: message.branch_id || 'tgl-gachibowli-main',
-      conversation_id: message.conversation_id,
+      conversation_id: targetConversationId,
       direction,
       message_type: messageType,
       type: messageType,
@@ -2866,9 +3002,10 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
     // Clean payload strictly adhering to postgres public.whatsapp_messages schema
     const insertPayload: Record<string, any> = {
+      id: msgUuid,
       salon_id: newMsg.salon_id,
       branch_id: newMsg.branch_id,
-      conversation_id: newMsg.conversation_id,
+      conversation_id: targetConversationId,
       direction: newMsg.direction,
       message_type: newMsg.message_type,
       text_body: newMsg.text_body,
@@ -3053,18 +3190,85 @@ export class SupabaseSalonRepository implements ISalonRepository {
     return newEvent;
   }
 
+  public async deleteWhatsAppConversation(id: string): Promise<boolean> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    try {
+      if (isUuid) {
+        await this.client.from('whatsapp_messages').delete().eq('conversation_id', id);
+        await this.client.from('whatsapp_conversations').delete().eq('id', id);
+      } else {
+        const clean10 = id.replace(/\D/g, '').slice(-10);
+        if (clean10.length === 10) {
+          const { data: convs } = await this.client
+            .from('whatsapp_conversations')
+            .select('id')
+            .or(`customer_phone.eq.+91${clean10},customer_phone.eq.91${clean10},customer_phone.eq.${clean10},customer_phone.ilike.%${clean10}%`);
+          if (convs && convs.length > 0) {
+            for (const c of convs) {
+              await this.client.from('whatsapp_messages').delete().eq('conversation_id', c.id);
+              await this.client.from('whatsapp_conversations').delete().eq('id', c.id);
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Error deleting whatsapp conversation from Supabase:', err.message);
+    }
+
+    const cleanId10 = id.replace(/\D/g, '').slice(-10);
+    this.inMemoryConversations = this.inMemoryConversations.filter(
+      c => c.id !== id && (cleanId10.length === 10 ? c.customer_phone?.replace(/\D/g, '').slice(-10) !== cleanId10 : true)
+    );
+    this.inMemoryMessages = this.inMemoryMessages.filter(
+      m => m.conversation_id !== id
+    );
+    return true;
+  }
+
   public async getWhatsAppWebhookDiagnostics(): Promise<WhatsAppInboxDiagnostics> {
     let count = 0;
     let latest: WhatsAppWebhookEvent | null = null;
     let latestError: WhatsAppWebhookEvent | null = null;
     let activeConversationsCount = 0;
+    let totalConversationsCount = 0;
+    let totalMessagesCount = 0;
+    let lastMessageSavedAt: string | null = null;
+    let latestDatabaseError: string | null = null;
 
     try {
-      const { data: convData } = await this.client
+      const { data: convData, count: convCount, error: convErr } = await this.client
         .from('whatsapp_conversations')
-        .select('id, status');
-      if (Array.isArray(convData)) {
+        .select('id, status', { count: 'exact' });
+      if (convErr) {
+        latestDatabaseError = convErr.message;
+      } else if (Array.isArray(convData)) {
+        totalConversationsCount = convCount || convData.length;
         activeConversationsCount = convData.filter(c => (c.status || '').toUpperCase() === 'OPEN').length;
+      }
+    } catch (err: any) {
+      latestDatabaseError = err.message;
+    }
+
+    try {
+      const { count: msgCount, error: msgErr } = await this.client
+        .from('whatsapp_messages')
+        .select('*', { count: 'exact', head: true });
+      if (msgErr) {
+        if (!latestDatabaseError) latestDatabaseError = msgErr.message;
+      } else if (typeof msgCount === 'number') {
+        totalMessagesCount = msgCount;
+      }
+    } catch {}
+
+    try {
+      const { data: latestMsg } = await this.client
+        .from('whatsapp_messages')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestMsg?.created_at) {
+        lastMessageSavedAt = latestMsg.created_at;
       }
     } catch {}
 
@@ -3079,8 +3283,12 @@ export class SupabaseSalonRepository implements ISalonRepository {
         count = totalCount || events.length;
         latest = events[0] as WhatsAppWebhookEvent;
         latestError = (events.find(e => e.status === 'failed' || !!e.error_message) as WhatsAppWebhookEvent) || null;
+      } else if (error && !latestDatabaseError) {
+        latestDatabaseError = error.message;
       }
-    } catch {}
+    } catch (err: any) {
+      if (!latestDatabaseError) latestDatabaseError = err.message;
+    }
 
     if (!latest && this.inMemoryWebhookEvents.length > 0) {
       latest = this.inMemoryWebhookEvents[0];
@@ -3090,6 +3298,12 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
     if (activeConversationsCount === 0 && this.inMemoryConversations.length > 0) {
       activeConversationsCount = this.inMemoryConversations.filter(c => (c.status || '').toUpperCase() === 'OPEN').length;
+      totalConversationsCount = Math.max(totalConversationsCount, this.inMemoryConversations.length);
+    }
+
+    if (totalMessagesCount === 0 && this.inMemoryMessages.length > 0) {
+      totalMessagesCount = this.inMemoryMessages.length;
+      lastMessageSavedAt = this.inMemoryMessages[0]?.created_at || null;
     }
 
     return {
@@ -3102,7 +3316,11 @@ export class SupabaseSalonRepository implements ISalonRepository {
       database_provider: 'Supabase PostgreSQL',
       environment: process.env.NODE_ENV || 'production',
       waba_phone_number_id: '918985799459',
-      active_conversations_count: activeConversationsCount
+      active_conversations_count: activeConversationsCount,
+      total_conversations_count: totalConversationsCount,
+      total_messages_count: totalMessagesCount,
+      last_message_saved_at: lastMessageSavedAt,
+      latest_database_error: latestDatabaseError
     };
   }
 }

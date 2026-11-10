@@ -835,6 +835,10 @@ export interface WhatsAppInboxDiagnostics {
   environment: string;
   waba_phone_number_id?: string;
   active_conversations_count: number;
+  last_message_saved_at?: string | null;
+  total_conversations_count?: number;
+  total_messages_count?: number;
+  latest_database_error?: string | null;
 }
 
 

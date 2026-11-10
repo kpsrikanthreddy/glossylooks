@@ -233,6 +233,7 @@ export interface ISalonRepository {
     source_channel?: 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
   }): Promise<WhatsAppConversation>;
   updateWhatsAppConversation(id: string, data: Partial<WhatsAppConversation>): Promise<WhatsAppConversation | null>;
+  deleteWhatsAppConversation(id: string): Promise<boolean>;
   markWhatsAppConversationRead(id: string): Promise<boolean>;
   getWhatsAppInboxUnreadCount(salonId?: string, branchId?: string): Promise<number>;
 

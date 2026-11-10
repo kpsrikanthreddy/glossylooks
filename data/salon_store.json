@@ -4074,11 +4074,12 @@
       "status": "OPEN",
       "unread_count": 1,
       "source_channel": "WHATSAPP",
-      "last_message_at": "2026-11-06T09:24:29.082Z",
+      "last_message_at": "2026-11-10T11:29:12.669Z",
       "created_at": "2026-11-06T09:21:20.293Z",
-      "updated_at": "2026-11-06T09:24:29.082Z",
+      "updated_at": "2026-11-10T11:29:12.669Z",
       "last_inbound_at": "2026-11-06T09:24:29.082Z",
-      "last_message_text": "Hi, can i come today?"
+      "last_message_text": "are you coming mam",
+      "last_message_preview": "are you coming mam"
     }
   ],
   "whatsapp_messages": [
@@ -4116,6 +4117,24 @@
       "sent_by_user_id": null,
       "sent_by_user_name": null,
       "created_at": "2026-11-06T09:21:20.299Z"
+    },
+    {
+      "conversation_id": "wac-1793956880293-710",
+      "direction": "OUTBOUND",
+      "message_type": "text",
+      "text_body": "are you coming mam",
+      "message_body": "are you coming mam",
+      "status": "sent",
+      "source_badge": "ADMIN",
+      "id": "wam-1794310152666-967",
+      "salon_id": "tgl-gachibowli-main",
+      "branch_id": "tgl-gachibowli-main",
+      "type": "text",
+      "body": "are you coming mam",
+      "delivery_status": "sent",
+      "sent_by_user_id": null,
+      "sent_by_user_name": null,
+      "created_at": "2026-11-10T11:29:12.666Z"
     }
   ]
 }

@@ -2672,9 +2672,13 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
             // Persist inbound message in WhatsApp Inbox (Idempotent by msg.id)
             let inboxConversation: any = null;
             try {
-              const allOrdersForPhone = await salonRepository.getOrders();
-              const matchedOrderForBranch = (allOrdersForPhone || [])
-                .find(o => phoneDigits(o.customer_phone).slice(-10) === fromPhone);
+              let matchedOrderForBranch: any = null;
+              try {
+                const ordersForPhone = await salonRepository.getOrders({ customerMobile: fromPhone });
+                if (ordersForPhone && ordersForPhone.length > 0) {
+                  matchedOrderForBranch = ordersForPhone[0];
+                }
+              } catch {}
 
               inboxConversation = await salonRepository.getOrCreateWhatsAppConversation({
                 branch_id: matchedOrderForBranch?.branch_id || 'tgl-gachibowli-main',
@@ -3353,7 +3357,7 @@ app.post('/api/admin/whatsapp/inbox/conversations/:id/messages', async (req, res
       sent_at: new Date().toISOString()
     });
 
-    await salonRepository.updateWhatsAppConversation(conv.id, {
+    const updatedConv = await salonRepository.updateWhatsAppConversation(conv.id, {
       last_message_at: new Date().toISOString(),
       last_message_text: text.trim(),
       last_message_preview: text.trim()
@@ -3362,19 +3366,22 @@ app.post('/api/admin/whatsapp/inbox/conversations/:id/messages', async (req, res
     broadcastWhatsAppInboxEvent({
       type: 'outbound_message',
       conversationId: conv.id,
-      message: createdMsg
+      message: createdMsg,
+      conversation: updatedConv || conv
     });
 
     if (!sendResult.success) {
       return res.status(400).json({
         error: sendResult.error || 'Failed to dispatch WhatsApp message via Meta Cloud API.',
-        message: createdMsg
+        message: createdMsg,
+        conversation: updatedConv || conv
       });
     }
 
     res.json({
       success: true,
-      message: createdMsg
+      message: createdMsg,
+      conversation: updatedConv || conv
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -3482,6 +3489,27 @@ app.patch('/api/admin/whatsapp/inbox/conversations/:id', async (req, res) => {
     });
 
     res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 9. Delete conversation (Owner only, permanent)
+app.delete('/api/admin/whatsapp/inbox/conversations/:id', async (req, res) => {
+  try {
+    const admin = await getAuthAdmin(req);
+    if (!admin || admin.role !== 'owner') {
+      return res.status(403).json({ error: 'Access denied: Deleting conversations is restricted to Salon Owners only.' });
+    }
+
+    await salonRepository.deleteWhatsAppConversation(req.params.id);
+
+    broadcastWhatsAppInboxEvent({
+      type: 'conversation_deleted',
+      conversationId: req.params.id
+    });
+
+    res.json({ success: true, message: 'Conversation permanently deleted.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

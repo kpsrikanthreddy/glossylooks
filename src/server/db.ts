@@ -3751,7 +3751,7 @@ class SalonDatabase implements ISalonRepository {
     const incomingSource = data.sourceChannel || data.source_channel || 'WHATSAPP';
 
     const existing = this.data.whatsapp_conversations.find(
-      c => c.salon_id === salonId && c.customer_phone === formattedPhone
+      c => (c.customer_phone || '').replace(/\D/g, '').slice(-10) === cleanPhone
     );
 
     if (existing) {
@@ -3824,6 +3824,20 @@ class SalonDatabase implements ISalonRepository {
       ...this.data.whatsapp_conversations[idx],
       window_status: this.calculateWindowStatus(this.data.whatsapp_conversations[idx].last_inbound_at)
     };
+  }
+
+  public async deleteWhatsAppConversation(id: string): Promise<boolean> {
+    if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
+    if (!this.data.whatsapp_messages) this.data.whatsapp_messages = [];
+    const clean10 = id.replace(/\D/g, '').slice(-10);
+    this.data.whatsapp_conversations = this.data.whatsapp_conversations.filter(
+      c => c.id !== id && (clean10.length === 10 ? c.customer_phone?.replace(/\D/g, '').slice(-10) !== clean10 : true)
+    );
+    this.data.whatsapp_messages = this.data.whatsapp_messages.filter(
+      m => m.conversation_id !== id
+    );
+    this.save();
+    return true;
   }
 
   public async markWhatsAppConversationRead(id: string): Promise<boolean> {
