@@ -56,8 +56,10 @@ import {
   Minus,
   MapPin,
   Loader2,
-  CheckCheck
+  CheckCheck,
+  Menu
 } from 'lucide-react';
+import { ScrollToTopOnRouteChange, resetScrollPosition } from '../common/ScrollToTopOnRouteChange';
 import { WhatsAppIntegrationSection } from './WhatsAppIntegrationSection';
 import { WhatsAppInbox } from './whatsapp/WhatsAppInbox';
 import { 
@@ -129,11 +131,32 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Active module navigation
-  const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'customers' | 'appointments' | 'services' | 'gallery' | 'inventory' | 'pos' | 'payments' | 'staff' | 'reports' | 'printers' | 'settings' | 'whatsapp_inbox'
-  >(() => {
-    if (typeof window !== 'undefined' && window.location.pathname.includes('/whatsapp/inbox')) {
-      return 'whatsapp_inbox';
+  type AdminTab =
+    | 'dashboard'
+    | 'customers'
+    | 'appointments'
+    | 'services'
+    | 'gallery'
+    | 'inventory'
+    | 'pos'
+    | 'payments'
+    | 'staff'
+    | 'reports'
+    | 'printers'
+    | 'settings'
+    | 'whatsapp_inbox';
+
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p.includes('/whatsapp/inbox')) return 'whatsapp_inbox';
+      if (p.includes('/settings')) return 'settings';
+      const segment = p.replace('/admin', '').replace(/^\/+/, '').split('/')[0];
+      const valid: AdminTab[] = [
+        'dashboard', 'customers', 'appointments', 'services', 'gallery',
+        'inventory', 'pos', 'payments', 'staff', 'reports', 'printers'
+      ];
+      if (segment && valid.includes(segment as AdminTab)) return segment as AdminTab;
     }
     return 'dashboard';
   });
@@ -141,7 +164,92 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   const [inboxUnreadCount, setInboxUnreadCount] = useState<number>(0);
 
   // Sub-navigation for Settings module (Owner only)
-  const [settingsSubTab, setSettingsSubTab] = useState<'whatsapp' | 'users' | 'audit'>('whatsapp');
+  const [settingsSubTab, setSettingsSubTab] = useState<'whatsapp' | 'users' | 'audit'>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/settings/users')) {
+      return 'users';
+    }
+    return 'whatsapp';
+  });
+
+  // Mobile drawer state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Layout scroll container references
+  const mainContentRef = useRef<HTMLElement | null>(null);
+  const tabContentRef = useRef<HTMLDivElement | null>(null);
+
+  // Unified navigation handler
+  const handleNavigateTab = (
+    tab: AdminTab,
+    subTab?: 'whatsapp' | 'users' | 'audit',
+    customPath?: string
+  ) => {
+    // 1. Immediately close mobile sidebar drawer
+    setIsMobileSidebarOpen(false);
+
+    // 2. Set active tab and optional sub-tab
+    setActiveTab(tab);
+    if (subTab) {
+      setSettingsSubTab(subTab);
+    }
+
+    // 3. Update browser history path without page reload
+    const targetPath = customPath || (
+      tab === 'whatsapp_inbox' ? '/admin/whatsapp/inbox' :
+      tab === 'settings' && subTab === 'whatsapp' ? '/admin/settings/whatsapp' :
+      tab === 'settings' && subTab === 'users' ? '/admin/settings/users' :
+      tab === 'dashboard' ? '/admin' :
+      `/admin/${tab}`
+    );
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+
+    // 4. Immediately reset scroll positions to top (without resetting sidebar element's scroll)
+    resetScrollPosition([mainContentRef, tabContentRef]);
+    requestAnimationFrame(() => {
+      resetScrollPosition([mainContentRef, tabContentRef]);
+    });
+  };
+
+  // Browser back/forward navigation support & scroll restoration
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path.includes('/whatsapp/inbox')) {
+        setActiveTab('whatsapp_inbox');
+      } else if (path.includes('/settings/whatsapp')) {
+        setActiveTab('settings');
+        setSettingsSubTab('whatsapp');
+      } else if (path.includes('/settings')) {
+        setActiveTab('settings');
+        setSettingsSubTab('users');
+      } else {
+        const tabSegment = path.replace('/admin', '').replace(/^\/+/, '').split('/')[0];
+        const validTabs: AdminTab[] = [
+          'dashboard', 'customers', 'appointments', 'services', 'gallery',
+          'inventory', 'pos', 'payments', 'staff', 'reports', 'printers'
+        ];
+        if (tabSegment && validTabs.includes(tabSegment as AdminTab)) {
+          setActiveTab(tabSegment as AdminTab);
+        } else if (path === '/admin' || path === '/admin/') {
+          setActiveTab('dashboard');
+        }
+      }
+
+      // Automatically close mobile sidebar if open
+      setIsMobileSidebarOpen(false);
+
+      // Restore scroll to top immediately
+      resetScrollPosition([mainContentRef, tabContentRef]);
+      requestAnimationFrame(() => {
+        resetScrollPosition([mainContentRef, tabContentRef]);
+      });
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Server data states
   const [loading, setLoading] = useState(true);
@@ -555,10 +663,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       setCurrentUser(res.user);
       
       // Auto-route to role module
-      if (res.user.role === 'receptionist') setActiveTab('pos');
-      else if (res.user.role === 'stylist') setActiveTab('appointments');
-      else if (res.user.role === 'inventory_staff') setActiveTab('inventory');
-      else setActiveTab('dashboard');
+      if (res.user.role === 'receptionist') handleNavigateTab('pos');
+      else if (res.user.role === 'stylist') handleNavigateTab('appointments');
+      else if (res.user.role === 'inventory_staff') handleNavigateTab('inventory');
+      else handleNavigateTab('dashboard');
     } catch (err: any) {
       setLoginError(err.message || 'Invalid admin credentials or account deactivated.');
     } finally {
@@ -1176,9 +1284,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
   // ADMIN DASHBOARD & APPLICATION WORKSPACE
   // =========================================================================
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-slate-800 flex flex-col md:flex-row">
-      {/* SIDEBAR NAVIGATION */}
-      <aside className="w-full md:w-64 bg-[#120B0F] text-white flex flex-col shrink-0 border-r border-[#380E24]">
+    <div className="min-h-screen bg-[#F8F9FA] text-slate-800 flex flex-col md:flex-row relative">
+      <ScrollToTopOnRouteChange triggerKey={activeTab} containerRefs={[mainContentRef, tabContentRef]} />
+
+      {/* Mobile Drawer Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity duration-200"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* SIDEBAR NAVIGATION - Off-canvas Drawer on Mobile, Fixed Sidebar on Desktop */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-[#120B0F] text-white flex flex-col shrink-0 border-r border-[#380E24] shadow-2xl transition-transform duration-200 ease-out md:static md:w-64 md:z-auto md:shadow-none md:translate-x-0 ${
+          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         {/* Brand Lockup */}
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -1196,13 +1319,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
               </span>
             </div>
           </div>
-          <button
-            onClick={onBackToWebsite}
-            className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10"
-            title="Return to Customer Storefront"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                setIsMobileSidebarOpen(false);
+                onBackToWebsite();
+              }}
+              className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              title="Return to Customer Storefront"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="md:hidden p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              title="Close Navigation Menu"
+              aria-label="Close Navigation Menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Authenticated Staff User Profile Badge */}
@@ -1251,7 +1387,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto text-xs">
           {/* 1. Dashboard */}
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleNavigateTab('dashboard')}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
               activeTab === 'dashboard' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
             }`}
@@ -1263,7 +1399,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 2. Customer CRM */}
           {(isOwner || isManager || isReceptionist) && (
             <button
-              onClick={() => setActiveTab('customers')}
+              onClick={() => handleNavigateTab('customers')}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'customers' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1275,7 +1411,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
 
           {/* 3. Appointments & Bookings */}
           <button
-            onClick={() => setActiveTab('appointments')}
+            onClick={() => handleNavigateTab('appointments')}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors ${
               activeTab === 'appointments' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
             }`}
@@ -1294,7 +1430,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 4. POS Billing */}
           {(isOwner || isManager || isReceptionist) && (
             <button
-              onClick={() => setActiveTab('pos')}
+              onClick={() => handleNavigateTab('pos')}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'pos' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1307,7 +1443,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 5. Payments & Reconciliation */}
           {(isOwner || isManager || isReceptionist) && (
             <button
-              onClick={() => setActiveTab('payments')}
+              onClick={() => handleNavigateTab('payments')}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'payments' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1320,7 +1456,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 6. Service & Menu Management */}
           {(isOwner || isManager) && (
             <button
-              onClick={() => setActiveTab('services')}
+              onClick={() => handleNavigateTab('services')}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'services' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1333,7 +1469,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 7. Stock Inventory */}
           {(isOwner || isManager || isInventoryStaff) && (
             <button
-              onClick={() => setActiveTab('inventory')}
+              onClick={() => handleNavigateTab('inventory')}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'inventory' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1353,7 +1489,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 8. Staff Management */}
           {(isOwner || isManager || isStylist) && (
             <button
-              onClick={() => setActiveTab('staff')}
+              onClick={() => handleNavigateTab('staff')}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'staff' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1365,7 +1501,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
 
           {/* 9. Gallery & Portfolio */}
           <button
-            onClick={() => setActiveTab('gallery')}
+            onClick={() => handleNavigateTab('gallery')}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
               activeTab === 'gallery' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
             }`}
@@ -1377,7 +1513,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 10. Reports & Analytics */}
           {(isOwner || isManager) && (
             <button
-              onClick={() => setActiveTab('reports')}
+              onClick={() => handleNavigateTab('reports')}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'reports' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1389,7 +1525,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
 
           {/* 11. Print Devices (MOZZ) */}
           <button
-            onClick={() => setActiveTab('printers')}
+            onClick={() => handleNavigateTab('printers')}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors ${
               activeTab === 'printers' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
             }`}
@@ -1404,12 +1540,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {/* 12. WhatsApp Inbox (Owner & Manager) */}
           {(isOwner || isManager) && (
             <button
-              onClick={() => {
-                setActiveTab('whatsapp_inbox');
-                if (typeof window !== 'undefined' && window.location.pathname !== '/admin/whatsapp/inbox') {
-                  window.history.pushState(null, '', '/admin/whatsapp/inbox');
-                }
-              }}
+              onClick={() => handleNavigateTab('whatsapp_inbox')}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors ${
                 activeTab === 'whatsapp_inbox' ? 'bg-[#5B132B] text-white font-bold shadow-md shadow-[#5B132B]/30' : 'text-white/70 hover:bg-white/5'
               }`}
@@ -1439,10 +1570,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
           {(isOwner || isManager) && (
             <div className="space-y-1">
               <button
-                onClick={() => {
-                  setActiveTab('settings');
-                  setSettingsSubTab('whatsapp');
-                }}
+                onClick={() => handleNavigateTab('settings', 'whatsapp')}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors ${
                   activeTab === 'settings' && settingsSubTab === 'whatsapp' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
                 }`}
@@ -1458,10 +1586,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
 
               {isOwner && (
                 <button
-                  onClick={() => {
-                    setActiveTab('settings');
-                    setSettingsSubTab('users');
-                  }}
+                  onClick={() => handleNavigateTab('settings', 'users')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors ${
                     activeTab === 'settings' && settingsSubTab !== 'whatsapp' ? 'bg-[#5B132B] text-white font-bold' : 'text-white/70 hover:bg-white/5'
                   }`}
@@ -1477,7 +1602,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
         {/* Back to Client Storefront button */}
         <div className="p-3 border-t border-white/10">
           <button
-            onClick={onBackToWebsite}
+            onClick={() => {
+              setIsMobileSidebarOpen(false);
+              onBackToWebsite();
+            }}
             className="w-full py-2 px-3 text-xs font-bold text-white bg-white/10 hover:bg-white/20 rounded-xl transition-colors flex items-center justify-center gap-1.5"
           >
             <span>Customer Website</span>
@@ -1487,32 +1615,45 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
       </aside>
 
       {/* MAIN ADMIN WORKSPACE */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main ref={mainContentRef} className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header */}
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
-          <div>
-            <h1 className="font-serif font-bold text-xl text-slate-900 capitalize">
-              {activeTab === 'pos'
-                ? 'Reception POS Billing'
-                : activeTab === 'whatsapp_inbox'
-                ? 'WhatsApp Inbox & Customer Chat'
-                : activeTab === 'settings'
-                ? settingsSubTab === 'whatsapp'
-                  ? 'Settings · WhatsApp Business Integration'
-                  : 'Settings · Admin Users & Security'
-                : activeTab.replace('_', ' ')}
-            </h1>
-            <p className="text-xs text-slate-500">
-              The Glossy Looks · 31, Vinayak Nagar, Gachibowli, Hyderabad {settings?.phone ? `· Ph: ${settings.phone}` : ''}
-            </p>
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Mobile Menu Hamburger Button */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="md:hidden p-2 text-slate-700 hover:text-[#5B132B] hover:bg-slate-100 rounded-xl transition-colors focus:outline-none"
+              title="Open Navigation Menu"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu className="w-5 h-5 text-[#5B132B]" />
+            </button>
+
+            <div>
+              <h1 className="font-serif font-bold text-lg sm:text-xl text-slate-900 capitalize">
+                {activeTab === 'pos'
+                  ? 'Reception POS Billing'
+                  : activeTab === 'whatsapp_inbox'
+                  ? 'WhatsApp Inbox & Customer Chat'
+                  : activeTab === 'settings'
+                  ? settingsSubTab === 'whatsapp'
+                    ? 'Settings · WhatsApp Business Integration'
+                    : 'Settings · Admin Users & Security'
+                  : activeTab.replace('_', ' ')}
+              </h1>
+              <p className="text-xs text-slate-500 hidden sm:block">
+                The Glossy Looks · 31, Vinayak Nagar, Gachibowli, Hyderabad {settings?.phone ? `· Ph: ${settings.phone}` : ''}
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {((isOwner || isManager) && feedbackList.length > 0) && (
               <button
                 type="button"
                 onClick={() => setFeedbackModalOpen(true)}
-                className={`py-1.5 px-3 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border shadow-xs ${
+                className={`py-1.5 px-2.5 sm:px-3 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border shadow-xs ${
                   feedbackList.some(f => !f.is_read && (f.rating === 'average' || f.rating === 'bad'))
                     ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100 ring-2 ring-rose-400/20'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -1520,7 +1661,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                 title="Customer Experience Feedback & Automated Care"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-[#5B132B]" />
-                <span>Feedback ({feedbackList.length})</span>
+                <span className="hidden sm:inline">Feedback</span>
+                <span>({feedbackList.length})</span>
                 {feedbackList.some(f => !f.is_read && (f.rating === 'average' || f.rating === 'bad')) && (
                   <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
                 )}
@@ -1537,18 +1679,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
 
             {isReceptionist && (
               <button
-                onClick={() => setActiveTab('pos')}
-                className="py-2 px-3.5 text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
+                onClick={() => handleNavigateTab('pos')}
+                className="py-1.5 sm:py-2 px-2.5 sm:px-3.5 text-xs font-bold text-white bg-[#5B132B] hover:bg-[#430D1F] rounded-xl transition-colors flex items-center gap-1.5 shadow-sm"
               >
                 <Plus className="w-4 h-4 text-[#D4AF37]" />
-                <span>New POS Bill</span>
+                <span className="hidden sm:inline">New POS Bill</span>
+                <span className="sm:hidden">POS</span>
               </button>
             )}
           </div>
         </header>
 
         {/* TAB CONTENTS */}
-        <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+        <div ref={tabContentRef} className="p-4 sm:p-6 flex-1 overflow-y-auto">
           {/* ================================================================= */}
           {/* 1. DASHBOARD */}
           {/* ================================================================= */}
@@ -1606,7 +1749,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                       Recent Booking Enquiries
                     </h3>
                     <button
-                      onClick={() => setActiveTab('appointments')}
+                      onClick={() => handleNavigateTab('appointments')}
                       className="text-xs font-semibold text-[#5B132B] hover:underline"
                     >
                       View All
@@ -1654,7 +1797,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                       Print Devices & Auto-Printing (MOZZ)
                     </h3>
                     <button
-                      onClick={() => setActiveTab('printers')}
+                      onClick={() => handleNavigateTab('printers')}
                       className="text-xs font-semibold text-[#5B132B] hover:underline"
                     >
                       Manage Queue
@@ -1889,7 +2032,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                                     onClick={() => {
                                       setPosCustomerName(c.name);
                                       setPosCustomerPhone(c.mobile);
-                                      setActiveTab('pos');
+                                      handleNavigateTab('pos');
                                     }}
                                     className="inline-flex p-1.5 text-[#5B132B] hover:bg-[#FAF4F0] rounded-lg transition-colors font-bold"
                                     title="Create New POS Bill for Customer"
@@ -2105,7 +2248,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
                                   return { service: fullSrv, quantity: 1, staffId: apt.assigned_staff_id };
                                 });
                                 setPosSelectedItems(items);
-                                setActiveTab('pos');
+                                handleNavigateTab('pos');
                               }}
                               className="p-1.5 text-[#5B132B] hover:bg-[#FAF4F0] rounded-lg font-bold"
                               title="Convert to POS Bill"
@@ -4838,11 +4981,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToWebsite, onVie
             <WhatsAppInbox
               currentUser={currentUser}
               onNavigateToCustomer={(customerMobile) => {
-                setActiveTab('customers');
+                handleNavigateTab('customers');
                 setCustomerSearch(customerMobile);
               }}
               onNavigateToBooking={(_customerMobile) => {
-                setActiveTab('appointments');
+                handleNavigateTab('appointments');
               }}
             />
           )}

@@ -45,7 +45,9 @@ import type {
   DailySalesReportLog,
   WhatsAppConversation,
   WhatsAppMessage,
-  WhatsAppInboxFilter
+  WhatsAppInboxFilter,
+  WhatsAppWebhookEvent,
+  WhatsAppInboxDiagnostics
 } from '../../types/salon.ts';
 
 export interface ISalonRepository {
@@ -239,6 +241,10 @@ export interface ISalonRepository {
   createWhatsAppMessage(message: Omit<WhatsAppMessage, 'id' | 'created_at'>): Promise<WhatsAppMessage>;
   updateWhatsAppMessageByMetaId(metaMessageId: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null>;
   updateWhatsAppMessage(id: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null>;
+
+  // Webhook Events & Diagnostics
+  createWhatsAppWebhookEvent(event: Omit<WhatsAppWebhookEvent, 'id' | 'received_at'>): Promise<WhatsAppWebhookEvent>;
+  getWhatsAppWebhookDiagnostics(): Promise<WhatsAppInboxDiagnostics>;
 }
 
 

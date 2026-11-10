@@ -28,6 +28,7 @@ import { EnquiryModal } from './components/customer/EnquiryModal';
 import { MobileBottomNav } from './components/customer/MobileBottomNav';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { ThermalReceipt } from './components/common/ThermalReceipt';
+import { ScrollToTopOnRouteChange, resetScrollPosition } from './components/common/ScrollToTopOnRouteChange';
 import { ArrowRight, Sparkles, Crown } from 'lucide-react';
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
       } else {
         setCurrentView('customer');
       }
+      resetScrollPosition();
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -57,6 +59,7 @@ export default function App() {
       window.history.pushState(null, '', '/admin');
     }
     setCurrentView('admin');
+    resetScrollPosition();
   };
 
   const navigateToCustomer = () => {
@@ -64,6 +67,7 @@ export default function App() {
       window.history.pushState(null, '', '/');
     }
     setCurrentView('customer');
+    resetScrollPosition();
   };
 
   // Data from backend

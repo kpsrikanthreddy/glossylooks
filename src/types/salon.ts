@@ -732,16 +732,17 @@ export interface DailySalesSummaryData {
 // WhatsApp Inbox / Customer Chat Module Types
 // ============================================================================
 
-export type WhatsAppConversationStatus = 'OPEN' | 'CLOSED';
+export type WhatsAppConversationStatus = 'OPEN' | 'CLOSED' | 'open' | 'closed';
 export type WhatsAppMessageDirection = 'INBOUND' | 'OUTBOUND' | 'inbound' | 'outbound';
-export type WhatsAppMessageType = 'text' | 'interactive' | 'button' | 'template' | 'image' | 'document' | 'system';
-export type WhatsAppDeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type WhatsAppMessageType = 'text' | 'interactive' | 'button' | 'template' | 'image' | 'document' | 'status' | 'system';
+export type WhatsAppDeliveryStatus = 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'received';
 export type WhatsAppSourceBadge = 'WEBSITE_ENQUIRY' | 'WHATSAPP' | 'AUTOMATIC' | 'TEMPLATE' | 'ADMIN';
 export type WhatsAppConversationSource = 'WHATSAPP' | 'WEBSITE_ENQUIRY' | 'MIXED';
 
 export interface WhatsAppConversation {
   id: string;
-  salon_id: string;
+  salon_id?: string;
+  business_id?: string;
   branch_id?: string;
   customer_id?: string;
   wa_phone_number_id?: string;
@@ -751,6 +752,7 @@ export interface WhatsAppConversation {
   status: WhatsAppConversationStatus;
   unread_count: number;
   last_message_text?: string;
+  last_message_preview?: string;
   last_message_at: string;
   last_inbound_at?: string;
   source_channel?: WhatsAppConversationSource;
@@ -771,14 +773,18 @@ export interface WhatsAppMessage {
   direction: WhatsAppMessageDirection;
   message_type?: WhatsAppMessageType;
   type?: WhatsAppMessageType;
+  message_body?: string;
   text_body?: string;
   body?: string;
   template_name?: string;
   template_params?: any;
+  button_reply_id?: string;
+  button_reply_title?: string;
   status?: WhatsAppDeliveryStatus;
   delivery_status?: WhatsAppDeliveryStatus;
   source_badge?: WhatsAppSourceBadge;
   source?: WhatsAppSourceBadge;
+  meta_timestamp?: number | string;
   metadata?: any;
   error_code?: string;
   error_message?: string;
@@ -804,5 +810,31 @@ export interface CustomerServiceWindowInfo {
 }
 
 export type WhatsAppInboxFilter = 'all' | 'unread' | 'open' | 'closed';
+
+export interface WhatsAppWebhookEvent {
+  id: string;
+  event_id?: string;
+  event_type: string;
+  sender_phone?: string;
+  recipient_phone_number_id?: string;
+  payload: any;
+  status: 'received' | 'processed' | 'ignored' | 'failed';
+  error_message?: string;
+  received_at: string;
+  processed_at?: string;
+}
+
+export interface WhatsAppInboxDiagnostics {
+  status: string;
+  meta_webhook_callback_url: string;
+  last_webhook_received_at?: string | null;
+  last_webhook_event_type?: string | null;
+  last_webhook_error?: string | null;
+  total_events_received: number;
+  database_provider: string;
+  environment: string;
+  waba_phone_number_id?: string;
+  active_conversations_count: number;
+}
 
 

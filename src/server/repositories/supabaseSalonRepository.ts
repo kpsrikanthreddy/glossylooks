@@ -57,7 +57,9 @@ import type {
   WhatsAppConversation,
   WhatsAppMessage,
   WhatsAppInboxFilter,
-  CustomerServiceWindowInfo
+  CustomerServiceWindowInfo,
+  WhatsAppWebhookEvent,
+  WhatsAppInboxDiagnostics
 } from '../../types/salon.ts';
 import type { ISalonRepository } from './salonRepository.ts';
 
@@ -2443,17 +2445,17 @@ export class SupabaseSalonRepository implements ISalonRepository {
     filter?: WhatsAppInboxFilter,
     search?: string
   ): Promise<WhatsAppConversation[]> {
-    let targetSalonId = 'tgl-gachibowli-main';
+    let targetSalonId: string | undefined = undefined;
     let targetBranchId = branchId;
     let targetFilter = filter;
     let targetSearch = search;
 
     if (typeof salonIdOrOpts === 'object' && salonIdOrOpts !== null) {
-      targetSalonId = salonIdOrOpts.salonId || salonIdOrOpts.salon_id || 'tgl-gachibowli-main';
+      targetSalonId = salonIdOrOpts.salonId || salonIdOrOpts.salon_id;
       targetBranchId = salonIdOrOpts.branchId || salonIdOrOpts.branch_id;
       targetFilter = (salonIdOrOpts.filter || salonIdOrOpts.status) as WhatsAppInboxFilter;
       targetSearch = salonIdOrOpts.search;
-    } else if (typeof salonIdOrOpts === 'string') {
+    } else if (typeof salonIdOrOpts === 'string' && salonIdOrOpts !== 'all') {
       targetSalonId = salonIdOrOpts;
     }
 
@@ -2462,18 +2464,20 @@ export class SupabaseSalonRepository implements ISalonRepository {
     try {
       let query = this.client
         .from('whatsapp_conversations')
-        .select('*')
-        .eq('salon_id', targetSalonId);
+        .select('*');
 
-      if (targetBranchId) {
+      if (targetSalonId && targetSalonId !== 'all') {
+        query = query.or(`salon_id.eq.${targetSalonId},business_id.eq.${targetSalonId}`);
+      }
+      if (targetBranchId && targetBranchId !== 'all') {
         query = query.eq('branch_id', targetBranchId);
       }
       if (targetFilter === 'unread') {
         query = query.gt('unread_count', 0);
       } else if (targetFilter === 'open') {
-        query = query.eq('status', 'OPEN');
+        query = query.ilike('status', 'open');
       } else if (targetFilter === 'closed') {
-        query = query.eq('status', 'CLOSED');
+        query = query.ilike('status', 'closed');
       }
 
       if (targetSearch && targetSearch.trim()) {
@@ -2492,7 +2496,7 @@ export class SupabaseSalonRepository implements ISalonRepository {
     // Merge in-memory cache
     const convMap = new Map<string, WhatsAppConversation>();
     for (const mem of this.inMemoryConversations) {
-      if (mem.salon_id === targetSalonId && (!targetBranchId || mem.branch_id === targetBranchId)) {
+      if ((!targetSalonId || targetSalonId === 'all' || mem.salon_id === targetSalonId) && (!targetBranchId || targetBranchId === 'all' || mem.branch_id === targetBranchId)) {
         convMap.set(mem.id, mem);
       }
     }
@@ -2503,11 +2507,11 @@ export class SupabaseSalonRepository implements ISalonRepository {
     let result = Array.from(convMap.values());
 
     if (targetFilter === 'unread') {
-      result = result.filter(c => c.unread_count > 0);
+      result = result.filter(c => (c.unread_count || 0) > 0);
     } else if (targetFilter === 'open') {
-      result = result.filter(c => c.status === 'OPEN');
+      result = result.filter(c => (c.status || '').toUpperCase() === 'OPEN');
     } else if (targetFilter === 'closed') {
-      result = result.filter(c => c.status === 'CLOSED');
+      result = result.filter(c => (c.status || '').toUpperCase() === 'CLOSED');
     }
 
     if (targetSearch && targetSearch.trim()) {
@@ -2521,6 +2525,8 @@ export class SupabaseSalonRepository implements ISalonRepository {
     return result
       .map(c => ({
         ...c,
+        last_message_preview: c.last_message_preview || c.last_message_text || (c as any).last_message || '',
+        last_message_text: c.last_message_text || c.last_message_preview || (c as any).last_message || '',
         window_status: this.calculateWindowStatus(c.last_inbound_at)
       }))
       .sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime());
@@ -2586,7 +2592,6 @@ export class SupabaseSalonRepository implements ISalonRepository {
       const { data: existing, error } = await this.client
         .from('whatsapp_conversations')
         .select('*')
-        .eq('salon_id', salonId)
         .eq('customer_phone', formattedPhone)
         .maybeSingle();
 
@@ -2785,8 +2790,12 @@ export class SupabaseSalonRepository implements ISalonRepository {
           direction: (d.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
           message_type: d.message_type || d.type || 'text',
           type: d.message_type || d.type || 'text',
-          text_body: d.text_body || d.body || '',
-          body: d.text_body || d.body || '',
+          text_body: d.text_body || d.message_body || d.body || '',
+          body: d.text_body || d.message_body || d.body || '',
+          message_body: d.message_body || d.text_body || d.body || '',
+          button_reply_id: d.button_reply_id || null,
+          button_reply_title: d.button_reply_title || null,
+          meta_timestamp: d.meta_timestamp || null,
           status: d.status || d.delivery_status || 'sent',
           delivery_status: d.status || d.delivery_status || 'sent',
           source_badge: d.source_badge || d.source || (d.direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN'),
@@ -2863,9 +2872,14 @@ export class SupabaseSalonRepository implements ISalonRepository {
       direction: newMsg.direction,
       message_type: newMsg.message_type,
       text_body: newMsg.text_body,
+      message_body: newMsg.text_body || (newMsg as any).message_body || '',
       status: newMsg.status,
       created_at: now
     };
+
+    if (newMsg.button_reply_id) insertPayload.button_reply_id = newMsg.button_reply_id;
+    if (newMsg.button_reply_title) insertPayload.button_reply_title = newMsg.button_reply_title;
+    if (newMsg.meta_timestamp) insertPayload.meta_timestamp = newMsg.meta_timestamp;
 
     if (newMsg.source_badge) {
       insertPayload.source_badge = newMsg.source_badge;
@@ -2987,6 +3001,109 @@ export class SupabaseSalonRepository implements ISalonRepository {
       return this.inMemoryMessages[idx];
     }
     return null;
+  }
+
+  // Webhook Events & Diagnostics
+  private inMemoryWebhookEvents: WhatsAppWebhookEvent[] = [];
+
+  public async createWhatsAppWebhookEvent(event: Omit<WhatsAppWebhookEvent, 'id' | 'received_at'>): Promise<WhatsAppWebhookEvent> {
+    const id = `whe-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const received_at = new Date().toISOString();
+    const newEvent: WhatsAppWebhookEvent = {
+      ...event,
+      id,
+      received_at,
+      processed_at: event.processed_at || received_at
+    };
+
+    try {
+      const insertPayload: Record<string, any> = {
+        event_id: event.event_id || null,
+        event_type: event.event_type,
+        sender_phone: event.sender_phone || null,
+        recipient_phone_number_id: event.recipient_phone_number_id || null,
+        payload: event.payload || {},
+        status: event.status || 'received',
+        error_message: event.error_message || null,
+        received_at,
+        processed_at: newEvent.processed_at
+      };
+
+      const { data, error } = await this.client
+        .from('whatsapp_webhook_events')
+        .insert(insertPayload)
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        this.inMemoryWebhookEvents.unshift(data as WhatsAppWebhookEvent);
+        return data as WhatsAppWebhookEvent;
+      }
+      if (error) {
+        console.warn('⚠️ Supabase createWhatsAppWebhookEvent error:', error.message);
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Exception in createWhatsAppWebhookEvent:', err.message);
+    }
+
+    this.inMemoryWebhookEvents.unshift(newEvent);
+    if (this.inMemoryWebhookEvents.length > 500) {
+      this.inMemoryWebhookEvents = this.inMemoryWebhookEvents.slice(0, 500);
+    }
+    return newEvent;
+  }
+
+  public async getWhatsAppWebhookDiagnostics(): Promise<WhatsAppInboxDiagnostics> {
+    let count = 0;
+    let latest: WhatsAppWebhookEvent | null = null;
+    let latestError: WhatsAppWebhookEvent | null = null;
+    let activeConversationsCount = 0;
+
+    try {
+      const { data: convData } = await this.client
+        .from('whatsapp_conversations')
+        .select('id, status');
+      if (Array.isArray(convData)) {
+        activeConversationsCount = convData.filter(c => (c.status || '').toUpperCase() === 'OPEN').length;
+      }
+    } catch {}
+
+    try {
+      const { data: events, error, count: totalCount } = await this.client
+        .from('whatsapp_webhook_events')
+        .select('*', { count: 'exact' })
+        .order('received_at', { ascending: false })
+        .limit(20);
+
+      if (!error && Array.isArray(events) && events.length > 0) {
+        count = totalCount || events.length;
+        latest = events[0] as WhatsAppWebhookEvent;
+        latestError = (events.find(e => e.status === 'failed' || !!e.error_message) as WhatsAppWebhookEvent) || null;
+      }
+    } catch {}
+
+    if (!latest && this.inMemoryWebhookEvents.length > 0) {
+      latest = this.inMemoryWebhookEvents[0];
+      latestError = this.inMemoryWebhookEvents.find(e => e.status === 'failed' || !!e.error_message) || null;
+      count = Math.max(count, this.inMemoryWebhookEvents.length);
+    }
+
+    if (activeConversationsCount === 0 && this.inMemoryConversations.length > 0) {
+      activeConversationsCount = this.inMemoryConversations.filter(c => (c.status || '').toUpperCase() === 'OPEN').length;
+    }
+
+    return {
+      status: 'online',
+      meta_webhook_callback_url: 'https://www.glossylooks.in/api/whatsapp/webhook',
+      last_webhook_received_at: latest?.received_at || null,
+      last_webhook_event_type: latest?.event_type || null,
+      last_webhook_error: latestError?.error_message || null,
+      total_events_received: count,
+      database_provider: 'Supabase PostgreSQL',
+      environment: process.env.NODE_ENV || 'production',
+      waba_phone_number_id: '918985799459',
+      active_conversations_count: activeConversationsCount
+    };
   }
 }
 

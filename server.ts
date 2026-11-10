@@ -2473,6 +2473,14 @@ function handleMetaWebhookVerification(req: express.Request, res: express.Respon
 async function handleMetaWebhookEvent(req: express.Request, res: express.Response) {
   if (!isValidMetaWebhookSignature(req)) {
     console.warn('[WhatsApp Webhook] Rejected request with invalid Meta signature.');
+    try {
+      await salonRepository.createWhatsAppWebhookEvent({
+        event_type: 'signature_verification_failed',
+        status: 'failed',
+        error_message: 'Invalid webhook signature',
+        payload: { headers: req.headers }
+      });
+    } catch {}
     return res.status(401).json({ error: 'Invalid webhook signature' });
   }
 
@@ -2500,6 +2508,17 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
             const metaId = st.id;
             const statusStr = st.status;
             const timestamp = st.timestamp ? new Date(Number(st.timestamp) * 1000).toISOString() : new Date().toISOString();
+
+            try {
+              await salonRepository.createWhatsAppWebhookEvent({
+                event_id: metaId,
+                event_type: `message_status_${statusStr}`,
+                sender_phone: st.recipient_id,
+                recipient_phone_number_id: receiverPhoneNumberId,
+                payload: st,
+                status: 'processed'
+              });
+            } catch {}
 
             if (statusStr === 'delivered') {
               const updatedLog = await salonRepository.updateWhatsAppMessageLogByMetaId(metaId, {
@@ -2548,6 +2567,7 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
               const deliveryStatus = statusStr === 'delivered' ? 'delivered' : statusStr === 'read' ? 'read' : statusStr === 'failed' ? 'failed' : 'sent';
               const updatedMsg = await salonRepository.updateWhatsAppMessageByMetaId(metaId, {
                 delivery_status: deliveryStatus,
+                status: deliveryStatus,
                 ...(deliveryStatus === 'delivered' ? { delivered_at: timestamp } : {}),
                 ...(deliveryStatus === 'read' ? { read_at: timestamp } : {}),
                 ...(deliveryStatus === 'failed' ? { error_message: Array.isArray(st.errors) && st.errors[0]?.message ? st.errors[0].message : 'Meta webhook reported failure' } : {})
@@ -2585,26 +2605,61 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
 
             let text = '';
             let buttonId = '';
+            let buttonTitle = '';
 
             // Extract from button quick reply
             if (msg.button) {
               text = msg.button.text || '';
               buttonId = msg.button.payload || '';
+              buttonTitle = text;
             }
             // Extract from interactive button reply
             if (msg.interactive?.button_reply) {
               text = text || msg.interactive.button_reply.title || '';
               buttonId = buttonId || msg.interactive.button_reply.id || '';
+              buttonTitle = text;
+            }
+            // Extract from interactive list reply
+            if (msg.interactive?.list_reply) {
+              text = text || msg.interactive.list_reply.title || '';
+              buttonId = buttonId || msg.interactive.list_reply.id || '';
+              buttonTitle = text;
             }
             // Extract from plain text or quoted message
             if (msg.text?.body) {
               text = text || msg.text.body;
+            }
+            // Extract media representations
+            if (msg.image) {
+              text = msg.image.caption ? `📷 [Image: ${msg.image.caption}]` : '📷 [Image]';
+            } else if (msg.document) {
+              text = msg.document.filename ? `📄 [Document: ${msg.document.filename}]` : (msg.document.caption || '📄 [Document]');
+            } else if (msg.audio) {
+              text = '🎵 [Audio Message]';
+            } else if (msg.video) {
+              text = msg.video.caption ? `🎥 [Video: ${msg.video.caption}]` : '🎥 [Video]';
+            } else if (msg.location) {
+              text = `📍 [Location: ${msg.location.name || `${msg.location.latitude}, ${msg.location.longitude}`}]`;
+            } else if (msg.contacts) {
+              text = '👤 [Contact Card]';
             }
 
             const cleanText = (text || '').trim().toLowerCase();
             const cleanId = (buttonId || '').trim().toLowerCase();
 
             console.log(`[WhatsApp Webhook] Evaluating reply from ${fromPhone}: text="${text}", buttonId="${buttonId}"`);
+
+            // Log event in database for audits & diagnostics
+            try {
+              await salonRepository.createWhatsAppWebhookEvent({
+                event_id: msg.id,
+                event_type: buttonId ? 'interactive_reply' : `incoming_${msg.type || 'message'}`,
+                sender_phone: fromPhone,
+                recipient_phone_number_id: receiverPhoneNumberId,
+                payload: msg,
+                status: 'processed'
+              });
+            } catch {}
 
             // Match customer from repository or create placeholder
             let matchedCustomer: any = null;
@@ -2634,20 +2689,25 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
               const inboundMsg = await salonRepository.createWhatsAppMessage({
                 conversation_id: inboxConversation.id,
                 direction: 'INBOUND',
-                message_type: buttonId ? 'interactive' : 'text',
+                message_type: buttonId ? 'interactive' : (msg.type || 'text'),
                 text_body: messageBody,
+                message_body: messageBody,
+                button_reply_id: buttonId || undefined,
+                button_reply_title: buttonTitle || undefined,
                 meta_message_id: msg.id,
+                meta_timestamp: msg.timestamp ? Number(msg.timestamp) : Math.floor(Date.now() / 1000),
                 status: 'delivered',
                 source_badge: 'WHATSAPP',
                 received_at: new Date().toISOString()
               });
 
-              // CRITICAL FIX: Update conversation with last_inbound_at so 24-hr customer service window opens
+              // CRITICAL FIX: Update conversation with last_inbound_at and last_message_preview
               const nowIso = new Date().toISOString();
               const updatedConv = await salonRepository.updateWhatsAppConversation(inboxConversation.id, {
                 last_inbound_at: nowIso,
                 last_message_at: nowIso,
                 last_message_text: messageBody,
+                last_message_preview: messageBody,
                 unread_count: (inboxConversation.unread_count || 0) + 1,
                 status: 'OPEN',
                 source_channel: inboxConversation.source_channel === 'WEBSITE_ENQUIRY' ? 'MIXED' : (inboxConversation.source_channel || 'WHATSAPP')
@@ -2661,8 +2721,19 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
                 message: inboundMsg,
                 conversation: inboxConversation
               });
-            } catch (inboxErr) {
+            } catch (inboxErr: any) {
               console.warn('[WhatsApp Webhook] Failed to record inbound message in WhatsApp Inbox:', inboxErr);
+              try {
+                await salonRepository.createWhatsAppWebhookEvent({
+                  event_id: msg.id,
+                  event_type: 'incoming_message_error',
+                  sender_phone: fromPhone,
+                  recipient_phone_number_id: receiverPhoneNumberId,
+                  payload: msg,
+                  status: 'failed',
+                  error_message: inboxErr?.message || String(inboxErr)
+                });
+              } catch {}
             }
 
             let rating: 'good' | 'average' | 'bad' | null = null;
@@ -3128,6 +3199,20 @@ app.get('/api/admin/whatsapp/inbox/unread-count', async (req, res) => {
   }
 });
 
+// Diagnostics endpoint for WhatsApp Inbox & Webhook Health
+app.get('/api/admin/whatsapp/inbox/diagnostics', async (req, res) => {
+  try {
+    const admin = await getAuthAdmin(req);
+    if (!admin || (admin.role !== 'owner' && admin.role !== 'manager')) {
+      return res.status(403).json({ error: 'Access denied: Restricted to Salon Owner and Manager.' });
+    }
+    const diagnostics = await salonRepository.getWhatsAppWebhookDiagnostics();
+    res.json(diagnostics);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. List conversations with search and filters
 app.get('/api/admin/whatsapp/inbox/conversations', async (req, res) => {
   try {
@@ -3136,9 +3221,11 @@ app.get('/api/admin/whatsapp/inbox/conversations', async (req, res) => {
       return res.status(403).json({ error: 'Access denied: Restricted to Salon Owner and Manager.' });
     }
     const branchId = admin.role === 'manager' && admin.branch_id ? admin.branch_id : (req.query.branch_id as string | undefined);
+    const filterParam = (req.query.filter as any) || (req.query.status as any) || 'all';
     const conversations = await salonRepository.getWhatsAppConversations({
       branch_id: branchId,
-      status: (req.query.status as any) || 'all',
+      filter: filterParam,
+      status: filterParam,
       search: (req.query.search as string) || undefined
     });
     res.json(conversations);
@@ -3256,6 +3343,7 @@ app.post('/api/admin/whatsapp/inbox/conversations/:id/messages', async (req, res
       direction: 'OUTBOUND',
       message_type: 'text',
       text_body: text.trim(),
+      message_body: text.trim(),
       meta_message_id: sendResult.messageId,
       status: sendResult.success ? 'sent' : 'failed',
       source_badge: 'ADMIN',
@@ -3267,7 +3355,8 @@ app.post('/api/admin/whatsapp/inbox/conversations/:id/messages', async (req, res
 
     await salonRepository.updateWhatsAppConversation(conv.id, {
       last_message_at: new Date().toISOString(),
-      last_message_text: text.trim()
+      last_message_text: text.trim(),
+      last_message_preview: text.trim()
     });
 
     broadcastWhatsAppInboxEvent({
@@ -3327,6 +3416,7 @@ app.post('/api/admin/whatsapp/inbox/conversations/:id/send-template', async (req
       direction: 'OUTBOUND',
       message_type: 'template',
       text_body: templatePreview,
+      message_body: templatePreview,
       template_name: template_name,
       meta_message_id: sendResult.messageId,
       status: sendResult.sent ? 'sent' : 'failed',
@@ -3339,7 +3429,8 @@ app.post('/api/admin/whatsapp/inbox/conversations/:id/send-template', async (req
 
     await salonRepository.updateWhatsAppConversation(conv.id, {
       last_message_at: new Date().toISOString(),
-      last_message_text: templatePreview
+      last_message_text: templatePreview,
+      last_message_preview: templatePreview
     });
 
     broadcastWhatsAppInboxEvent({
@@ -3374,11 +3465,12 @@ app.patch('/api/admin/whatsapp/inbox/conversations/:id', async (req, res) => {
     }
 
     const { status } = req.body;
-    if (status !== 'OPEN' && status !== 'CLOSED') {
+    const normalizedStatus = String(status || '').toUpperCase();
+    if (normalizedStatus !== 'OPEN' && normalizedStatus !== 'CLOSED') {
       return res.status(400).json({ error: 'Status must be OPEN or CLOSED.' });
     }
 
-    const updated = await salonRepository.updateWhatsAppConversation(req.params.id, { status });
+    const updated = await salonRepository.updateWhatsAppConversation(req.params.id, { status: normalizedStatus as any });
     if (!updated) {
       return res.status(404).json({ error: 'Conversation not found.' });
     }

@@ -39,7 +39,8 @@ import {
   DailySalesReportLog,
   WhatsAppConversation,
   WhatsAppMessage,
-  WhatsAppInboxFilter
+  WhatsAppInboxFilter,
+  WhatsAppInboxDiagnostics
 } from '../types/salon';
 
 const API_BASE = '/api';
@@ -496,6 +497,9 @@ export const api = {
   },
 
   getWhatsAppTemplatesList: () =>
-    fetchJson<{ data: any[] }>(`${API_BASE}/admin/whatsapp/templates`)
+    fetchJson<{ data: any[] }>(`${API_BASE}/admin/whatsapp/templates`),
+
+  getWhatsAppInboxDiagnostics: () =>
+    fetchJson<WhatsAppInboxDiagnostics>(`${API_BASE}/admin/whatsapp/inbox/diagnostics`)
 };
 

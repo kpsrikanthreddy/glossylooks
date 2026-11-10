@@ -47,7 +47,9 @@ import type {
   WhatsAppConversation,
   WhatsAppMessage,
   WhatsAppInboxFilter,
-  CustomerServiceWindowInfo
+  CustomerServiceWindowInfo,
+  WhatsAppWebhookEvent,
+  WhatsAppInboxDiagnostics
 } from '../types/salon.ts';
 import type { ISalonRepository } from './repositories/salonRepository.ts';
 
@@ -86,6 +88,7 @@ export interface DatabaseData {
   daily_sales_reports?: DailySalesReportLog[];
   whatsapp_conversations?: WhatsAppConversation[];
   whatsapp_messages?: WhatsAppMessage[];
+  whatsapp_webhook_events?: WhatsAppWebhookEvent[];
 }
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'salon_store.json');
@@ -3659,31 +3662,34 @@ class SalonDatabase implements ISalonRepository {
     search?: string
   ): Promise<WhatsAppConversation[]> {
     if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
-    let targetSalonId = 'tgl-gachibowli-main';
+    let targetSalonId: string | undefined = undefined;
     let targetBranchId = branchId;
     let targetFilter = filter;
     let targetSearch = search;
 
     if (typeof salonIdOrOpts === 'object' && salonIdOrOpts !== null) {
-      targetSalonId = salonIdOrOpts.salonId || salonIdOrOpts.salon_id || 'tgl-gachibowli-main';
+      targetSalonId = salonIdOrOpts.salonId || salonIdOrOpts.salon_id;
       targetBranchId = salonIdOrOpts.branchId || salonIdOrOpts.branch_id;
       targetFilter = (salonIdOrOpts.filter || salonIdOrOpts.status) as WhatsAppInboxFilter;
       targetSearch = salonIdOrOpts.search;
-    } else if (typeof salonIdOrOpts === 'string') {
+    } else if (typeof salonIdOrOpts === 'string' && salonIdOrOpts !== 'all') {
       targetSalonId = salonIdOrOpts;
     }
 
-    let list = this.data.whatsapp_conversations.filter(c => c.salon_id === targetSalonId);
+    let list = this.data.whatsapp_conversations;
+    if (targetSalonId && targetSalonId !== 'all') {
+      list = list.filter(c => !c.salon_id || c.salon_id === targetSalonId || (c as any).business_id === targetSalonId);
+    }
 
-    if (targetBranchId) {
+    if (targetBranchId && targetBranchId !== 'all') {
       list = list.filter(c => !c.branch_id || c.branch_id === targetBranchId);
     }
     if (targetFilter === 'unread') {
-      list = list.filter(c => c.unread_count > 0);
+      list = list.filter(c => (c.unread_count || 0) > 0);
     } else if (targetFilter === 'open') {
-      list = list.filter(c => c.status === 'OPEN');
+      list = list.filter(c => (c.status || '').toUpperCase() === 'OPEN');
     } else if (targetFilter === 'closed') {
-      list = list.filter(c => c.status === 'CLOSED');
+      list = list.filter(c => (c.status || '').toUpperCase() === 'CLOSED');
     }
 
     if (targetSearch && targetSearch.trim()) {
@@ -3697,6 +3703,8 @@ class SalonDatabase implements ISalonRepository {
     return list
       .map(c => ({
         ...c,
+        last_message_preview: c.last_message_preview || c.last_message_text || (c as any).last_message || '',
+        last_message_text: c.last_message_text || c.last_message_preview || (c as any).last_message || '',
         window_status: this.calculateWindowStatus(c.last_inbound_at)
       }))
       .sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime());
@@ -3915,6 +3923,45 @@ class SalonDatabase implements ISalonRepository {
     };
     this.save();
     return this.data.whatsapp_messages[idx];
+  }
+
+  public async createWhatsAppWebhookEvent(event: Omit<WhatsAppWebhookEvent, 'id' | 'received_at'>): Promise<WhatsAppWebhookEvent> {
+    if (!this.data.whatsapp_webhook_events) this.data.whatsapp_webhook_events = [];
+    const id = `whe-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const received_at = new Date().toISOString();
+    const newEvent: WhatsAppWebhookEvent = {
+      ...event,
+      id,
+      received_at,
+      processed_at: event.processed_at || received_at
+    };
+    this.data.whatsapp_webhook_events.unshift(newEvent);
+    if (this.data.whatsapp_webhook_events.length > 500) {
+      this.data.whatsapp_webhook_events = this.data.whatsapp_webhook_events.slice(0, 500);
+    }
+    this.save();
+    return newEvent;
+  }
+
+  public async getWhatsAppWebhookDiagnostics(): Promise<WhatsAppInboxDiagnostics> {
+    const events = this.data.whatsapp_webhook_events || [];
+    const latest = events[0] || null;
+    const latestError = events.find(e => e.status === 'failed' || !!e.error_message);
+    const convs = this.data.whatsapp_conversations || [];
+    const activeCount = convs.filter(c => (c.status || '').toUpperCase() === 'OPEN').length;
+
+    return {
+      status: 'online',
+      meta_webhook_callback_url: 'https://www.glossylooks.in/api/whatsapp/webhook',
+      last_webhook_received_at: latest?.received_at || null,
+      last_webhook_event_type: latest?.event_type || null,
+      last_webhook_error: latestError?.error_message || null,
+      total_events_received: events.length,
+      database_provider: 'SalonDatabase (JSON File Repository)',
+      environment: process.env.NODE_ENV || 'production',
+      waba_phone_number_id: '918985799459',
+      active_conversations_count: activeCount
+    };
   }
 }
 
