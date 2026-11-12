@@ -3855,7 +3855,20 @@ class SalonDatabase implements ISalonRepository {
 
   public async getWhatsAppMessages(conversationId: string, limit: number = 100, before?: string): Promise<WhatsAppMessage[]> {
     if (!this.data.whatsapp_messages) this.data.whatsapp_messages = [];
-    let list = this.data.whatsapp_messages.filter(m => m.conversation_id === conversationId);
+    if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
+
+    const conv = this.data.whatsapp_conversations.find(c => c.id === conversationId);
+    const cleanPhone = conv?.customer_phone?.replace(/\D/g, '').slice(-10) || conversationId.replace(/\D/g, '').slice(-10);
+    const candidateConvIds = new Set<string>([conversationId]);
+    if (conv?.id) candidateConvIds.add(conv.id);
+
+    if (cleanPhone.length === 10) {
+      this.data.whatsapp_conversations
+        .filter(c => (c.customer_phone || '').replace(/\D/g, '').slice(-10) === cleanPhone)
+        .forEach(c => candidateConvIds.add(c.id));
+    }
+
+    let list = this.data.whatsapp_messages.filter(m => candidateConvIds.has(m.conversation_id));
     if (before) {
       list = list.filter(m => new Date(m.created_at || 0).getTime() < new Date(before).getTime());
     }

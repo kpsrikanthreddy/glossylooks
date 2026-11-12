@@ -57,6 +57,7 @@ import type {
   DailySalesReportLog,
   WhatsAppConversation,
   WhatsAppMessage,
+  WhatsAppMessageType,
   WhatsAppInboxFilter,
   CustomerServiceWindowInfo,
   WhatsAppWebhookEvent,
@@ -2513,8 +2514,21 @@ export class SupabaseSalonRepository implements ISalonRepository {
     }
     for (const db of dbConversations) {
       const key = (db.customer_phone || '').replace(/\D/g, '').slice(-10) || db.id;
-      const existingMem = convMap.get(key);
-      convMap.set(key, existingMem ? { ...existingMem, ...db } : db);
+      if (!convMap.has(key)) {
+        convMap.set(key, db);
+      } else {
+        const existing = convMap.get(key)!;
+        const isDbNewer = new Date(db.last_message_at || 0).getTime() > new Date(existing.last_message_at || 0).getTime();
+        const primary = isDbNewer ? db : existing;
+        const secondary = isDbNewer ? existing : db;
+        convMap.set(key, {
+          ...secondary,
+          ...primary,
+          customer_name: (primary.customer_name && primary.customer_name !== 'WhatsApp Customer' && primary.customer_name !== 'Valued Customer')
+            ? primary.customer_name
+            : (secondary.customer_name || primary.customer_name)
+        });
+      }
     }
 
     let result = Array.from(convMap.values());
@@ -2881,49 +2895,170 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
   public async getWhatsAppMessages(conversationId: string, limit: number = 100, before?: string): Promise<WhatsAppMessage[]> {
     let dbMessages: WhatsAppMessage[] = [];
-    try {
-      let query = this.client
-        .from('whatsapp_messages')
-        .select('*')
-        .eq('conversation_id', conversationId);
+    const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
-      if (before) {
-        query = query.lt('created_at', before);
+    // 1. Resolve conversation to gather all related conversation UUIDs (phone-based canonical mapping)
+    const conv = await this.getWhatsAppConversationById(conversationId);
+    const candidateIds: string[] = [];
+    if (isUuid(conversationId)) {
+      candidateIds.push(conversationId);
+    }
+    if (conv?.id && isUuid(conv.id) && !candidateIds.includes(conv.id)) {
+      candidateIds.push(conv.id);
+    }
+
+    const customerPhone = conv?.customer_phone || (conversationId.replace(/\D/g, '').length >= 10 ? conversationId : '');
+    const clean10 = customerPhone.replace(/\D/g, '').slice(-10);
+
+    if (clean10.length === 10) {
+      try {
+        const { data: siblingConvs } = await this.client
+          .from('whatsapp_conversations')
+          .select('id')
+          .or(`customer_phone.eq.+91${clean10},customer_phone.eq.91${clean10},customer_phone.eq.${clean10},customer_phone.ilike.%${clean10}%`);
+
+        if (siblingConvs && Array.isArray(siblingConvs)) {
+          for (const s of siblingConvs) {
+            if (s.id && isUuid(s.id) && !candidateIds.includes(s.id)) {
+              candidateIds.push(s.id);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn('⚠️ Supabase error resolving conversation siblings:', err.message);
       }
+    }
 
-      const { data, error } = await query
-        .order('created_at', { ascending: false })
-        .limit(limit);
+    // 2. Query whatsapp_messages from Supabase
+    try {
+      if (candidateIds.length > 0) {
+        let query = this.client.from('whatsapp_messages').select('*');
+        if (candidateIds.length === 1) {
+          query = query.eq('conversation_id', candidateIds[0]);
+        } else {
+          query = query.in('conversation_id', candidateIds);
+        }
 
-      if (!error && Array.isArray(data)) {
-        dbMessages = data.map((d: any) => ({
-          ...d,
-          direction: (d.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
-          message_type: d.message_type || d.type || 'text',
-          type: d.message_type || d.type || 'text',
-          text_body: d.text_body || d.message_body || d.body || '',
-          body: d.text_body || d.message_body || d.body || '',
-          message_body: d.message_body || d.text_body || d.body || '',
-          button_reply_id: d.button_reply_id || null,
-          button_reply_title: d.button_reply_title || null,
-          meta_timestamp: d.meta_timestamp || null,
-          status: d.status || d.delivery_status || 'sent',
-          delivery_status: d.status || d.delivery_status || 'sent',
-          source_badge: d.source_badge || d.source || (d.direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN'),
-          source: d.source_badge || d.source || (d.direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN')
-        })) as WhatsAppMessage[];
+        if (before) {
+          query = query.lt('created_at', before);
+        }
+
+        const { data, error } = await query
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (!error && Array.isArray(data)) {
+          dbMessages = data.map((d: any) => ({
+            ...d,
+            direction: (d.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
+            message_type: d.message_type || d.type || 'text',
+            type: d.message_type || d.type || 'text',
+            text_body: d.text_body || d.message_body || d.body || '',
+            body: d.text_body || d.message_body || d.body || '',
+            message_body: d.message_body || d.text_body || d.body || '',
+            button_reply_id: d.button_reply_id || null,
+            button_reply_title: d.button_reply_title || null,
+            meta_timestamp: d.meta_timestamp || null,
+            status: d.status || d.delivery_status || 'sent',
+            delivery_status: d.status || d.delivery_status || 'sent',
+            source_badge: d.source_badge || d.source || ((d.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN'),
+            source: d.source_badge || d.source || ((d.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN')
+          })) as WhatsAppMessage[];
+        } else if (error) {
+          console.warn('⚠️ Supabase error loading WhatsApp messages:', error.message);
+        }
       }
     } catch (err: any) {
-      console.warn('⚠️ Supabase error loading WhatsApp messages:', err.message);
+      console.warn('⚠️ Exception in getWhatsAppMessages query:', err.message);
     }
 
-    const map = new Map<string, WhatsAppMessage>();
-    let memList = this.inMemoryMessages.filter(m => m.conversation_id === conversationId);
-    if (before) {
-      memList = memList.filter(m => new Date(m.created_at || 0).getTime() < new Date(before).getTime());
+    const canonicalConvId = (conv?.id && isUuid(conv.id)) ? conv.id : (candidateIds[0] || (isUuid(conversationId) ? conversationId : null));
+
+    // 3. Self-healing backfill if dbMessages is empty for this active conversation on production
+    if (dbMessages.length === 0 && canonicalConvId && clean10.length === 10) {
+      try {
+        // A. Recover from whatsapp_webhook_events if available
+        const { data: webhookEvents } = await this.client
+          .from('whatsapp_webhook_events')
+          .select('*')
+          .or(`sender_phone.eq.+91${clean10},sender_phone.eq.91${clean10},sender_phone.eq.${clean10},sender_phone.ilike.%${clean10}%`)
+          .order('received_at', { ascending: true })
+          .limit(50);
+
+        if (webhookEvents && Array.isArray(webhookEvents) && webhookEvents.length > 0) {
+          for (const ev of webhookEvents) {
+            const p = ev.payload || {};
+            let bodyText = '';
+            let msgType: WhatsAppMessageType = 'text';
+            let btnId: string | undefined;
+            let btnTitle: string | undefined;
+
+            if (p.text?.body) {
+              bodyText = p.text.body;
+            } else if (p.button?.text) {
+              bodyText = p.button.text;
+              btnId = p.button.payload;
+              btnTitle = p.button.text;
+              msgType = 'interactive';
+            } else if (typeof p.text === 'string') {
+              bodyText = p.text;
+            } else if (ev.event_type === 'normal_chat' && p.text) {
+              bodyText = p.text;
+            }
+
+            if (bodyText && bodyText.trim()) {
+              const recovered = await this.createWhatsAppMessage({
+                conversation_id: canonicalConvId,
+                direction: 'INBOUND',
+                message_type: msgType,
+                text_body: bodyText.trim(),
+                button_reply_id: btnId,
+                button_reply_title: btnTitle,
+                meta_message_id: ev.event_id || p.id,
+                meta_timestamp: p.timestamp ? Number(p.timestamp) : undefined,
+                status: 'delivered',
+                source_badge: 'WHATSAPP'
+              });
+              if (recovered && !dbMessages.some(m => m.id === recovered.id || (recovered.meta_message_id && m.meta_message_id === recovered.meta_message_id))) {
+                dbMessages.push(recovered);
+              }
+            }
+          }
+        }
+
+        // B. Recover from conversation preview if still empty and preview exists
+        if (dbMessages.length === 0 && (conv?.last_message_preview || conv?.last_message_text)) {
+          const previewText = (conv.last_message_preview || conv.last_message_text || '').trim();
+          if (previewText) {
+            const isOutbound = previewText.toLowerCase() === 'ok' || previewText.toLowerCase() === 'will book appointment' || previewText.startsWith('[Template:');
+            const recoveredFromPreview = await this.createWhatsAppMessage({
+              conversation_id: canonicalConvId,
+              direction: isOutbound ? 'OUTBOUND' : 'INBOUND',
+              message_type: 'text',
+              text_body: previewText,
+              status: isOutbound ? 'sent' : 'delivered',
+              source_badge: isOutbound ? 'ADMIN' : 'WHATSAPP'
+            });
+            if (recoveredFromPreview) {
+              dbMessages.push(recoveredFromPreview);
+            }
+          }
+        }
+      } catch (recoveryErr: any) {
+        console.warn('⚠️ Error during WhatsApp message self-healing recovery:', recoveryErr.message);
+      }
     }
-    for (const mem of memList.slice(-limit)) {
-      map.set(mem.id, {
+
+    // 4. Merge in-memory cache and backfill any missing memory items into Supabase
+    const map = new Map<string, WhatsAppMessage>();
+    const memList = this.inMemoryMessages.filter(m => 
+      m.conversation_id === conversationId || 
+      candidateIds.includes(m.conversation_id) ||
+      (clean10.length === 10 && m.conversation_id && this.inMemoryConversations.some(c => c.id === m.conversation_id && (c.customer_phone || '').replace(/\D/g, '').slice(-10) === clean10))
+    );
+
+    for (const mem of memList) {
+      const formattedMem: WhatsAppMessage = {
         ...mem,
         direction: (mem.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
         message_type: mem.message_type || (mem as any).type || 'text',
@@ -2934,35 +3069,52 @@ export class SupabaseSalonRepository implements ISalonRepository {
         delivery_status: mem.status || (mem as any).delivery_status || 'sent',
         source_badge: mem.source_badge || mem.source || ((mem.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN'),
         source: mem.source_badge || mem.source || ((mem.direction || 'INBOUND').toUpperCase() === 'INBOUND' ? 'WHATSAPP' : 'ADMIN')
-      });
+      };
+      map.set(formattedMem.id, formattedMem);
+
+      // Ensure this in-memory message is also stored permanently in Supabase if canonicalConvId is present
+      if (canonicalConvId && isUuid(canonicalConvId) && !dbMessages.some(d => d.id === mem.id || (mem.meta_message_id && d.meta_message_id === mem.meta_message_id))) {
+        this.createWhatsAppMessage({
+          ...mem,
+          conversation_id: canonicalConvId
+        }).catch(() => {});
+      }
     }
+
     for (const db of dbMessages) {
       map.set(db.id, db);
     }
 
-    return Array.from(map.values()).sort(
+    let finalMessages = Array.from(map.values()).sort(
       (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
     );
+
+    if (before) {
+      finalMessages = finalMessages.filter(m => new Date(m.created_at || 0).getTime() < new Date(before).getTime());
+    }
+
+    return finalMessages.slice(-limit);
   }
 
   public async createWhatsAppMessage(message: Omit<WhatsAppMessage, 'id' | 'created_at'>): Promise<WhatsAppMessage> {
     const now = new Date().toISOString();
     const direction = (message.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND';
     const messageType = message.message_type || (message as any).type || 'text';
-    const textBody = message.text_body || (message as any).body || '';
-    const status = message.status || (message as any).delivery_status || 'sent';
-    const sourceBadge = message.source_badge || (message as any).source || (message as any).source_channel || (direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN');
+    const textBody = message.text_body || (message as any).message_body || (message as any).body || '';
+    const status = message.status || (message as any).delivery_status || (direction === 'INBOUND' ? 'delivered' : 'sent');
+    const sourceBadge = message.source_badge || (message as any).source || (direction === 'INBOUND' ? 'WHATSAPP' : 'ADMIN');
     const sentByUserId = message.sent_by_user_id || (message as any).sender_admin_id || null;
     const sentByUserName = message.sent_by_user_name || (message as any).sender_admin_name || null;
 
     const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
     let targetConversationId = message.conversation_id;
 
+    // Resolve to a valid conversation UUID
     if (!isUuid(targetConversationId)) {
-      // Find the corresponding conversation in memory or database to get its real UUID
       const memConv = this.inMemoryConversations.find(c => c.id === targetConversationId);
-      if (memConv?.customer_phone) {
-        const clean10 = memConv.customer_phone.replace(/\D/g, '').slice(-10);
+      const rawPhone = memConv?.customer_phone || targetConversationId;
+      const clean10 = rawPhone.replace(/\D/g, '').slice(-10);
+      if (clean10.length === 10) {
         try {
           const { data: dbConv } = await this.client
             .from('whatsapp_conversations')
@@ -2971,11 +3123,24 @@ export class SupabaseSalonRepository implements ISalonRepository {
             .order('last_message_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (dbConv?.id) {
+
+          if (dbConv?.id && isUuid(dbConv.id)) {
             targetConversationId = dbConv.id;
             if (memConv) memConv.id = dbConv.id;
+          } else {
+            // Create conversation in Supabase to obtain a valid UUID
+            const newConv = await this.getOrCreateWhatsAppConversation({
+              customer_phone: `+91${clean10}`,
+              customer_name: memConv?.customer_name || 'WhatsApp Customer'
+            });
+            if (newConv?.id && isUuid(newConv.id)) {
+              targetConversationId = newConv.id;
+              if (memConv) memConv.id = newConv.id;
+            }
           }
-        } catch {}
+        } catch (convErr: any) {
+          console.warn('⚠️ Error resolving conversation UUID in createWhatsAppMessage:', convErr.message);
+        }
       }
     }
 
@@ -2991,6 +3156,7 @@ export class SupabaseSalonRepository implements ISalonRepository {
       type: messageType,
       text_body: textBody,
       body: textBody,
+      message_body: textBody,
       status,
       delivery_status: status,
       source_badge: sourceBadge,
@@ -3000,41 +3166,40 @@ export class SupabaseSalonRepository implements ISalonRepository {
       created_at: now
     };
 
-    // Clean payload strictly adhering to postgres public.whatsapp_messages schema
+    // Strict schema-compliant insert payload matching migration 020
     const insertPayload: Record<string, any> = {
       id: msgUuid,
-      salon_id: newMsg.salon_id,
-      branch_id: newMsg.branch_id,
       conversation_id: targetConversationId,
-      direction: newMsg.direction,
-      message_type: newMsg.message_type,
-      text_body: newMsg.text_body,
-      message_body: newMsg.text_body || (newMsg as any).message_body || '',
-      status: newMsg.status,
-      created_at: now
+      direction: direction.toLowerCase(),
+      message_type: messageType,
+      text_body: textBody,
+      message_body: textBody,
+      status: status.toLowerCase(),
+      created_at: now,
+      metadata: {
+        salon_id: newMsg.salon_id,
+        branch_id: newMsg.branch_id,
+        source: sourceBadge,
+        sent_at: (newMsg as any).sent_at || null,
+        delivered_at: (newMsg as any).delivered_at || null,
+        read_at: (newMsg as any).read_at || null,
+        failed_at: (newMsg as any).failed_at || null,
+        received_at: (newMsg as any).received_at || now,
+        template_params: (newMsg as any).template_params || null,
+        reply_to_message_id: (newMsg as any).reply_to_message_id || null
+      }
     };
 
+    if (newMsg.meta_message_id) insertPayload.meta_message_id = newMsg.meta_message_id;
+    if (newMsg.template_name) insertPayload.template_name = newMsg.template_name;
     if (newMsg.button_reply_id) insertPayload.button_reply_id = newMsg.button_reply_id;
     if (newMsg.button_reply_title) insertPayload.button_reply_title = newMsg.button_reply_title;
     if (newMsg.meta_timestamp) insertPayload.meta_timestamp = newMsg.meta_timestamp;
-
-    if (newMsg.source_badge) {
-      insertPayload.source_badge = newMsg.source_badge;
-      insertPayload.source = newMsg.source_badge;
-    }
-    if (newMsg.meta_message_id) insertPayload.meta_message_id = newMsg.meta_message_id;
-    if (newMsg.template_name) insertPayload.template_name = newMsg.template_name;
-    if (newMsg.template_params) insertPayload.template_params = newMsg.template_params;
+    if (sourceBadge) insertPayload.source_badge = sourceBadge;
+    if (sentByUserId) insertPayload.sent_by_user_id = sentByUserId;
+    if (sentByUserName) insertPayload.sent_by_user_name = sentByUserName;
     if (newMsg.error_code) insertPayload.error_code = newMsg.error_code;
     if (newMsg.error_message) insertPayload.error_message = newMsg.error_message;
-    if (newMsg.sent_by_user_id) insertPayload.sent_by_user_id = newMsg.sent_by_user_id;
-    if (newMsg.sent_by_user_name) insertPayload.sent_by_user_name = newMsg.sent_by_user_name;
-    if (newMsg.reply_to_message_id) insertPayload.reply_to_message_id = newMsg.reply_to_message_id;
-    if (newMsg.sent_at) insertPayload.sent_at = newMsg.sent_at;
-    if (newMsg.delivered_at) insertPayload.delivered_at = newMsg.delivered_at;
-    if (newMsg.read_at) insertPayload.read_at = newMsg.read_at;
-    if (newMsg.failed_at) insertPayload.failed_at = newMsg.failed_at;
-    if ((newMsg as any).received_at) insertPayload.received_at = (newMsg as any).received_at;
 
     try {
       const { data, error } = await this.client
@@ -3049,15 +3214,30 @@ export class SupabaseSalonRepository implements ISalonRepository {
           direction: (data.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
           message_type: data.message_type || data.type || 'text',
           type: data.message_type || data.type || 'text',
-          text_body: data.text_body || data.body || '',
-          body: data.text_body || data.body || '',
+          text_body: data.text_body || data.message_body || data.body || '',
+          body: data.text_body || data.message_body || data.body || '',
+          message_body: data.message_body || data.text_body || data.body || '',
           status: data.status || data.delivery_status || 'sent',
           delivery_status: data.status || data.delivery_status || 'sent',
           source_badge: data.source_badge || sourceBadge
         };
         this.inMemoryMessages.push(saved);
+
+        // Update conversation last message timestamp & preview in Supabase
+        const convPatch: Partial<WhatsAppConversation> = {
+          last_message_at: now,
+          last_message_preview: textBody,
+          last_message_text: textBody
+        };
+        if (direction === 'INBOUND') {
+          convPatch.last_inbound_at = now;
+        }
+        this.updateWhatsAppConversation(targetConversationId, convPatch).catch(() => {});
+
         return saved;
       }
+
+      // Handle duplicate webhook event meta_message_id gracefully
       if (error && error.code === '23505' && message.meta_message_id) {
         const existing = await this.client
           .from('whatsapp_messages')
@@ -3071,16 +3251,47 @@ export class SupabaseSalonRepository implements ISalonRepository {
             direction: (row.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
             message_type: row.message_type || row.type || 'text',
             type: row.message_type || row.type || 'text',
-            text_body: row.text_body || row.body || '',
-            body: row.text_body || row.body || '',
+            text_body: row.text_body || row.message_body || row.body || '',
+            body: row.text_body || row.message_body || row.body || '',
+            message_body: row.message_body || row.text_body || row.body || '',
             status: row.status || row.delivery_status || 'sent',
             delivery_status: row.status || row.delivery_status || 'sent',
             source_badge: row.source_badge || sourceBadge
           };
         }
       }
+
+      // If error might be due to optional columns or schema cache, retry with minimal core columns
       if (error) {
-        console.warn('⚠️ Supabase error in createWhatsAppMessage:', error.message, error.details);
+        console.warn('⚠️ Supabase primary insert in createWhatsAppMessage failed:', error.message, error.details);
+        const minimalPayload = {
+          id: msgUuid,
+          conversation_id: targetConversationId,
+          direction: direction.toLowerCase(),
+          message_type: messageType,
+          text_body: textBody,
+          message_body: textBody,
+          status: status.toLowerCase(),
+          created_at: now
+        };
+        const { data: retryData, error: retryError } = await this.client
+          .from('whatsapp_messages')
+          .insert(minimalPayload)
+          .select()
+          .maybeSingle();
+
+        if (!retryError && retryData) {
+          const savedRetry: WhatsAppMessage = {
+            ...retryData,
+            direction: (retryData.direction || 'INBOUND').toUpperCase() as 'INBOUND' | 'OUTBOUND',
+            message_type: retryData.message_type || 'text',
+            text_body: retryData.text_body || '',
+            status: retryData.status || 'sent',
+            source_badge: sourceBadge
+          };
+          this.inMemoryMessages.push(savedRetry);
+          return savedRetry;
+        }
       }
     } catch (err: any) {
       console.warn('⚠️ Exception in createWhatsAppMessage:', err.message);
@@ -3092,9 +3303,15 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
   public async updateWhatsAppMessageByMetaId(metaMessageId: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null> {
     try {
+      const patch: Record<string, any> = {};
+      if (data.status) patch.status = String(data.status).toLowerCase();
+      if ((data as any).delivery_status) patch.status = String((data as any).delivery_status).toLowerCase();
+      if (data.error_code) patch.error_code = data.error_code;
+      if (data.error_message) patch.error_message = data.error_message;
+
       const { data: updated, error } = await this.client
         .from('whatsapp_messages')
-        .update(data)
+        .update(patch)
         .eq('meta_message_id', metaMessageId)
         .select()
         .maybeSingle();
@@ -3117,9 +3334,15 @@ export class SupabaseSalonRepository implements ISalonRepository {
 
   public async updateWhatsAppMessage(id: string, data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage | null> {
     try {
+      const patch: Record<string, any> = {};
+      if (data.status) patch.status = String(data.status).toLowerCase();
+      if ((data as any).delivery_status) patch.status = String((data as any).delivery_status).toLowerCase();
+      if (data.error_code) patch.error_code = data.error_code;
+      if (data.error_message) patch.error_message = data.error_message;
+
       const { data: updated, error } = await this.client
         .from('whatsapp_messages')
-        .update(data)
+        .update(patch)
         .eq('id', id)
         .select()
         .maybeSingle();
