@@ -2157,28 +2157,154 @@ export class SupabaseSalonRepository implements ISalonRepository {
     return (data || []) as ScheduledFeedbackJob[];
   }
 
-  public async createScheduledFeedbackJob(job: Omit<ScheduledFeedbackJob, 'id' | 'created_at' | 'updated_at'>): Promise<ScheduledFeedbackJob> {
-    if (job.order_id) {
-      try {
-        let query = this.client
-          .from('scheduled_feedback_jobs')
-          .select('*')
-          .eq('order_id', job.order_id);
-        if (job.job_type) {
-          query = query.eq('job_type', job.job_type);
+  public async isFeedbackAlreadySentOrClaimed(appointmentId?: string, orderId?: string): Promise<boolean> {
+    if (!appointmentId && !orderId) return false;
+
+    try {
+      // 1. Check existing scheduled_feedback_jobs
+      let jobQuery = this.client.from('scheduled_feedback_jobs').select('id, status, appointment_id, order_id');
+      const conditions: string[] = [];
+      if (appointmentId) conditions.push(`appointment_id.eq.${appointmentId}`);
+      if (orderId) conditions.push(`order_id.eq.${orderId}`);
+      if (conditions.length > 0) {
+        jobQuery = jobQuery.or(conditions.join(','));
+      }
+      const { data: jobs } = await jobQuery;
+      if (jobs && jobs.some((j: any) => ['processing', 'completed', 'sent'].includes(j.status))) {
+        return true;
+      }
+
+      // 2. Check orders table
+      if (orderId) {
+        const { data: ord } = await this.client
+          .from('orders')
+          .select('id, feedback_whatsapp_status')
+          .eq('id', orderId)
+          .maybeSingle();
+        if (ord && ['sending', 'sent', 'delivered', 'read'].includes(ord.feedback_whatsapp_status)) {
+          return true;
         }
-        const { data: existing } = await query.maybeSingle();
-        if (existing) {
-          return existing as ScheduledFeedbackJob;
+      }
+      if (appointmentId) {
+        const { data: ordList } = await this.client
+          .from('orders')
+          .select('id, feedback_whatsapp_status')
+          .eq('appointment_id', appointmentId);
+        if (ordList && ordList.some((o: any) => ['sending', 'sent', 'delivered', 'read'].includes(o.feedback_whatsapp_status))) {
+          return true;
+        }
+      }
+
+      // 3. Check appointments table
+      if (appointmentId) {
+        const { data: apt } = await this.client
+          .from('appointments')
+          .select('id, feedback_whatsapp_status')
+          .eq('id', appointmentId)
+          .maybeSingle();
+        if (apt && ['sending', 'sent', 'delivered', 'read'].includes(apt.feedback_whatsapp_status)) {
+          return true;
+        }
+      }
+
+      // 4. Check appointment_feedback records
+      let fbQuery = this.client.from('appointment_feedback').select('id');
+      const fbConds: string[] = [];
+      if (appointmentId) fbConds.push(`appointment_id.eq.${appointmentId}`);
+      if (orderId) fbConds.push(`order_id.eq.${orderId}`);
+      if (fbConds.length > 0) {
+        fbQuery = fbQuery.or(fbConds.join(','));
+        const { data: fbs } = await fbQuery;
+        if (fbs && fbs.length > 0) return true;
+      }
+    } catch (err: any) {
+      console.warn('⚠️ isFeedbackAlreadySentOrClaimed check warning:', err.message);
+    }
+
+    return false;
+  }
+
+  public async claimScheduledFeedbackJob(id: string): Promise<ScheduledFeedbackJob | null> {
+    const now = new Date().toISOString();
+    const updatePayload: Record<string, any> = {
+      status: 'processing',
+      claimed_at: now,
+      updated_at: now
+    };
+
+    let { data, error } = await this.client
+      .from('scheduled_feedback_jobs')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
+
+    while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && updatePayload[match[1]] !== undefined) {
+        delete updatePayload[match[1]];
+        const retry = await this.client
+          .from('scheduled_feedback_jobs')
+          .update(updatePayload)
+          .eq('id', id)
+          .eq('status', 'pending')
+          .select()
+          .maybeSingle();
+        error = retry.error;
+        data = retry.data;
+      } else {
+        break;
+      }
+    }
+
+    if (error || !data) {
+      return null;
+    }
+    return data as ScheduledFeedbackJob;
+  }
+
+  public async createScheduledFeedbackJob(job: Omit<ScheduledFeedbackJob, 'id' | 'created_at' | 'updated_at'>): Promise<ScheduledFeedbackJob> {
+    // Check if a feedback job already exists for this appointment or order
+    if (job.appointment_id || job.order_id) {
+      try {
+        let existingQuery = this.client.from('scheduled_feedback_jobs').select('*');
+        if (job.appointment_id && job.order_id) {
+          existingQuery = existingQuery.or(`appointment_id.eq.${job.appointment_id},order_id.eq.${job.order_id}`);
+        } else if (job.appointment_id) {
+          existingQuery = existingQuery.eq('appointment_id', job.appointment_id);
+        } else if (job.order_id) {
+          existingQuery = existingQuery.eq('order_id', job.order_id);
+        }
+        if (job.job_type) {
+          existingQuery = existingQuery.eq('job_type', job.job_type);
+        }
+        const { data: existingList } = await existingQuery;
+        if (existingList && existingList.length > 0) {
+          const existing = existingList[0] as ScheduledFeedbackJob;
+          // Link missing fields if needed
+          const patch: Partial<ScheduledFeedbackJob> = {};
+          if (job.order_id && !existing.order_id) patch.order_id = job.order_id;
+          if (job.appointment_id && !existing.appointment_id) patch.appointment_id = job.appointment_id;
+          if (Object.keys(patch).length > 0) {
+            await this.updateScheduledFeedbackJob(existing.id, patch);
+          }
+          return { ...existing, ...patch };
         }
       } catch {
-        // Continue if column not present yet
+        // Continue if query fails
       }
     }
 
     const id = `sfj-${Date.now()}`;
     const now = new Date().toISOString();
-    const newJob: any = { ...job, id, created_at: now, updated_at: now };
+    const newJob: any = {
+      ...job,
+      id,
+      feedback_source: job.feedback_source || 'AUTO_FEEDBACK',
+      created_at: now,
+      updated_at: now
+    };
     let { data, error } = await this.client.from('scheduled_feedback_jobs').insert(newJob).select().single();
 
     while (error && (error.code === 'PGRST204' || (error.message && error.message.includes('schema cache')))) {
@@ -3416,35 +3542,30 @@ export class SupabaseSalonRepository implements ISalonRepository {
   public async deleteWhatsAppConversation(id: string): Promise<boolean> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     try {
+      // PERMANENT RETENTION: Messages are NEVER deleted from public.whatsapp_messages.
+      // Closing or deleting a conversation archives it by setting status to 'closed'.
       if (isUuid) {
-        await this.client.from('whatsapp_messages').delete().eq('conversation_id', id);
-        await this.client.from('whatsapp_conversations').delete().eq('id', id);
+        await this.client.from('whatsapp_conversations').update({ status: 'closed' }).eq('id', id);
       } else {
         const clean10 = id.replace(/\D/g, '').slice(-10);
         if (clean10.length === 10) {
-          const { data: convs } = await this.client
+          await this.client
             .from('whatsapp_conversations')
-            .select('id')
+            .update({ status: 'closed' })
             .or(`customer_phone.eq.+91${clean10},customer_phone.eq.91${clean10},customer_phone.eq.${clean10},customer_phone.ilike.%${clean10}%`);
-          if (convs && convs.length > 0) {
-            for (const c of convs) {
-              await this.client.from('whatsapp_messages').delete().eq('conversation_id', c.id);
-              await this.client.from('whatsapp_conversations').delete().eq('id', c.id);
-            }
-          }
         }
       }
     } catch (err: any) {
-      console.warn('⚠️ Error deleting whatsapp conversation from Supabase:', err.message);
+      console.warn('⚠️ Error updating whatsapp conversation status in Supabase:', err.message);
     }
 
     const cleanId10 = id.replace(/\D/g, '').slice(-10);
-    this.inMemoryConversations = this.inMemoryConversations.filter(
-      c => c.id !== id && (cleanId10.length === 10 ? c.customer_phone?.replace(/\D/g, '').slice(-10) !== cleanId10 : true)
-    );
-    this.inMemoryMessages = this.inMemoryMessages.filter(
-      m => m.conversation_id !== id
-    );
+    for (const c of this.inMemoryConversations) {
+      if (c.id === id || (cleanId10.length === 10 && c.customer_phone?.replace(/\D/g, '').slice(-10) === cleanId10)) {
+        c.status = 'CLOSED';
+      }
+    }
+    // Retain all messages permanently in memory as well
     return true;
   }
 

@@ -3528,6 +3528,51 @@ class SalonDatabase implements ISalonRepository {
     return job;
   }
 
+  public async claimScheduledFeedbackJob(id: string): Promise<ScheduledFeedbackJob | null> {
+    if (!this.data.scheduled_feedback_jobs) return null;
+    const job = this.data.scheduled_feedback_jobs.find(j => j.id === id);
+    if (!job || job.status !== 'pending') return null;
+    job.status = 'processing';
+    job.claimed_at = new Date().toISOString();
+    job.updated_at = new Date().toISOString();
+    this.save();
+    return job;
+  }
+
+  public async isFeedbackAlreadySentOrClaimed(appointmentId?: string, orderId?: string): Promise<boolean> {
+    if (!appointmentId && !orderId) return false;
+    const jobs = this.data.scheduled_feedback_jobs || [];
+    const hasJob = jobs.some(j =>
+      ((appointmentId && j.appointment_id === appointmentId) || (orderId && j.order_id === orderId)) &&
+      ['processing', 'completed', 'sent'].includes(j.status)
+    );
+    if (hasJob) return true;
+
+    if (orderId) {
+      const ord = (this.data.orders || []).find(o => o.id === orderId);
+      if (ord && ['sending', 'sent', 'delivered', 'read'].includes(ord.feedback_whatsapp_status || '')) {
+        return true;
+      }
+    }
+
+    if (appointmentId) {
+      const apt = (this.data.appointments || []).find(a => a.id === appointmentId);
+      if (apt && ['sending', 'sent', 'delivered', 'read'].includes(apt.feedback_whatsapp_status || '')) {
+        return true;
+      }
+      const linkedOrd = (this.data.orders || []).find(o => o.appointment_id === appointmentId);
+      if (linkedOrd && ['sending', 'sent', 'delivered', 'read'].includes(linkedOrd.feedback_whatsapp_status || '')) {
+        return true;
+      }
+    }
+
+    const feedbacks = this.data.appointment_feedback || [];
+    const hasFeedback = feedbacks.some(f => (appointmentId && f.appointment_id === appointmentId) || (orderId && f.order_id === orderId));
+    if (hasFeedback) return true;
+
+    return false;
+  }
+
   public async cancelScheduledFeedbackJobByAppointment(appointmentId: string): Promise<boolean> {
     if (!this.data.scheduled_feedback_jobs) return false;
     let found = false;
@@ -3830,12 +3875,12 @@ class SalonDatabase implements ISalonRepository {
     if (!this.data.whatsapp_conversations) this.data.whatsapp_conversations = [];
     if (!this.data.whatsapp_messages) this.data.whatsapp_messages = [];
     const clean10 = id.replace(/\D/g, '').slice(-10);
-    this.data.whatsapp_conversations = this.data.whatsapp_conversations.filter(
-      c => c.id !== id && (clean10.length === 10 ? c.customer_phone?.replace(/\D/g, '').slice(-10) !== clean10 : true)
-    );
-    this.data.whatsapp_messages = this.data.whatsapp_messages.filter(
-      m => m.conversation_id !== id
-    );
+    // PERMANENT RETENTION: Messages are NEVER deleted. Archive conversation by marking CLOSED.
+    for (const c of this.data.whatsapp_conversations) {
+      if (c.id === id || (clean10.length === 10 && c.customer_phone?.replace(/\D/g, '').slice(-10) === clean10)) {
+        c.status = 'CLOSED';
+      }
+    }
     this.save();
     return true;
   }
@@ -3995,17 +4040,25 @@ class SalonDatabase implements ISalonRepository {
 import { SupabaseSalonRepository } from './repositories/supabaseSalonRepository.ts';
 
 function createSalonRepository(): ISalonRepository {
-  const supabaseUrl = process.env.SUPABASE_URL?.trim();
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const supabaseUrl = (
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  )?.trim();
+
+  const supabaseServiceRoleKey = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )?.trim();
 
   if (supabaseUrl && supabaseServiceRoleKey) {
     console.log('🚀 Using SupabaseSalonRepository as active database provider');
     return new SupabaseSalonRepository(supabaseUrl, supabaseServiceRoleKey);
   }
 
-  console.error('❌ Supabase is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.');
-
-  console.log('📁 Using SalonDatabase (Persistent Repository) as database provider');
+  console.warn('⚠️ Supabase credentials not found in environment. Using SalonDatabase (Persistent JSON Repository).');
   return new SalonDatabase();
 }
 

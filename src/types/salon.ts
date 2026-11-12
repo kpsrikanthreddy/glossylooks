@@ -255,6 +255,11 @@ export interface Appointment {
   whatsapp_status?: WhatsAppMessageStatus;
   last_whatsapp_sent_at?: string;
   last_whatsapp_error?: string;
+  feedback_whatsapp_status?: WhatsAppMessageStatus;
+  feedback_whatsapp_scheduled_at?: string;
+  feedback_whatsapp_sent_at?: string;
+  feedback_whatsapp_message_id?: string;
+  feedback_whatsapp_source?: 'AUTO_FEEDBACK' | 'MANUAL_FEEDBACK';
 }
 
 export interface OrderItem {
@@ -306,6 +311,7 @@ export interface Order {
   feedback_whatsapp_error?: string;
   feedback_whatsapp_scheduled_at?: string;
   feedback_whatsapp_sent_at?: string;
+  feedback_whatsapp_source?: 'AUTO_FEEDBACK' | 'MANUAL_FEEDBACK';
   feedback_rating?: FeedbackRating;
   created_at: string;
 }
@@ -659,6 +665,8 @@ export interface ScheduledFeedbackJob {
   status: ScheduledJobStatus;
   job_type?: 'customer_feedback' | 'bill_receipt' | string;
   template_name?: string;
+  feedback_source?: 'AUTO_FEEDBACK' | 'MANUAL_FEEDBACK';
+  claimed_at?: string;
   attempts?: number;
   meta_message_id?: string;
   error_message?: string;

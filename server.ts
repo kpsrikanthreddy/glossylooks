@@ -1,3 +1,4 @@
+import { syncSmavStaff } from './src/server/smavSync.ts';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -491,7 +492,9 @@ app.post('/api/admin/users', async (req, res) => {
     is_active: true
   }, admin.name);
 
+  const smavSync = await syncSmavStaff('glossylooks', {sourceId:String(newUser.id), username:newUser.user_id, email:newUser.email, name:newUser.name, phone:newUser.phone, role:newUser.role, active:true, ...(password ? {password} : {})}).catch(e => ({synced:false, error:e.message}));
   res.status(201).json({
+    smavSync,
     id: newUser.id,
     user_id: newUser.user_id,
     name: newUser.name,
@@ -518,7 +521,9 @@ app.patch('/api/admin/users/:id', async (req, res) => {
   }, admin.name);
 
   if (!updated) return res.status(404).json({ error: 'User not found' });
+  const smavSync = await syncSmavStaff('glossylooks', {sourceId:String(updated.id), username:updated.user_id, email:updated.email, name:updated.name, phone:updated.phone, role:updated.role, active:updated.is_active}).catch(e => ({synced:false, error:e.message}));
   res.json({
+    smavSync,
     id: updated.id,
     user_id: updated.user_id,
     name: updated.name,
@@ -541,7 +546,9 @@ app.post('/api/admin/users/:id/reset-password', async (req, res) => {
   }
   const success = await salonRepository.resetUserPassword(req.params.id, new_password.trim(), admin.name);
   if (!success) return res.status(404).json({ error: 'User not found' });
-  res.json({ success: true, message: 'Password has been securely reset.' });
+  const staff = (await salonRepository.getUsers()).find(u => String(u.id) === String(req.params.id));
+  const smavSync = staff ? await syncSmavStaff('glossylooks', {sourceId:String(staff.id), username:staff.user_id, email:staff.email, name:staff.name, role:staff.role, active:staff.is_active, password:new_password.trim()}).catch(e => ({synced:false,error:e.message})) : {synced:false,error:'Staff missing'};
+  res.json({ success: true, smavSync, message: 'Local password reset; inspect smavSync for central status.' });
 });
 
 app.delete('/api/admin/users/:id', async (req, res) => {
@@ -549,8 +556,23 @@ app.delete('/api/admin/users/:id', async (req, res) => {
   if (!admin || admin.role !== 'owner') {
     return res.status(403).json({ error: 'Access denied: Only the Salon Owner can deactivate staff accounts.' });
   }
+  const before = (await salonRepository.getUsers()).find(u => String(u.id) === String(req.params.id));
   const ok = await salonRepository.deleteUser(req.params.id, admin.name);
-  res.json({ success: ok });
+  const smavSync = ok && before ? await syncSmavStaff('glossylooks', {sourceId:String(before.id), username:before.user_id, email:before.email, name:before.name, role:before.role, active:false}).catch(e => ({synced:false,error:e.message})) : null;
+  res.json({ success: ok, smavSync });
+});
+
+// Owner-triggered one-time migration of existing staff (no passwords copied).
+app.post('/api/admin/users/sync-smav', async (req, res) => {
+  const admin = await getAuthAdmin(req);
+  if (!admin || admin.role !== 'owner') return res.status(403).json({error:'Owner only'});
+  const users = await salonRepository.getUsers();
+  const results = [];
+  for (const u of users) {
+    try { results.push({userId:u.user_id, ...(await syncSmavStaff('glossylooks', {sourceId:String(u.id),username:u.user_id,email:u.email,name:u.name,phone:u.phone,role:u.role,active:u.is_active}))}); }
+    catch(e:any) {results.push({userId:u.user_id,synced:false,error:e.message});}
+  }
+  res.json({results});
 });
 
 // ============================================================================
@@ -1535,16 +1557,29 @@ async function sendBranchWhatsAppTemplate(options: SendWhatsAppTemplateOptions):
           customer_name: customData?.customerName,
           wa_phone_number_id: integration.phone_number_id
         });
+        const templateBody = `Template: ${resolvedTemplateName}`;
         const inboxMsg = await salonRepository.createWhatsAppMessage({
+          salon_id: 'tgl-gachibowli-main',
+          branch_id: branchId || 'tgl-gachibowli-main',
           conversation_id: inboxConv.id,
-          direction: 'outbound',
+          direction: 'OUTBOUND',
+          message_type: 'template',
           type: 'template',
-          body: `Template: ${resolvedTemplateName}`,
+          text_body: templateBody,
+          message_body: templateBody,
+          body: templateBody,
           template_name: resolvedTemplateName,
           meta_message_id: messageId,
+          status: 'sent',
           delivery_status: 'sent',
+          source_badge: 'TEMPLATE',
           sent_at: sentTime
         });
+        await salonRepository.updateWhatsAppConversation(inboxConv.id, {
+          last_message_at: sentTime,
+          last_message_text: templateBody,
+          last_message_preview: templateBody
+        }).catch(() => null);
         broadcastWhatsAppInboxEvent({
           type: 'outbound_message',
           conversationId: inboxConv.id,
@@ -1744,13 +1779,14 @@ async function sendWhatsAppFreeformReply(
 // ----------------------------------------------------------------------------
 async function checkAndRunScheduledFeedbackJobs() {
   try {
-    // 1. Process due jobs from scheduled_feedback_jobs table
+    // Process due jobs from scheduled_feedback_jobs table
     const dueJobs = await salonRepository.getDueScheduledFeedbackJobs().catch(() => []);
     if (dueJobs && dueJobs.length) {
       for (const job of dueJobs) {
         try {
-          console.log(`[Scheduled Feedback] Executing due job ${job.id} for appointment/order ${job.appointment_id || job.order_id}...`);
+          if (job.status !== 'pending') continue;
 
+          // Check if appointment is cancelled/no-show
           if (job.appointment_id) {
             const apt = await salonRepository.getAppointmentById(job.appointment_id).catch(() => null);
             if (!apt || apt.status === 'Cancelled' || apt.status === 'No Show') {
@@ -1760,19 +1796,34 @@ async function checkAndRunScheduledFeedbackJobs() {
             }
           }
 
-          if (job.order_id) {
-            const ord = await salonRepository.getOrderById(job.order_id).catch(() => null);
-            if (ord && (ord.feedback_whatsapp_status === 'sent' || ord.feedback_whatsapp_status === 'delivered' || ord.feedback_whatsapp_status === 'read')) {
-              console.log(`[Scheduled Feedback] Order ${job.order_id} feedback already sent. Marking job completed.`);
-              await salonRepository.updateScheduledFeedbackJob(job.id, { status: 'completed' }).catch(() => null);
-              continue;
-            }
+          // Check if feedback was already sent or claimed for this appointment or order
+          const alreadySent = await salonRepository.isFeedbackAlreadySentOrClaimed(job.appointment_id, job.order_id);
+          if (alreadySent) {
+            console.log(`[Scheduled Feedback] Feedback already sent or claimed for appointment/order ${job.appointment_id || job.order_id}. Completing duplicate job ${job.id}.`);
+            await salonRepository.updateScheduledFeedbackJob(job.id, { status: 'completed' }).catch(() => null);
+            continue;
           }
 
-          if (job.status !== 'pending') continue;
+          // Atomically claim the job to prevent concurrent runners or processes from sending duplicates
+          const claimedJob = await salonRepository.claimScheduledFeedbackJob(job.id);
+          if (!claimedJob) {
+            console.log(`[Scheduled Feedback] Job ${job.id} already claimed by another runner. Skipping.`);
+            continue;
+          }
 
-          // Mark processing
-          await salonRepository.updateScheduledFeedbackJob(job.id, { status: 'processing' }).catch(() => null);
+          console.log(`[Scheduled Feedback] Executing claimed job ${job.id} for appointment/order ${job.appointment_id || job.order_id}...`);
+
+          // Mark order and appointment as sending
+          if (job.order_id) {
+            await salonRepository.updateOrder(job.order_id, {
+              feedback_whatsapp_status: 'sending'
+            }).catch(() => null);
+          }
+          if (job.appointment_id) {
+            await salonRepository.updateAppointment(job.appointment_id, {
+              feedback_whatsapp_status: 'sending'
+            }, 'system_feedback_scheduler').catch(() => null);
+          }
 
           const result = await sendBranchWhatsAppTemplate({
             branchId: job.branch_id || 'tgl-gachibowli-main',
@@ -1786,57 +1837,50 @@ async function checkAndRunScheduledFeedbackJobs() {
             }
           });
 
-          if (result.status === 'sent') {
+          if (result.status === 'sent' || result.sent) {
+            const nowIso = new Date().toISOString();
             await salonRepository.updateScheduledFeedbackJob(job.id, {
               status: 'completed',
               meta_message_id: result.messageId,
               attempts: (job.attempts || 0) + 1
             }).catch(() => null);
+
+            if (job.order_id) {
+              await salonRepository.updateOrder(job.order_id, {
+                feedback_whatsapp_status: 'sent',
+                feedback_whatsapp_sent_at: nowIso,
+                feedback_whatsapp_message_id: result.messageId,
+                feedback_whatsapp_source: 'AUTO_FEEDBACK'
+              }).catch(() => null);
+            }
+            if (job.appointment_id) {
+              await salonRepository.updateAppointment(job.appointment_id, {
+                feedback_whatsapp_status: 'sent',
+                feedback_whatsapp_sent_at: nowIso,
+                feedback_whatsapp_message_id: result.messageId,
+                feedback_whatsapp_source: 'AUTO_FEEDBACK'
+              }, 'system_feedback_scheduler').catch(() => null);
+            }
+            console.log(`[Scheduled Feedback] Successfully delivered feedback template to ${job.customer_phone} for job ${job.id}.`);
           } else {
             await salonRepository.updateScheduledFeedbackJob(job.id, {
               status: result.status === 'retrying' ? 'pending' : 'failed',
               error_message: result.error,
               attempts: (job.attempts || 0) + 1
             }).catch(() => null);
+
+            if (job.order_id) {
+              await salonRepository.updateOrder(job.order_id, {
+                feedback_whatsapp_status: result.status === 'retrying' ? 'retrying' : 'failed',
+                feedback_whatsapp_error: result.error
+              }).catch(() => null);
+            }
           }
         } catch (jobErr: any) {
           console.error(`[Scheduled Feedback] Error executing job ${job.id}:`, jobErr.message);
         }
       }
     }
-
-    // 2. Secondary defensive fallback: scan orders table for any order where feedback is scheduled and due
-    try {
-      const orders = await salonRepository.getOrders();
-      const nowMs = Date.now();
-      const dueOrders = (orders || []).filter(o =>
-        o.feedback_whatsapp_status === 'scheduled' &&
-        o.feedback_whatsapp_scheduled_at &&
-        new Date(o.feedback_whatsapp_scheduled_at).getTime() <= nowMs
-      );
-
-      for (const ord of dueOrders) {
-        try {
-          console.log(`[Scheduled Feedback Auto] Order ${ord.bill_number || ord.id} feedback is due. Dispatching WhatsApp feedback...`);
-          await salonRepository.updateOrder(ord.id, { feedback_whatsapp_status: 'sending' });
-
-          const res = await sendBranchWhatsAppTemplate({
-            branchId: ord.branch_id || 'tgl-gachibowli-main',
-            recipientPhone: ord.customer_phone,
-            templateName: 'glossylooks_customer_feedback',
-            orderId: ord.id,
-            appointmentId: ord.appointment_id,
-            jobType: 'customer_feedback',
-            customData: {
-              customerName: ord.customer_name
-            }
-          });
-          console.log(`[Scheduled Feedback Auto] Order ${ord.bill_number} dispatch result:`, res.status);
-        } catch (ordErr: any) {
-          console.error(`[Scheduled Feedback Auto] Error sending feedback for order ${ord.id}:`, ordErr.message);
-        }
-      }
-    } catch {}
   } catch (err: any) {
     console.error('[Scheduled Feedback] Runner error:', err.message);
   }
@@ -2911,12 +2955,19 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
               continue;
             }
 
-            // Mark the pending feedback request as COMPLETED on the order
+            // Mark the pending feedback request as COMPLETED on the order and appointment, cancelling any pending feedback jobs
             if (targetOrderId) {
               await salonRepository.updateOrder(targetOrderId, {
                 feedback_whatsapp_status: 'completed',
                 feedback_rating: feedbackChoice
               }).catch(() => null);
+              await salonRepository.cancelScheduledFeedbackJobByOrder(targetOrderId).catch(() => null);
+            }
+            if (targetAptId) {
+              await salonRepository.updateAppointment(targetAptId, {
+                feedback_whatsapp_status: 'completed'
+              }, 'system_whatsapp_webhook').catch(() => null);
+              await salonRepository.cancelScheduledFeedbackJobByAppointment(targetAptId).catch(() => null);
             }
 
             const feedbackRecord = await salonRepository.createAppointmentFeedback({
@@ -2984,7 +3035,8 @@ async function handleMetaWebhookEvent(req: express.Request, res: express.Respons
                   });
                   await salonRepository.updateWhatsAppConversation(inboxConversation.id, {
                     last_message_at: new Date().toISOString(),
-                    last_message_text: autoReplyText
+                    last_message_text: autoReplyText,
+                    last_message_preview: autoReplyText
                   });
                   broadcastWhatsAppInboxEvent({
                     type: 'outbound_message',
@@ -4464,35 +4516,29 @@ app.patch('/api/appointments/:id', async (req, res) => {
 
     const apt = await salonRepository.updateAppointment(req.params.id, patch, actor);
 
-    // Schedule delayed feedback when an appointment is marked completed.
+    // Schedule delayed feedback when an appointment is marked completed (only if not already sent or scheduled).
     if (isNowCompleted && apt) {
-      const scheduledTime = getFeedbackScheduledTime();
-      await salonRepository.createScheduledFeedbackJob({
-        appointment_id: apt.id,
-        branch_id: apt.branch_id || 'tgl-gachibowli-main',
-        customer_name: apt.customer_name,
-        customer_phone: apt.customer_phone,
-        scheduled_at: scheduledTime,
-        status: 'pending'
-      });
+      const alreadySentOrQueued = await salonRepository.isFeedbackAlreadySentOrClaimed(apt.id);
+      if (!alreadySentOrQueued) {
+        const scheduledTime = getFeedbackScheduledTime();
+        await salonRepository.createScheduledFeedbackJob({
+          appointment_id: apt.id,
+          branch_id: apt.branch_id || 'tgl-gachibowli-main',
+          customer_name: apt.customer_name,
+          customer_phone: apt.customer_phone,
+          scheduled_at: scheduledTime,
+          status: 'pending',
+          job_type: 'customer_feedback',
+          template_name: 'glossylooks_customer_feedback',
+          feedback_source: 'AUTO_FEEDBACK'
+        });
 
-      const delayMs = Math.max(1000, new Date(scheduledTime).getTime() - Date.now());
-      setTimeout(async () => {
-        try {
-          const currentApt = await salonRepository.getAppointmentById(apt.id);
-          if (!currentApt || currentApt.status === 'Cancelled' || currentApt.status === 'No Show') return;
-          await sendBranchWhatsAppTemplate({
-            branchId: apt.branch_id || 'tgl-gachibowli-main',
-            recipientPhone: apt.customer_phone,
-            templateName: 'glossylooks_customer_feedback',
-            appointmentId: apt.id,
-            jobType: 'customer_feedback',
-            customData: {
-              customerName: apt.customer_name
-            }
-          });
-        } catch {}
-      }, delayMs);
+        await salonRepository.updateAppointment(apt.id, {
+          feedback_whatsapp_status: 'scheduled',
+          feedback_whatsapp_scheduled_at: scheduledTime,
+          feedback_whatsapp_source: 'AUTO_FEEDBACK'
+        }, actor).catch(() => null);
+      }
     }
 
     // Cancel pending feedback job if appointment is cancelled
@@ -4621,57 +4667,29 @@ app.post('/api/orders', async (req, res) => {
       whatsapp_status: 'sending',
       receipt_whatsapp_status: 'sending',
       feedback_whatsapp_status: 'scheduled',
-      feedback_whatsapp_scheduled_at: feedbackScheduledTime
+      feedback_whatsapp_scheduled_at: feedbackScheduledTime,
+      feedback_whatsapp_source: 'AUTO_FEEDBACK'
     }, actor);
 
-    // 2. Schedule automatic feedback job for 2 minutes after completion
-    await salonRepository.createScheduledFeedbackJob({
-      order_id: order.id,
-      appointment_id: appointment_id || undefined,
-      branch_id: effectiveBranchId,
-      customer_name: order.customer_name,
-      customer_phone: order.customer_phone,
-      scheduled_at: feedbackScheduledTime,
-      status: 'pending',
-      job_type: 'customer_feedback',
-      template_name: 'glossylooks_customer_feedback'
-    });
-
-    // Active in-memory timer for guaranteed 2-minute delivery
-    const safeFeedbackDelay = Math.max(1000, new Date(feedbackScheduledTime).getTime() - Date.now());
-    console.log(`[Feedback Timer] Registered 2-minute timer for order ${order.bill_number} (triggers in ${Math.round(safeFeedbackDelay / 1000)}s)`);
-    setTimeout(async () => {
-      try {
-        console.log(`[Feedback Timer] 2-minute timer fired for order ${order.bill_number || order.id}`);
-        const currentOrder = await salonRepository.getOrderById(order.id);
-        if (!currentOrder) return;
-        if (
-          currentOrder.feedback_whatsapp_status === 'sent' ||
-          currentOrder.feedback_whatsapp_status === 'delivered' ||
-          currentOrder.feedback_whatsapp_status === 'read'
-        ) {
-          console.log(`[Feedback Timer] Order ${order.bill_number} feedback already sent/delivered. Skipping.`);
-          return;
-        }
-
-        await salonRepository.updateOrder(order.id, { feedback_whatsapp_status: 'sending' });
-
-        const feedbackResult = await sendBranchWhatsAppTemplate({
-          branchId: effectiveBranchId,
-          recipientPhone: currentOrder.customer_phone,
-          templateName: 'glossylooks_customer_feedback',
-          orderId: currentOrder.id,
-          appointmentId: currentOrder.appointment_id,
-          jobType: 'customer_feedback',
-          customData: {
-            customerName: currentOrder.customer_name
-          }
-        });
-        console.log(`[Feedback Timer] Automated 2-minute feedback sent for ${order.bill_number}:`, feedbackResult.status);
-      } catch (tErr: any) {
-        console.error(`[Feedback Timer] Execution error for ${order.id}:`, tErr.message);
-      }
-    }, safeFeedbackDelay);
+    // 2. Schedule automatic feedback job for 2 minutes after completion (only if not already sent/queued)
+    const alreadySentOrQueued = await salonRepository.isFeedbackAlreadySentOrClaimed(appointment_id || undefined, order.id);
+    if (!alreadySentOrQueued) {
+      await salonRepository.createScheduledFeedbackJob({
+        order_id: order.id,
+        appointment_id: appointment_id || undefined,
+        branch_id: effectiveBranchId,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone,
+        scheduled_at: feedbackScheduledTime,
+        status: 'pending',
+        job_type: 'customer_feedback',
+        template_name: 'glossylooks_customer_feedback',
+        feedback_source: 'AUTO_FEEDBACK'
+      });
+      console.log(`[Feedback Scheduler] Queued single durable 2-minute feedback job for order ${order.bill_number || order.id}`);
+    } else {
+      console.log(`[Feedback Scheduler] Feedback already sent or queued for appointment ${appointment_id} or order ${order.id}. Skipping duplicate scheduling.`);
+    }
 
     // 3. Mark appointment completed if linked
     if (appointment_id) {
@@ -4914,6 +4932,7 @@ app.post('/api/admin/orders/:id/whatsapp/feedback', async (req, res) => {
         feedback_whatsapp_status: 'sent',
         feedback_whatsapp_message_id: result.messageId,
         feedback_whatsapp_sent_at: new Date().toISOString(),
+        feedback_whatsapp_source: 'MANUAL_FEEDBACK',
         feedback_whatsapp_error: undefined
       });
       return res.status(200).json({
@@ -5049,6 +5068,7 @@ app.post('/api/admin/orders/:id/whatsapp/retry', async (req, res) => {
           feedback_whatsapp_status: 'sent',
           feedback_whatsapp_message_id: result.messageId,
           feedback_whatsapp_sent_at: new Date().toISOString(),
+          feedback_whatsapp_source: 'MANUAL_FEEDBACK',
           feedback_whatsapp_error: undefined
         });
         return res.status(200).json({

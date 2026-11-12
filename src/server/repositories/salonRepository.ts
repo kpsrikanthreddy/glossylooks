@@ -193,6 +193,8 @@ export interface ISalonRepository {
   getDueScheduledFeedbackJobs(): Promise<ScheduledFeedbackJob[]>;
   createScheduledFeedbackJob(job: Omit<ScheduledFeedbackJob, 'id' | 'created_at' | 'updated_at'>): Promise<ScheduledFeedbackJob>;
   updateScheduledFeedbackJob(id: string, data: Partial<ScheduledFeedbackJob>): Promise<ScheduledFeedbackJob | null>;
+  claimScheduledFeedbackJob(id: string): Promise<ScheduledFeedbackJob | null>;
+  isFeedbackAlreadySentOrClaimed(appointmentId?: string, orderId?: string): Promise<boolean>;
   cancelScheduledFeedbackJobByAppointment(appointmentId: string): Promise<boolean>;
   cancelScheduledFeedbackJobByOrder(orderId: string): Promise<boolean>;
 
