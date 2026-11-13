@@ -578,7 +578,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({
   }
 
   const isWindowOpen = activeConversation?.window_status?.isOpen ?? false;
-  const windowRemaining = activeConversation?.window_status?.formattedRemaining;
 
   return (
     <div className="h-[calc(100vh-140px)] min-h-[600px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-slate-800">
@@ -793,12 +792,8 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({
                           </span>
                         )}
 
-                        {conv.window_status?.isOpen && (
-                          <>
-                            <span className="text-slate-300">·</span>
-                            <span className="text-emerald-700 font-medium">24h active</span>
-                          </>
-                        )}
+                        <span className="text-slate-300">·</span>
+                        <span className="text-emerald-700 font-medium">Saved permanently</span>
                       </div>
                     </div>
 
@@ -908,49 +903,6 @@ export const WhatsAppInbox: React.FC<WhatsAppInboxProps> = ({
                     </button>
                   )}
                 </div>
-              </div>
-
-              {/* 24-Hour WhatsApp Customer Service Window Banner */}
-              <div
-                className={`px-4 py-2 text-xs flex items-center justify-between border-b ${
-                  isWindowOpen
-                    ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900'
-                    : 'bg-amber-50 border-amber-200 text-amber-900'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {isWindowOpen ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="font-semibold">Customer service window open</span>
-                      {windowRemaining && <span className="text-emerald-700 text-[11px]">({windowRemaining})</span>}
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="font-semibold">
-                        {activeConversation.last_inbound_at ? 'Customer service window expired' : 'WhatsApp window not active'}
-                      </span>
-                      <span className="text-amber-700 text-[11px] hidden sm:inline">
-                        {activeConversation.last_inbound_at
-                          ? '(Over 24h since customer last sent a WhatsApp message. Meta requires an approved template)'
-                          : '(Customer contacted via website enquiry. To message them on WhatsApp, please dispatch an approved template)'}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setIsTemplateModalOpen(true)}
-                  className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 shadow-xs ${
-                    isWindowOpen
-                      ? 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-                      : 'bg-gradient-to-r from-[#D4AF37] to-[#B38F24] text-[#120B0F] hover:brightness-105'
-                  }`}
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>Send Template</span>
-                </button>
               </div>
 
               {/* Main Content Area (Messages + Collapsible Customer CRM Panel) */}
