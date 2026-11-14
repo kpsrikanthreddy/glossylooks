@@ -239,40 +239,50 @@ app.get('/api/customer/orders', async (req, res) => {
   res.json(orders);
 });
 
-// Helper to extract authenticated admin user from Authorization / x-admin-token / x-admin-role
+// HMAC-signed salon sessions. Configure SALON_SESSION_SECRET in the server environment.
+// No client-supplied user ID or role is trusted for authorization.
+const sessionSecret = process.env.SALON_SESSION_SECRET || '';
+function signSalonSession(userId: string): string {
+  if (sessionSecret.length < 32) throw new Error('SALON_SESSION_SECRET must contain at least 32 characters');
+  const payload = Buffer.from(JSON.stringify({ sub: userId, exp: Date.now() + 8 * 60 * 60 * 1000 })).toString('base64url');
+  const signature = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+function readSalonSession(token: string): string | null {
+  if (!sessionSecret || !token) return null;
+  const [payload, signature, extra] = token.split('.');
+  if (!payload || !signature || extra) return null;
+  const expected = crypto.createHmac('sha256', sessionSecret).update(payload).digest();
+  let actual: Buffer;
+  try { actual = Buffer.from(signature, 'base64url'); } catch { return null; }
+  if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return typeof parsed.sub === 'string' && Number.isFinite(parsed.exp) && parsed.exp > Date.now() ? parsed.sub : null;
+  } catch { return null; }
+}
+function verifySalonPassword(stored: string, supplied: string): boolean {
+  if (stored.startsWith('scrypt$')) {
+    const [, salt, expectedHex] = stored.split('$');
+    if (!salt || !expectedHex || !/^[a-f0-9]{128}$/i.test(expectedHex)) return false;
+    const expected = Buffer.from(expectedHex, 'hex');
+    return crypto.timingSafeEqual(crypto.scryptSync(supplied, salt, 64), expected);
+  }
+  // Compatibility with existing plaintext salon passwords; upgraded after successful login.
+  const old = Buffer.from(stored || ''); const candidate = Buffer.from(supplied);
+  return old.length === candidate.length && crypto.timingSafeEqual(old, candidate);
+}
+function hashSalonPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return `scrypt$${salt}$${crypto.scryptSync(password, salt, 64).toString('hex')}`;
+}
 const getAuthAdmin = async (req: express.Request) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7)
-    : (req.headers['x-admin-token'] as string);
-  const userId = req.headers['x-admin-user-id'] as string;
-  const adminRole = req.headers['x-admin-role'] as string;
-
-  const users = await salonRepository.getUsers();
-
-  // 1. Verify token: tgl_admin_token_<userId>_<timestamp>
-  if (token && token.startsWith('tgl_admin_token_')) {
-    const parts = token.split('_');
-    if (parts.length >= 4) {
-      const tokenUserId = parts[3];
-      const match = users.find(x => x.id === tokenUserId && x.is_active);
-      if (match) return match;
-    }
-  }
-
-  // 2. Fallback to userId ONLY if accompanied by a valid token
-  if (token && userId) {
-    const match = users.find(x => (x.id === userId || x.user_id === userId) && x.is_active);
-    if (match) return match;
-  }
-
-  // 3. For local CLI/developer testing when NODE_ENV is not production
-  if (!isProd && (adminRole || userId)) {
-    const match = users.find(x => ((userId && (x.id === userId || x.user_id === userId)) || (adminRole && x.role === adminRole)) && x.is_active);
-    if (match) return match;
-  }
-
-  return null;
+  const header = req.headers.authorization;
+  const token = header?.startsWith('Bearer ') ? header.slice(7) : '';
+  const userId = readSalonSession(token);
+  if (!userId) return null;
+  const user = (await salonRepository.getUsers()).find(u => u.id === userId);
+  return user?.is_active ? user : null;
 };
 
 // ----------------------------------------------------------------------------
@@ -315,6 +325,7 @@ const AUTHORIZED_STAFF_ROLES = ['owner', 'manager', 'receptionist', 'stylist', '
 
 app.post(['/api/auth/admin/login', '/auth/admin/login'], async (req, res) => {
   try {
+    if (sessionSecret.length < 32) return res.status(503).json({ error: 'Admin login is not configured: set SALON_SESSION_SECRET (32+ characters) on the server.' });
     const { identifier, email, password } = req.body;
     const loginTarget = (identifier || email || '').trim();
     const rawPassword = (password || '').trim();
@@ -388,7 +399,7 @@ app.post(['/api/auth/admin/login', '/auth/admin/login'], async (req, res) => {
     }
 
     // 5. Password verification
-    if (user.password_hash !== rawPassword) {
+    if (!verifySalonPassword(user.password_hash || '', rawPassword)) {
       recordAdminFailedAttempt(rateLimitKey);
       await salonRepository.logAudit(
         'SECURITY_PASSWORD_MISMATCH',
@@ -400,6 +411,11 @@ app.post(['/api/auth/admin/login', '/auth/admin/login'], async (req, res) => {
       return res.status(401).json({
         error: 'Invalid credentials or unauthorized account. Only registered salon staff and management may sign in.'
       });
+    }
+
+    // Upgrade legacy salon password storage after a successful login.
+    if (!user.password_hash.startsWith('scrypt$')) {
+      await salonRepository.updateUser(user.id, { password_hash: hashSalonPassword(rawPassword) }, user.name);
     }
 
     // 6. Login authorized: clear rate limit failure tracking and log success
@@ -417,7 +433,7 @@ app.post(['/api/auth/admin/login', '/auth/admin/login'], async (req, res) => {
 
     res.json({
       success: true,
-      token: `tgl_admin_token_${user.id}_${Date.now()}`,
+      token: signSalonSession(user.id),
       user: {
         id: user.id,
         user_id: user.user_id,
@@ -488,7 +504,7 @@ app.post('/api/admin/users', async (req, res) => {
     phone: phone || '',
     role,
     user_id: user_id || '',
-    password_hash: password || 'admin123',
+    password_hash: hashSalonPassword(String(password || crypto.randomBytes(18).toString('base64url'))),
     is_active: true
   }, admin.name);
 
@@ -511,6 +527,12 @@ app.patch('/api/admin/users/:id', async (req, res) => {
     return res.status(403).json({ error: 'Access denied: Only the Salon Owner can edit staff accounts.' });
   }
   const { name, email, phone, role, user_id, is_active } = req.body;
+  // Until central Auth email-update is implemented with UUID-preserving verification,
+  // refuse email changes rather than accidentally provisioning a duplicate SMAV identity.
+  const existingStaff = (await salonRepository.getUsers()).find(u => String(u.id) === String(req.params.id));
+  if (email !== undefined && existingStaff && String(email).trim().toLowerCase() !== String(existingStaff.email || '').trim().toLowerCase()) {
+    return res.status(409).json({ error: 'Email changes are temporarily blocked until UUID-preserving SMAV email update is enabled. Other staff fields can be edited.' });
+  }
   const updated = await salonRepository.updateUser(req.params.id, {
     ...(name !== undefined && { name }),
     ...(email !== undefined && { email }),
@@ -544,7 +566,7 @@ app.post('/api/admin/users/:id/reset-password', async (req, res) => {
   if (!new_password || new_password.trim().length < 4) {
     return res.status(400).json({ error: 'New password must be at least 4 characters.' });
   }
-  const success = await salonRepository.resetUserPassword(req.params.id, new_password.trim(), admin.name);
+  const success = await salonRepository.resetUserPassword(req.params.id, hashSalonPassword(new_password.trim()), admin.name);
   if (!success) return res.status(404).json({ error: 'User not found' });
   const staff = (await salonRepository.getUsers()).find(u => String(u.id) === String(req.params.id));
   const smavSync = staff ? await syncSmavStaff('glossylooks', {sourceId:String(staff.id), username:staff.user_id, email:staff.email, name:staff.name, role:staff.role, active:staff.is_active, password:new_password.trim()}).catch(e => ({synced:false,error:e.message})) : {synced:false,error:'Staff missing'};
