@@ -36,7 +36,7 @@ export async function syncSmavStaff(_outletCode: 'glossylooks' | 'mozz', staff: 
     }],
   });
   const row = result.results?.[0];
-  if (!row || row.status !== 'synced') throw new Error(row?.error || row?.reason || 'SMAV sync did not confirm success');
+  if (!row || row.status !== 'synced') throw new Error(row?.error || row?.reason || 'SMAV sync did not confirm success. No new central account was created; check the existing identity mapping.');
   // Never send passwords via bulk synchronization; use the dedicated privileged reset endpoint.
   if (staff.password) {
     if (staff.password.length < 8) throw new Error('Central SMAV password must be at least 8 characters');
